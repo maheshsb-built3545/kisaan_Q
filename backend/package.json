@@ -1,0 +1,36 @@
+{
+  "name": "kisanq-backend",
+  "version": "1.0.0",
+  "description": "Backend API for KisanQ - Agricultural Slot Booking & Real-Time Queue Management",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node scripts/seed.js",
+    "seed:demo": "node scripts/seedDemo.js",
+    "db:reset": "node scripts/resetData.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.7.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.5.1",
+    "multer": "^2.4.0",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "socket.io-client": "^4.7.5"
+  },
+  "keywords": [
+    "kisanq",
+    "agritech",
+    "queue-management",
+    "slot-booking"
+  ],
+  "author": "Team Aveniq",
+  "license": "ISC"
+}

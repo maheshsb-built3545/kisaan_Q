@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "KisanQ Aveniq",
+    "slug": "kisanq-aveniq",
+    "scheme": "kisanq",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "platforms": [
+      "android",
+      "ios"
+    ],
+    "android": {
+      "package": "com.aveniq.kisanq",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aveniq.kisanq",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Allow KisanQ to access your microphone for hands-free voice booking in Marathi and Hindi."
+      }
+    },
+    "plugins": [
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow KisanQ to access your microphone for hands-free voice booking in Marathi and Hindi."
+        }
+      ]
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
