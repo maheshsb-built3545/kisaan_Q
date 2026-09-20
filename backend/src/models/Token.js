@@ -180,6 +180,11 @@ const tokenSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  vehicleNumber: {
+    type: String,
+    trim: true,
+    default: null
+  },
   stages: {
     type: [stageSchema],
     default: []

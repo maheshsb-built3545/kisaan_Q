@@ -133,23 +133,31 @@ const queueService = {
 
     // Checked-in bookings get priority queue position
     checkedInIds.forEach((id, idx) => {
-      positionMap.set(id, `Position ${idx + 1} (Checked In)`);
+      const pos = idx + 1;
+      positionMap.set(id, `Position ${pos} (Checked In · 0-5 mins)`);
     });
 
-    // Waiting bookings are ordered after checked-in ones
+    // Waiting bookings are ordered after checked-in ones with exact position and non-overlapping wait ranges
     waitingIds.forEach((id, idx) => {
-      const ahead = checkedInIds.length + idx;
-      if (ahead === 0) {
-        positionMap.set(id, 'You are next');
+      const exactPos = checkedInIds.length + idx + 1;
+      let waitBucket = '0-5 mins';
+      if (exactPos === 1) {
+        waitBucket = 'You are next (0-5 mins)';
+      } else if (exactPos <= 3) {
+        waitBucket = 'Near Turn (5-15 mins)';
+      } else if (exactPos <= 6) {
+        waitBucket = '15-30 mins wait';
+      } else if (exactPos <= 10) {
+        waitBucket = '30-60 mins wait';
       } else {
-        const rangeLow = Math.max(1, ahead - 1);
-        const rangeHigh = ahead + 1;
-        positionMap.set(id, `${rangeLow}-${rangeHigh} ahead`);
+        waitBucket = '> 60 mins wait';
       }
+
+      positionMap.set(id, `Position ${exactPos} (${waitBucket})`);
 
       // Turn Near notification (Position <= 3)
       // Deduplicated: fires once per token via unique dedupeKey, never repeatedly on recomputes
-      if (ahead <= 3) {
+      if (exactPos <= 3) {
         const b = activeBookings.find((item) => (item._id || item.id)?.toString() === id);
         if (b) {
           const farmerIdStr = (b.farmerId?._id || b.farmerId || b.phone || '').toString();

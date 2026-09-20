@@ -42,6 +42,65 @@ function calculateHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
 }
 
 /**
+ * Calculates deterministic, non-overlapping wait range string from exact queue position.
+ * @param {number} position - 1-based exact integer position in queue
+ * @returns {{ waitEstimate: string, waitMinutes: number }}
+ */
+function getNonOverlappingWaitRange(position) {
+  const pos = Math.max(1, Number(position) || 1);
+  if (pos === 1) {
+    return { waitEstimate: 'You are next (0-5 mins)', waitMinutes: 5 };
+  }
+  if (pos <= 3) {
+    return { waitEstimate: 'Near Turn (5-15 mins)', waitMinutes: 15 };
+  }
+  if (pos <= 6) {
+    return { waitEstimate: '15-30 mins wait', waitMinutes: 30 };
+  }
+  if (pos <= 10) {
+    return { waitEstimate: '30-60 mins wait', waitMinutes: 60 };
+  }
+  return { waitEstimate: '> 60 mins wait', waitMinutes: 90 };
+}
+
+/**
+ * Mask private farmer identity strings for public boards & unauthenticated endpoints
+ */
+function maskFarmerName(name) {
+  if (!name || typeof name !== 'string') return 'Farmer';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    const s = parts[0];
+    if (s.length <= 2) return s;
+    return s[0] + '*'.repeat(Math.max(1, s.length - 2)) + s[s.length - 1];
+  }
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  const maskedFirst = first.length <= 2 ? first : first[0] + '*'.repeat(Math.max(1, first.length - 2)) + first[first.length - 1];
+  return `${maskedFirst} ${last[0]}.`;
+}
+
+function maskPhoneNumber(phone) {
+  if (!phone) return '******0000';
+  const clean = String(phone).replace(/\D/g, '').slice(-10);
+  if (clean.length < 4) return '******0000';
+  return '******' + clean.slice(-4);
+}
+
+function maskVehiclePlate(plate) {
+  if (!plate || typeof plate !== 'string') return 'MH-**-****';
+  const clean = plate.trim();
+  const parts = clean.split('-');
+  if (parts.length >= 4) {
+    return `${parts[0]}-${parts[1]}-**-${parts[3]}`;
+  }
+  if (clean.length > 6) {
+    return clean.slice(0, 4) + '**' + clean.slice(-4);
+  }
+  return 'MH-**-****';
+}
+
+/**
  * Helper to check if a booking slot has expired relative to current server time.
  * @param {string} slotDateStr - e.g. "2026-09-13", "13 Sep 2026", "Today"
  * @param {string} slotTimeStr - e.g. "08:00 AM - 10:00 AM", "Morning  08:00 – 11:00 AM", "14:00 - 17:00"
@@ -506,10 +565,41 @@ router.get('/mandi/:mandiId', async (req, res) => {
       const enrichedTokens = tokens.map((tok) => {
         const obj = tok.toObject();
         const norm = normalizeStatus(obj.status);
+        let queuePos = null;
+        let waitInfo = null;
+
         if (norm !== TOKEN_STATUS.COMPLETED && norm !== TOKEN_STATUS.CANCELLED) {
-          obj.queuePosition = activePos++;
+          queuePos = activePos++;
+          waitInfo = getNonOverlappingWaitRange(queuePos);
         }
-        return obj;
+
+        // Return sanitized public tracking representation
+        return {
+          id: obj.id || obj._id,
+          tokenNumber: obj.tokenNumber,
+          mandiId: obj.mandiId,
+          mandiName: obj.mandiName,
+          mandiCode: obj.mandiCode,
+          crop: obj.crop,
+          quantity: obj.quantity,
+          quantityBand: obj.quantityBand,
+          slotDate: obj.slotDate,
+          slotTime: obj.slotTime,
+          slotLabel: obj.slotLabel,
+          status: obj.status,
+          currentStageIndex: obj.currentStageIndex,
+          isFastTrack: obj.isFastTrack || false,
+          queuePosition: queuePos || obj.queuePosition || 1,
+          waitEstimate: waitInfo?.waitEstimate || '0-5 mins',
+          waitMinutes: waitInfo?.waitMinutes || 5,
+          farmerName: maskFarmerName(obj.farmerName),
+          farmerPhone: maskPhoneNumber(obj.farmerPhone || obj.phone),
+          phone: maskPhoneNumber(obj.phone || obj.farmerPhone),
+          vehicleNumber: maskVehiclePlate(obj.vehicleNumber),
+          vehicleType: obj.vehicleType || 'Tractor',
+          createdAt: obj.createdAt,
+          updatedAt: obj.updatedAt
+        };
       });
 
       return res.status(200).json({
@@ -530,17 +620,48 @@ router.get('/mandi/:mandiId', async (req, res) => {
     memTokens.sort((a, b) => (b.isFastTrack ? 1 : 0) - (a.isFastTrack ? 1 : 0) || new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 
     let activePos = 1;
-    memTokens.forEach((t) => {
+    const sanitizedMemTokens = memTokens.map((t) => {
       const norm = normalizeStatus(t.status);
+      let queuePos = null;
+      let waitInfo = null;
+
       if (norm !== TOKEN_STATUS.COMPLETED && norm !== TOKEN_STATUS.CANCELLED) {
-        t.queuePosition = activePos++;
+        queuePos = activePos++;
+        waitInfo = getNonOverlappingWaitRange(queuePos);
       }
+
+      return {
+        id: t.id || t._id,
+        tokenNumber: t.tokenNumber,
+        mandiId: t.mandiId,
+        mandiName: t.mandiName,
+        mandiCode: t.mandiCode,
+        crop: t.crop,
+        quantity: t.quantity,
+        quantityBand: t.quantityBand,
+        slotDate: t.slotDate,
+        slotTime: t.slotTime,
+        slotLabel: t.slotLabel,
+        status: t.status,
+        currentStageIndex: t.currentStageIndex,
+        isFastTrack: t.isFastTrack || false,
+        queuePosition: queuePos || t.queuePosition || 1,
+        waitEstimate: waitInfo?.waitEstimate || '0-5 mins',
+        waitMinutes: waitInfo?.waitMinutes || 5,
+        farmerName: maskFarmerName(t.farmerName),
+        farmerPhone: maskPhoneNumber(t.farmerPhone || t.phone),
+        phone: maskPhoneNumber(t.phone || t.farmerPhone),
+        vehicleNumber: maskVehiclePlate(t.vehicleNumber),
+        vehicleType: t.vehicleType || 'Tractor',
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt
+      };
     });
 
     return res.status(200).json({
       success: true,
-      count: memTokens.length,
-      tokens: memTokens
+      count: sanitizedMemTokens.length,
+      tokens: sanitizedMemTokens
     });
   } catch (error) {
     logger.error(`[Tokens] Error fetching mandi tokens: ${error.message}`);
@@ -1109,6 +1230,17 @@ router.get('/:tokenNumber', async (req, res) => {
   try {
     const { tokenNumber } = req.params;
 
+    // Optional auth check to determine owner vs staff vs public stranger
+    const authHeader = req.headers.authorization;
+    let authUser = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const rawToken = authHeader.split(' ')[1];
+        const secret = process.env.JWT_SECRET || 'kisanq_jwt_super_secret_key_change_in_production';
+        authUser = jwt.verify(rawToken, secret);
+      } catch (e) {}
+    }
+
     if (mongoose.connection.readyState === 1) {
       const token = await Token.findOne({
         $or: [
@@ -1124,15 +1256,117 @@ router.get('/:tokenNumber', async (req, res) => {
         });
       }
 
+      const isOwner = authUser && (
+        (authUser.id && token.farmerId && authUser.id.toString() === token.farmerId.toString()) ||
+        (authUser.phone && token.phone && authUser.phone === token.phone) ||
+        (authUser.phone && token.farmerPhone && authUser.phone === token.farmerPhone)
+      );
+      const isStaff = authUser && (
+        ['security_gate', 'quality_assayer', 'weighmaster', 'procurement', 'accounts_settlement', 'operator', 'staff', 'supervisor', 'district_admin', 'auditor', 'resource_officer'].includes(authUser.role)
+      );
+
+      const waitInfo = getNonOverlappingWaitRange(token.queuePosition || 1);
+
+      if (isOwner || isStaff) {
+        const tokObj = token.toObject();
+        tokObj.waitEstimate = waitInfo.waitEstimate;
+        tokObj.waitMinutes = waitInfo.waitMinutes;
+        return res.status(200).json({
+          success: true,
+          token: tokObj
+        });
+      }
+
+      // Non-owner / unauthenticated: return sanitized minimal tracking view
       return res.status(200).json({
         success: true,
-        token
+        token: {
+          id: token.id || token._id,
+          tokenNumber: token.tokenNumber,
+          mandiId: token.mandiId,
+          mandiName: token.mandiName,
+          crop: token.crop,
+          quantity: token.quantity,
+          quantityBand: token.quantityBand,
+          slotDate: token.slotDate,
+          slotTime: token.slotTime,
+          slotLabel: token.slotLabel,
+          status: token.status,
+          currentStageIndex: token.currentStageIndex,
+          isFastTrack: token.isFastTrack || false,
+          queuePosition: token.queuePosition || 1,
+          waitEstimate: waitInfo.waitEstimate,
+          waitMinutes: waitInfo.waitMinutes,
+          farmerName: maskFarmerName(token.farmerName),
+          farmerPhone: maskPhoneNumber(token.farmerPhone || token.phone),
+          phone: maskPhoneNumber(token.phone || token.farmerPhone),
+          vehicleNumber: maskVehiclePlate(token.vehicleNumber),
+          stages: (token.stages || []).map((s) => ({
+            stageIndex: s.stageIndex,
+            id: s.id,
+            title: s.title,
+            status: s.status,
+            timestamp: s.timestamp,
+            completedAt: s.completedAt
+          })),
+          createdAt: token.createdAt,
+          updatedAt: token.updatedAt
+        }
+      });
+    }
+
+    // In-memory fallback
+    let memToken = null;
+    for (const [, entry] of inMemoryTokenStore.entries()) {
+      if (entry?.token && (entry.token.tokenNumber === tokenNumber || entry.token.id === tokenNumber)) {
+        memToken = entry.token;
+        break;
+      }
+    }
+
+    if (memToken) {
+      const waitInfo = getNonOverlappingWaitRange(memToken.queuePosition || 1);
+      const isOwner = authUser && (
+        (authUser.phone && memToken.phone && authUser.phone === memToken.phone) ||
+        (authUser.phone && memToken.farmerPhone && authUser.phone === memToken.farmerPhone)
+      );
+      const isStaff = authUser && (
+        ['security_gate', 'quality_assayer', 'weighmaster', 'procurement', 'accounts_settlement', 'operator', 'staff', 'supervisor', 'district_admin', 'auditor', 'resource_officer'].includes(authUser.role)
+      );
+
+      if (isOwner || isStaff) {
+        return res.status(200).json({
+          success: true,
+          token: { ...memToken, waitEstimate: waitInfo.waitEstimate }
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        token: {
+          id: memToken.id || memToken._id,
+          tokenNumber: memToken.tokenNumber,
+          mandiId: memToken.mandiId,
+          mandiName: memToken.mandiName,
+          crop: memToken.crop,
+          quantity: memToken.quantity,
+          slotDate: memToken.slotDate,
+          slotTime: memToken.slotTime,
+          status: memToken.status,
+          currentStageIndex: memToken.currentStageIndex,
+          queuePosition: memToken.queuePosition || 1,
+          waitEstimate: waitInfo.waitEstimate,
+          farmerName: maskFarmerName(memToken.farmerName),
+          farmerPhone: maskPhoneNumber(memToken.farmerPhone || memToken.phone),
+          vehicleNumber: maskVehiclePlate(memToken.vehicleNumber),
+          createdAt: memToken.createdAt
+        }
       });
     }
 
     return res.status(404).json({
       success: false,
-      message: 'Database offline, lookup in local storage'
+      message: `Token '${tokenNumber}' not found`
     });
   } catch (error) {
     logger.error(`[Tokens] Error fetching token details: ${error.message}`);
