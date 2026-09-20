@@ -319,7 +319,8 @@ const notificationService = {
    */
   getUserNotifications: async ({ recipientId, unreadOnly = false, limit = 20 }) => {
     const lim = Math.min(100, Math.max(1, Number(limit) || 20));
-    const query = { recipientId: recipientId.toString() };
+    const recArray = Array.isArray(recipientId) ? recipientId.map(String) : [recipientId.toString()];
+    const query = { recipientId: { $in: recArray } };
     if (unreadOnly) {
       query.read = false;
     }
@@ -333,7 +334,7 @@ const notificationService = {
 
     // In-memory fallback
     return inMemoryNotifications
-      .filter((n) => n.recipientId === recipientId.toString() && (!unreadOnly || !n.read))
+      .filter((n) => recArray.includes(n.recipientId) && (!unreadOnly || !n.read))
       .slice(0, lim);
   },
 
@@ -341,14 +342,15 @@ const notificationService = {
    * Get unread notification count for user
    */
   getUnreadCount: async (recipientId) => {
+    const recArray = Array.isArray(recipientId) ? recipientId.map(String) : [recipientId.toString()];
     if (mongoose.connection.readyState === 1) {
       return await Notification.countDocuments({
-        recipientId: recipientId.toString(),
+        recipientId: { $in: recArray },
         read: false
       });
     }
     return inMemoryNotifications.filter(
-      (n) => n.recipientId === recipientId.toString() && !n.read
+      (n) => recArray.includes(n.recipientId) && !n.read
     ).length;
   },
 
@@ -358,7 +360,8 @@ const notificationService = {
   markAsRead: async (notificationId, recipientId) => {
     const filter = { _id: notificationId };
     if (recipientId) {
-      filter.recipientId = recipientId.toString();
+      const recArray = Array.isArray(recipientId) ? recipientId.map(String) : [recipientId.toString()];
+      filter.recipientId = { $in: recArray };
     }
 
     if (mongoose.connection.readyState === 1) {
@@ -374,7 +377,7 @@ const notificationService = {
     }
 
     const n = inMemoryNotifications.find(
-      (item) => item._id?.toString() === notificationId.toString() && (!recipientId || item.recipientId === recipientId.toString())
+      (item) => item._id?.toString() === notificationId.toString() && (!recipientId || (Array.isArray(recipientId) ? recipientId.map(String).includes(item.recipientId) : item.recipientId === recipientId.toString()))
     );
     if (n) {
       n.read = true;
@@ -388,9 +391,10 @@ const notificationService = {
    * Mark all notifications as read for a user
    */
   markAllAsRead: async (recipientId) => {
+    const recArray = Array.isArray(recipientId) ? recipientId.map(String) : [recipientId.toString()];
     if (mongoose.connection.readyState === 1) {
       const result = await Notification.updateMany(
-        { recipientId: recipientId.toString(), read: false },
+        { recipientId: { $in: recArray }, read: false },
         { read: true, readAt: new Date(), 'channels.inApp.status': 'read' }
       );
       return { count: result.modifiedCount };
@@ -398,7 +402,7 @@ const notificationService = {
 
     let modified = 0;
     inMemoryNotifications.forEach((n) => {
-      if (n.recipientId === recipientId.toString() && !n.read) {
+      if (recArray.includes(n.recipientId) && !n.read) {
         n.read = true;
         n.readAt = new Date();
         if (n.channels?.inApp) n.channels.inApp.status = 'read';

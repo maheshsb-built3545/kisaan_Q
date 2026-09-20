@@ -54,7 +54,18 @@ router.post(
 router.post(
   '/:id/retry',
   authenticate,
-  checkRole('supervisor', 'district_admin'),
+  notificationController.retryNotification
+);
+
+router.post(
+  '/resend-sms/:id',
+  authenticate,
+  notificationController.retryNotification
+);
+
+router.post(
+  '/:id/resend-sms',
+  authenticate,
   notificationController.retryNotification
 );
 

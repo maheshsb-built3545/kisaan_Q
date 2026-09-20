@@ -406,7 +406,7 @@ async function acceptSlotOffer(offerId, farmerPhone = null, options = {}) {
 
   // Generate confirmed Token
   const mandiCode = updatedOffer.centreId.split('-')[0] || 'KPG';
-  const randNum = String(Math.floor(1000 + Math.random() * 8999));
+  const randNum = `${Date.now().toString().slice(-4)}${Math.floor(100 + Math.random() * 899)}`;
   const tokenNumber = `KQ-${mandiCode}-${new Date().getFullYear()}-${randNum}`;
 
   const defaultStages = [

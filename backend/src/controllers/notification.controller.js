@@ -9,8 +9,8 @@ const notificationController = {
    */
   getMyNotifications: async (req, res) => {
     try {
-      const recipientId = req.user?.id || req.user?._id || req.user?.phone;
-      if (!recipientId) {
+      const recipientId = [req.user?.phone, req.user?.id, req.user?._id].filter(Boolean);
+      if (recipientId.length === 0) {
         return errorResponse(res, 'Authentication identity missing', 401);
       }
 
@@ -34,8 +34,8 @@ const notificationController = {
    */
   getUnreadCount: async (req, res) => {
     try {
-      const recipientId = req.user?.id || req.user?._id || req.user?.phone;
-      if (!recipientId) {
+      const recipientId = [req.user?.phone, req.user?.id, req.user?._id].filter(Boolean);
+      if (recipientId.length === 0) {
         return errorResponse(res, 'Authentication identity missing', 401);
       }
 
@@ -52,8 +52,8 @@ const notificationController = {
   markAsRead: async (req, res) => {
     try {
       const { id } = req.params;
-      const recipientId = req.user?.id || req.user?._id || req.user?.phone;
-      if (!recipientId) {
+      const recipientId = [req.user?.phone, req.user?.id, req.user?._id].filter(Boolean);
+      if (recipientId.length === 0) {
         return errorResponse(res, 'Authentication identity missing', 401);
       }
 
@@ -73,8 +73,8 @@ const notificationController = {
    */
   markAllAsRead: async (req, res) => {
     try {
-      const recipientId = req.user?.id || req.user?._id || req.user?.phone;
-      if (!recipientId) {
+      const recipientId = [req.user?.phone, req.user?.id, req.user?._id].filter(Boolean);
+      if (recipientId.length === 0) {
         return errorResponse(res, 'Authentication identity missing', 401);
       }
 
