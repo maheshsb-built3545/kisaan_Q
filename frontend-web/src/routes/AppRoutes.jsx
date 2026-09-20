@@ -259,57 +259,71 @@ export const AppRoutes = () => {
       <Route
         path="/admin-dashboard/desk"
         element={
-          <PageErrorBoundary title="Staff Operations Desk" resetKey={location.pathname}>
-            <StaffDesk />
-          </PageErrorBoundary>
+          <RequireRole allowedRoles={['operator', 'staff', 'supervisor', 'security_gate', 'quality_assayer', 'weighmaster', 'procurement', 'accounts_settlement', 'district_admin']}>
+            <PageErrorBoundary title="Staff Operations Desk" resetKey={location.pathname}>
+              <StaffDesk />
+            </PageErrorBoundary>
+          </RequireRole>
         }
       />
       <Route
         path="/staff/desk"
         element={
-          <PageErrorBoundary title="Staff Operations Desk" resetKey={location.pathname}>
-            <StaffDesk />
-          </PageErrorBoundary>
+          <RequireRole allowedRoles={['operator', 'staff', 'supervisor', 'security_gate', 'quality_assayer', 'weighmaster', 'procurement', 'accounts_settlement', 'district_admin']}>
+            <PageErrorBoundary title="Staff Operations Desk" resetKey={location.pathname}>
+              <StaffDesk />
+            </PageErrorBoundary>
+          </RequireRole>
         }
       />
       <Route
         path="/admin-desk"
         element={
-          <PageErrorBoundary title="Staff Operations Desk" resetKey={location.pathname}>
-            <StaffDesk />
-          </PageErrorBoundary>
+          <RequireRole allowedRoles={['operator', 'staff', 'supervisor', 'security_gate', 'quality_assayer', 'weighmaster', 'procurement', 'accounts_settlement', 'district_admin']}>
+            <PageErrorBoundary title="Staff Operations Desk" resetKey={location.pathname}>
+              <StaffDesk />
+            </PageErrorBoundary>
+          </RequireRole>
         }
       />
       <Route
         path="/admin-dashboard"
         element={
-          <PageErrorBoundary title="Admin Analytics Dashboard" resetKey={location.pathname}>
-            <AdminDashboard />
-          </PageErrorBoundary>
+          <RequireRole allowedRoles={['district_admin', 'supervisor']}>
+            <PageErrorBoundary title="Admin Analytics Dashboard" resetKey={location.pathname}>
+              <AdminDashboard />
+            </PageErrorBoundary>
+          </RequireRole>
         }
       />
       <Route
         path="/admin"
         element={
-          <PageErrorBoundary title="Admin Analytics Dashboard" resetKey={location.pathname}>
-            <AdminDashboard />
-          </PageErrorBoundary>
+          <RequireRole allowedRoles={['district_admin', 'supervisor']}>
+            <PageErrorBoundary title="Admin Analytics Dashboard" resetKey={location.pathname}>
+              <AdminDashboard />
+            </PageErrorBoundary>
+          </RequireRole>
         }
       />
       <Route
         path="/admin/dashboard"
         element={
-          <PageErrorBoundary title="Admin Analytics Dashboard" resetKey={location.pathname}>
-            <AdminDashboard />
-          </PageErrorBoundary>
+          <RequireRole allowedRoles={['district_admin', 'supervisor']}>
+            <PageErrorBoundary title="Admin Analytics Dashboard" resetKey={location.pathname}>
+              <AdminDashboard />
+            </PageErrorBoundary>
+          </RequireRole>
         }
       />
       <Route
         path="/staff/admin"
         element={
-          <PageErrorBoundary title="Admin Analytics Dashboard" resetKey={location.pathname}>
-            <AdminDashboard />
-          </PageErrorBoundary>
+          <RequireRole allowedRoles={['district_admin', 'supervisor']}>
+            <PageErrorBoundary title="Admin Analytics Dashboard" resetKey={location.pathname}>
+              <AdminDashboard />
+            </PageErrorBoundary>
+          </RequireRole>
         }
       />
 

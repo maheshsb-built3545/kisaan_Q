@@ -6,7 +6,7 @@ import {
   ShieldCheck, Lock, User, ArrowRight, Sparkles,
   Building2, Scale, Leaf, Banknote, CheckCircle2,
   Activity, MapPin, KeyRound, AlertTriangle,
-  ArrowLeft, Clock
+  ArrowLeft, Clock, CalendarDays, ShieldAlert, Landmark
 } from 'lucide-react';
 import { ActionButton, StatusBadge } from '../components/staff';
 import { MANDIS } from '../services/storageService';
@@ -41,7 +41,7 @@ const MANDI_FACILITY_CONFIG = {
   'LSG-06': 'Weighbridge Calibrated',
 };
 
-// ─── Station Roles ───────────────────────────────────────────────────────────
+// ─── Physical Station Desks (Operational Checkpoints 1-5) ────────────────────
 const PHYSICAL_STATION_ROLES = [
   {
     id: 'security_gate',
@@ -104,6 +104,62 @@ const PHYSICAL_STATION_ROLES = [
     description: 'Automatic penalty recovery, net DBT bank payout disbursement',
   },
 ];
+
+// ─── Management & Executive Administration Roles ─────────────────────────────
+const MANAGEMENT_ROLES = [
+  {
+    id: 'resource_officer',
+    roleLabel: 'Resource Planning Officer',
+    officerName: 'P. Kulkarni',
+    officerPhone: '9800000006',
+    officerCode: 'RPO-KPG-01',
+    icon: CalendarDays,
+    deskName: 'Resource Planning Desk',
+    terminalLane: 'Planning Terminal #1',
+    terminalCode: 'PLAN-KPG-01',
+    description: '7-day intake forecasting, dynamic slot quotas, resource allocation & inter-mandi balancing',
+    mandiOfficers: {
+      'KPG-01': { officerName: 'P. Kulkarni', officerPhone: '9800000006', officerCode: 'RPO-KPG-01', terminalCode: 'PLAN-KPG-01' },
+      'SRD-02': { officerName: 'A. Shinde', officerPhone: '9800000016', officerCode: 'RPO-SRD-02', terminalCode: 'PLAN-SRD-02' },
+      'RHT-03': { officerName: 'V. Vikhe', officerPhone: '9800000026', officerCode: 'RPO-RHT-03', terminalCode: 'PLAN-RHT-03' },
+      'VJP-04': { officerName: 'M. Gaikwad', officerPhone: '9800000036', officerCode: 'RPO-VJP-04', terminalCode: 'PLAN-VJP-04' },
+      'SRP-05': { officerName: 'S. Kale', officerPhone: '9800000046', officerCode: 'RPO-SRP-05', terminalCode: 'PLAN-SRP-05' },
+      'LSG-06': { officerName: 'D. Borse', officerPhone: '9800000056', officerCode: 'RPO-LSG-06', terminalCode: 'PLAN-LSG-06' },
+    }
+  },
+  {
+    id: 'supervisor',
+    roleLabel: 'Mandi Supervisor',
+    officerName: 'V. Pawar',
+    officerPhone: '9800000007',
+    officerCode: 'SUP-KPG-01',
+    icon: ShieldAlert,
+    deskName: 'Mandi Operations Supervisor Desk',
+    terminalLane: 'Supervisor Terminal',
+    terminalCode: 'SUP-KPG-DESK',
+    description: 'Live floor oversight, gate bypass management, queue exception overrides & incident resolution',
+  },
+  {
+    id: 'district_admin',
+    roleLabel: 'District Administrator',
+    officerName: 'Collector Nagar',
+    officerPhone: '9800000008',
+    officerCode: 'DA-AHD-01',
+    icon: Landmark,
+    deskName: 'District Collector Dashboard',
+    terminalLane: 'Collectorate Terminal',
+    terminalCode: 'DA-AHD-DESK',
+    description: 'Regional multi-mandi telemetry, price trends, total throughput analytics & policy controls',
+  }
+];
+
+export const getEffectiveStation = (station, mandiId) => {
+  if (!station) return PHYSICAL_STATION_ROLES[0];
+  if (station.mandiOfficers && station.mandiOfficers[mandiId]) {
+    return { ...station, ...station.mandiOfficers[mandiId] };
+  }
+  return station;
+};
 
 export default function StaffLogin() {
   const navigate = useNavigate();
@@ -309,14 +365,29 @@ export default function StaffLogin() {
 
   // Handle Station Role Selection
   const handleStationSelect = (station) => {
-    setSelectedStation(station);
-    setUsername(station.officerName);
-    setOfficerPhone(station.officerPhone || '9800000001');
+    const effective = getEffectiveStation(station, selectedMandiId);
+    setSelectedStation(effective);
+    setUsername(effective.officerName || '');
+    setOfficerPhone(effective.officerPhone || '9800000001');
     setError('');
     if (authStep === 2) {
       setAuthStep(1);
       setChallengeToken('');
       setOtp('');
+    }
+  };
+
+  // Handle Mandi Center Selection
+  const handleMandiChange = (newMandiId) => {
+    setSelectedMandiId(newMandiId);
+    const rawStation = [...PHYSICAL_STATION_ROLES, ...MANAGEMENT_ROLES].find((s) => s.id === selectedStation.id) || selectedStation;
+    const effective = getEffectiveStation(rawStation, newMandiId);
+    setSelectedStation(effective);
+    if (effective.officerPhone) {
+      setOfficerPhone(effective.officerPhone);
+    }
+    if (effective.officerName) {
+      setUsername(effective.officerName);
     }
   };
 
@@ -381,7 +452,16 @@ export default function StaffLogin() {
       });
 
       if (res?.data?.token || res?.token) {
-        navigate('/admin-dashboard/desk');
+        const loggedRole = res?.data?.user?.role || res?.user?.role || selectedStation.id;
+        if (loggedRole === 'resource_officer') {
+          navigate('/planning');
+        } else if (loggedRole === 'supervisor') {
+          navigate('/supervisor-exceptions');
+        } else if (loggedRole === 'district_admin') {
+          navigate('/admin-dashboard');
+        } else {
+          navigate('/admin-dashboard/desk');
+        }
       } else {
         setError('Session token could not be generated.');
       }
@@ -398,7 +478,7 @@ export default function StaffLogin() {
       <GovHeader
         portalType="staff"
         activeMandi={selectedMandi}
-        onMandiChange={setSelectedMandiId}
+        onMandiChange={handleMandiChange}
         showPortalSwitch={true}
       />
 
@@ -424,7 +504,7 @@ export default function StaffLogin() {
             <span className="text-xs font-bold text-slate-500">Mandi:</span>
             <select
               value={selectedMandiId}
-              onChange={(e) => setSelectedMandiId(e.target.value)}
+              onChange={(e) => handleMandiChange(e.target.value)}
               className="bg-slate-50 hover:bg-slate-100 text-slate-800 text-xs font-bold py-1.5 px-3 rounded-xl border border-slate-200 outline-none cursor-pointer transition-colors"
             >
               {ACTIVE_MANDIS.map((m) => (
@@ -489,46 +569,99 @@ export default function StaffLogin() {
         </div>
 
         {/* Station Selection Grid */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-8 shadow-xs">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Assigned Station Desk Selection:</span>
-            </span>
-            <span className="text-[11px] text-slate-400">Select your active duty role</span>
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 mb-8 shadow-xs space-y-5">
+          {/* Group 1: Operational Checkpoints */}
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Operational Checkpoint Desks (1–5):</span>
+              </span>
+              <span className="text-[11px] text-slate-400">Physical yard stations</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              {PHYSICAL_STATION_ROLES.map((station) => {
+                const effective = getEffectiveStation(station, selectedMandiId);
+                const isSelected = selectedStation.id === station.id;
+                const IconComp = station.icon;
+                return (
+                  <button
+                    key={station.id}
+                    type="button"
+                    onClick={() => handleStationSelect(station)}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-50 border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
+                        : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'
+                    }`}
+                  >
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                      isSelected ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600'
+                    }`}>
+                      <IconComp className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-bold truncate ${isSelected ? 'text-emerald-900' : 'text-slate-800'}`}>
+                        {station.roleLabel.split(':')[1] || station.roleLabel}
+                      </p>
+                      {effective.officerName ? (
+                        <p className="text-[10px] text-slate-500 truncate">
+                          {effective.officerName}
+                        </p>
+                      ) : null}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {PHYSICAL_STATION_ROLES.map((station) => {
-              const isSelected = selectedStation.id === station.id;
-              const IconComp = station.icon;
-              return (
-                <button
-                  key={station.id}
-                  type="button"
-                  onClick={() => handleStationSelect(station)}
-                  className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-emerald-50 border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
-                      : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'
-                  }`}
-                >
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    isSelected ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600'
-                  }`}>
-                    <IconComp className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs font-bold truncate ${isSelected ? 'text-emerald-900' : 'text-slate-800'}`}>
-                      {station.roleLabel.split(':')[1] || station.roleLabel}
-                    </p>
-                    <p className="text-[10px] text-slate-500 truncate">
-                      {station.officerName}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+          {/* Group 2: Management & Executive Administration */}
+          <div className="pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Landmark className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Management & Operations Oversight:</span>
+              </span>
+              <span className="text-[11px] text-slate-400">Officer / Supervisor / Admin</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {MANAGEMENT_ROLES.map((station) => {
+                const effective = getEffectiveStation(station, selectedMandiId);
+                const isSelected = selectedStation.id === station.id;
+                const IconComp = station.icon;
+                return (
+                  <button
+                    key={station.id}
+                    type="button"
+                    onClick={() => handleStationSelect(station)}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-50 border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
+                        : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'
+                    }`}
+                  >
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                      isSelected ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600'
+                    }`}>
+                      <IconComp className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-bold truncate ${isSelected ? 'text-emerald-900' : 'text-slate-800'}`}>
+                        {station.roleLabel}
+                      </p>
+                      {effective.officerName ? (
+                        <p className="text-[10px] text-slate-500 truncate">
+                          {effective.officerName}
+                        </p>
+                      ) : null}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -556,18 +689,24 @@ export default function StaffLogin() {
               </p>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs">
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Officer Name</span>
-                  <span className="font-bold text-slate-800">{selectedStation.officerName}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Terminal Code</span>
-                  <span className="font-bold text-slate-800 font-mono">{selectedStation.terminalCode}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Assigned Lane</span>
-                  <span className="font-bold text-slate-800">{selectedStation.terminalLane}</span>
-                </div>
+                {selectedStation.officerName ? (
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Officer Name</span>
+                    <span className="font-bold text-slate-800">{selectedStation.officerName}</span>
+                  </div>
+                ) : null}
+                {selectedStation.terminalCode ? (
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Terminal Code</span>
+                    <span className="font-bold text-slate-800 font-mono">{selectedStation.terminalCode}</span>
+                  </div>
+                ) : null}
+                {selectedStation.terminalLane ? (
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Assigned Lane</span>
+                    <span className="font-bold text-slate-800">{selectedStation.terminalLane}</span>
+                  </div>
+                ) : null}
               </div>
             </div>
 
