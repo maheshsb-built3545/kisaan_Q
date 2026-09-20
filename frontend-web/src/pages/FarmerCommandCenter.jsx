@@ -1158,6 +1158,9 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
               {statusLabel(normStatus)}
             </span>
             <span className="text-[10px] text-slate-400 font-mono">{slotDate}</span>
+            <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200 font-mono">
+              Position {queuePos} {!isGateInDone ? '(not checked in)' : '(checked in)'}
+            </span>
             {isExitRequested && (
               <span className="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
                 <AlertCircle className="w-3 h-3 text-amber-600" />
