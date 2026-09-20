@@ -18,6 +18,8 @@ const voiceBookingRoutes = require('./voiceBooking.routes');
 const planningRoutes = require('./planning.routes');
 const waitlistRoutes = require('./waitlist.routes');
 
+const complaintRoutes = require('./complaint.routes');
+
 // Mount modular service routes
 router.use('/auth', authRoutes);
 router.use('/staff/fasttrack-requests', fastTrackRoutes);
@@ -32,6 +34,7 @@ router.use('/voice', voiceBookingRoutes);
 router.use('/planning', planningRoutes);
 router.use('/waitlist', waitlistRoutes);
 router.use('/slots', waitlistRoutes);
+router.use('/complaints', complaintRoutes);
 
 router.use('/queue', queueRoutes);
 router.use('/centres', centreRoutes);

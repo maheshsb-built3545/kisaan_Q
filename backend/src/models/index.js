@@ -12,6 +12,7 @@ const CropPrice = require('./CropPrice');
 const FastTrackRequest = require('./FastTrackRequest');
 const Waitlist = require('./Waitlist');
 const SlotOffer = require('./SlotOffer');
+const Complaint = require('./Complaint');
 
 module.exports = {
   Farmer,
@@ -27,5 +28,6 @@ module.exports = {
   CropPrice,
   FastTrackRequest,
   Waitlist,
-  SlotOffer
+  SlotOffer,
+  Complaint
 };

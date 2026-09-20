@@ -135,16 +135,18 @@ const notificationService = {
         effectiveEvent = (recipient.templateKey || recipient.event || '').toLowerCase();
         effectivePayload = recipient.params || recipient.payload || {};
         effectiveOpts = recipient.opts || opts || {};
+        const rawType = recipient.type || (recipient.recipientRole || recipient.role ? 'staff' : 'farmer');
         rec = {
           id: (recipient.recipientPhone || recipient.phone || recipient.recipientId || recipient.id || 'system').toString(),
           phone: recipient.recipientPhone || recipient.phone,
           name: recipient.recipientName || recipient.name,
-          type: recipient.recipientRole || recipient.type || 'farmer',
+          type: ['farmer', 'staff', 'role', 'centre_staff'].includes(rawType) ? rawType : 'staff',
           centreId: recipient.centreId || effectivePayload.centreId || effectivePayload.mandiId
         };
       } else {
         rec = typeof recipient === 'object' && recipient !== null ? { ...recipient } : { id: recipient };
-        rec.type = rec.type || (rec.role ? 'staff' : 'farmer');
+        const rawType = rec.type || (rec.role ? 'staff' : 'farmer');
+        rec.type = ['farmer', 'staff', 'role', 'centre_staff'].includes(rawType) ? rawType : 'staff';
         rec.id = (rec.id || rec._id || rec.phone || 'system').toString();
       }
 
