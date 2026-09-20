@@ -1,13 +1,10 @@
-/**
- * test-auth-2fa-rbac.js
- * Comprehensive Integration & Verification Test Suite for KisanQ
- * Two-Factor Authentication (2FA) & Role-Based Access Control (RBAC) Architecture
- */
+require('dotenv').config();
+try { require('dns').setServers(['8.8.8.8', '1.1.1.1']); } catch (e) {}
 
 const assert = require('assert');
 const jwt = require('jsonwebtoken');
 
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 const JWT_SECRET = process.env.JWT_SECRET || 'kisanq_jwt_super_secret_key_change_in_production';
 
 // Seeded Staff Profiles for Verification
@@ -242,17 +239,17 @@ async function runTests() {
 
   try {
     // 5.1 Farmer Request OTP
-    const otpReq = await request('/api/auth/request-otp', {
+    const otpReq = await request('/api/auth/farmer/request-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone: '9876500001', name: 'Balasaheb Vikhe' })
+      body: JSON.stringify({ phone: '9876500001', name: 'Balasaheb Vikhe', mode: 'register' })
     });
     assert.strictEqual(otpReq.status, 200);
     recordPass('5.1 Farmer requested OTP successfully');
 
     // 5.2 Farmer Verify OTP
-    const otpVerify = await request('/api/auth/verify-otp', {
+    const otpVerify = await request('/api/auth/farmer/verify-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone: '9876500001', otp: VALID_OTP })
+      body: JSON.stringify({ phone: '9876500001', otp: otpReq.data?.devOtp || VALID_OTP })
     });
     assert.strictEqual(otpVerify.status, 200);
     farmerToken = otpVerify.data.data?.token;

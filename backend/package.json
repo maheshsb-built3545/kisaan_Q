@@ -9,7 +9,12 @@
     "seed": "node scripts/seed.js",
     "seed:demo": "node scripts/seedDemo.js",
     "db:reset": "node scripts/resetData.js",
-    "test:notifications": "node tests/test_notifications.js"
+    "test:notifications": "node tests/test_notifications.js",
+    "test:rbac": "node tests/test_rbac.js",
+    "test:release": "node tests/test_slot_release.js",
+    "test:complaints": "node tests/test_complaints.js",
+    "test:fasttrack": "node tests/test_fasttrack_bidding.js",
+    "test:all": "node tests/test_all_prd.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

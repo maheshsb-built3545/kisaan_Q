@@ -32,7 +32,8 @@ const staffUserSchema = new mongoose.Schema(
           'staff',
           'supervisor',
           'district_admin',
-          'auditor'
+          'auditor',
+          'resource_officer'
         ],
         message: '{VALUE} is not a valid staff role'
       }

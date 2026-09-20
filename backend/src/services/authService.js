@@ -103,6 +103,85 @@ const SEEDED_STAFF_REGISTRY = [
     assignedMandiName: 'APMC Kopargaon',
     defaultPassword: 'Staff@KisanQ2026',
     isActive: true
+  },
+  // Resource Planning Officers across 6 official APMC centres
+  {
+    name: 'P. Kulkarni',
+    phone: '9800000006',
+    role: 'resource_officer',
+    officerCode: 'RPO-KPG-01',
+    deskName: 'Resource Planning Desk',
+    terminalLane: 'Planning Terminal #1',
+    terminalCode: 'PLAN-KPG-01',
+    assignedMandi: 'KPG-01',
+    assignedMandiName: 'APMC Kopargaon',
+    defaultPassword: 'Staff@KisanQ2026',
+    isActive: true
+  },
+  {
+    name: 'A. Shinde',
+    phone: '9800000016',
+    role: 'resource_officer',
+    officerCode: 'RPO-SRD-02',
+    deskName: 'Resource Planning Desk',
+    terminalLane: 'Planning Terminal #1',
+    terminalCode: 'PLAN-SRD-02',
+    assignedMandi: 'SRD-02',
+    assignedMandiName: 'APMC Shirdi',
+    defaultPassword: 'Staff@KisanQ2026',
+    isActive: true
+  },
+  {
+    name: 'V. Vikhe',
+    phone: '9800000026',
+    role: 'resource_officer',
+    officerCode: 'RPO-RHT-03',
+    deskName: 'Resource Planning Desk',
+    terminalLane: 'Planning Terminal #1',
+    terminalCode: 'PLAN-RHT-03',
+    assignedMandi: 'RHT-03',
+    assignedMandiName: 'APMC Rahata',
+    defaultPassword: 'Staff@KisanQ2026',
+    isActive: true
+  },
+  {
+    name: 'M. Gaikwad',
+    phone: '9800000036',
+    role: 'resource_officer',
+    officerCode: 'RPO-VJP-04',
+    deskName: 'Resource Planning Desk',
+    terminalLane: 'Planning Terminal #1',
+    terminalCode: 'PLAN-VJP-04',
+    assignedMandi: 'VJP-04',
+    assignedMandiName: 'APMC Vaijapur',
+    defaultPassword: 'Staff@KisanQ2026',
+    isActive: true
+  },
+  {
+    name: 'S. Kale',
+    phone: '9800000046',
+    role: 'resource_officer',
+    officerCode: 'RPO-SRP-05',
+    deskName: 'Resource Planning Desk',
+    terminalLane: 'Planning Terminal #1',
+    terminalCode: 'PLAN-SRP-05',
+    assignedMandi: 'SRP-05',
+    assignedMandiName: 'APMC Shrirampur',
+    defaultPassword: 'Staff@KisanQ2026',
+    isActive: true
+  },
+  {
+    name: 'D. Borse',
+    phone: '9800000056',
+    role: 'resource_officer',
+    officerCode: 'RPO-LSG-06',
+    deskName: 'Resource Planning Desk',
+    terminalLane: 'Planning Terminal #1',
+    terminalCode: 'PLAN-LSG-06',
+    assignedMandi: 'LSG-06',
+    assignedMandiName: 'APMC Lasalgaon',
+    defaultPassword: 'Staff@KisanQ2026',
+    isActive: true
   }
 ];
 
