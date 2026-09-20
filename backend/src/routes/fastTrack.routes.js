@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const fastTrackBiddingController = require('../controllers/fastTrackBidding.controller');
 const { authenticateToken, optionalAuthenticate, scopeToCentre } = require('../middleware/auth.middleware');
+const { checkRole } = require('../middleware/rbac.middleware');
 
 /**
  * @route   GET /api/fasttrack/rounds
@@ -27,9 +28,15 @@ router.get('/rounds/:id/bids', optionalAuthenticate, fastTrackBiddingController.
 /**
  * @route   POST /api/fasttrack/rounds/open
  * @desc    Open a new round for a centre slot
- * @access  Staff / Farmer (Authenticated)
+ * @access  Resource Officer / Supervisor / Admin / System
  */
-router.post('/rounds/open', authenticateToken, fastTrackBiddingController.openRound);
+router.post(
+  '/rounds/open',
+  authenticateToken,
+  checkRole('resource_officer', 'supervisor', 'admin', 'system'),
+  scopeToCentre,
+  fastTrackBiddingController.openRound
+);
 
 /**
  * @route   POST /api/fasttrack/rounds/:id/join
@@ -57,14 +64,26 @@ router.post('/rounds/:id/bids', authenticateToken, fastTrackBiddingController.pl
  * @desc    Centre Officer approves or declines start request
  * @access  Resource Officer / Supervisor / Admin
  */
-router.post('/rounds/:id/start-decision', authenticateToken, scopeToCentre, fastTrackBiddingController.officerStartDecision);
+router.post(
+  '/rounds/:id/start-decision',
+  authenticateToken,
+  checkRole('resource_officer', 'supervisor', 'admin'),
+  scopeToCentre,
+  fastTrackBiddingController.officerStartDecision
+);
 
 /**
  * @route   POST /api/fasttrack/rounds/:id/decision
  * @desc    Centre Officer approves or declines winning bid
  * @access  Resource Officer / Supervisor / Admin
  */
-router.post('/rounds/:id/decision', authenticateToken, scopeToCentre, fastTrackBiddingController.officerDecision);
+router.post(
+  '/rounds/:id/decision',
+  authenticateToken,
+  checkRole('resource_officer', 'supervisor', 'admin'),
+  scopeToCentre,
+  fastTrackBiddingController.officerDecision
+);
 
 // ============================================================================
 // DOCUMENTED ALIASES (Backward Compatibility)
@@ -80,37 +99,61 @@ router.post('/rounds/:id/bid', authenticateToken, fastTrackBiddingController.pla
  * @route   PATCH /api/fasttrack/rounds/:id/approve
  * @desc    Legacy alias for POST /api/fasttrack/rounds/:id/decision (approved: true)
  */
-router.patch('/rounds/:id/approve', authenticateToken, scopeToCentre, (req, res) => {
-  req.body = { ...req.body, approved: true };
-  return fastTrackBiddingController.officerDecision(req, res);
-});
+router.patch(
+  '/rounds/:id/approve',
+  authenticateToken,
+  checkRole('resource_officer', 'supervisor', 'admin'),
+  scopeToCentre,
+  (req, res) => {
+    req.body = { ...req.body, approved: true };
+    return fastTrackBiddingController.officerDecision(req, res);
+  }
+);
 
 /**
  * @route   PATCH /api/fasttrack/rounds/:id/decline
  * @desc    Legacy alias for POST /api/fasttrack/rounds/:id/decision (approved: false)
  */
-router.patch('/rounds/:id/decline', authenticateToken, scopeToCentre, (req, res) => {
-  req.body = { ...req.body, approved: false };
-  return fastTrackBiddingController.officerDecision(req, res);
-});
+router.patch(
+  '/rounds/:id/decline',
+  authenticateToken,
+  checkRole('resource_officer', 'supervisor', 'admin'),
+  scopeToCentre,
+  (req, res) => {
+    req.body = { ...req.body, approved: false };
+    return fastTrackBiddingController.officerDecision(req, res);
+  }
+);
 
 /**
  * @route   POST /api/fasttrack/:id/approve
  * @desc    Legacy alias for POST /api/fasttrack/rounds/:id/decision (approved: true)
  */
-router.post('/:id/approve', authenticateToken, scopeToCentre, (req, res) => {
-  req.body = { ...req.body, approved: true };
-  return fastTrackBiddingController.officerDecision(req, res);
-});
+router.post(
+  '/:id/approve',
+  authenticateToken,
+  checkRole('resource_officer', 'supervisor', 'admin'),
+  scopeToCentre,
+  (req, res) => {
+    req.body = { ...req.body, approved: true };
+    return fastTrackBiddingController.officerDecision(req, res);
+  }
+);
 
 /**
  * @route   POST /api/fasttrack/:id/reject
  * @desc    Legacy alias for POST /api/fasttrack/rounds/:id/decision (approved: false)
  */
-router.post('/:id/reject', authenticateToken, scopeToCentre, (req, res) => {
-  req.body = { ...req.body, approved: false };
-  return fastTrackBiddingController.officerDecision(req, res);
-});
+router.post(
+  '/:id/reject',
+  authenticateToken,
+  checkRole('resource_officer', 'supervisor', 'admin'),
+  scopeToCentre,
+  (req, res) => {
+    req.body = { ...req.body, approved: false };
+    return fastTrackBiddingController.officerDecision(req, res);
+  }
+);
 
 /**
  * @route   GET /api/fasttrack
