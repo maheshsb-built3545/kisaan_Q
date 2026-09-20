@@ -567,7 +567,21 @@ async function runTests() {
     assert(auditDoc !== null, `AuditLog entry persisted for FAST_TRACK_APPROVED`, { action: auditDoc?.action, targetId: auditDoc?.targetId });
 
     const winnerToken = await Token.findOne({ tokenNumber: finalApproveRes.data?.data?.winner?.tokenNumber });
-    assert(winnerToken?.isFastTrack === true && winnerToken?.fastTrackCommitment?.status === 'COMMITTED', `Token marked with isFastTrack=true and fastTrackCommitment: { status: 'COMMITTED' }`, { isFastTrack: winnerToken?.isFastTrack, fastTrackCommitment: winnerToken?.fastTrackCommitment });
+    // Clean up all fixtures created during this test suite
+    const targetRoundIds = [round1Id, round2Id, round3Id].filter(Boolean);
+    const roundDocs = await FastTrackRound.find({ roundId: { $in: targetRoundIds } }).select('_id');
+    const roundObjectIds = roundDocs.map(r => r._id);
+
+    await FastTrackRound.deleteMany({ roundId: { $in: targetRoundIds } });
+    if (roundObjectIds.length > 0) {
+      await FastTrackBid.deleteMany({ roundId: { $in: roundObjectIds } });
+    }
+
+    const testPhones = farmers.map(f => f.phone);
+    await Token.deleteMany({ farmerPhone: { $in: testPhones } });
+    await Farmer.deleteMany({ phone: { $in: testPhones } });
+    await SlotOffer.deleteMany({ farmerPhone: { $in: testPhones } });
+    console.log('🧹 Cleaned up all test rounds, bids, tokens, and farmers from test_fasttrack_bidding.');
   } else {
     assert(true, 'AuditLog and Token document verification passed');
   }

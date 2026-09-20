@@ -86,10 +86,10 @@ async function runTests() {
   const otherCentreOfficerToken = signToken({
     id: '64b8f0a1c1d2e3f4a5b6c7d3',
     phone: '9800000021',
-    name: 'Pune Officer',
+    name: 'Shirdi Officer',
     role: 'resource_officer',
-    assignedMandi: 'PUN-01',
-    mandiId: 'PUN-01'
+    assignedMandi: 'SRD-02',
+    mandiId: 'SRD-02'
   });
 
   // 1. TEST POST /api/fasttrack/rounds/open
@@ -256,6 +256,14 @@ async function runTests() {
 
   const resReadAllPatchAuth = await apiRequest('patch', '/notifications/read-all', {}, farmerToken);
   assert(resReadAllPatchAuth.status === 200, `Authenticated PATCH /read-all alias succeeded: [${resReadAllPatchAuth.status}]`);
+
+  // Clean up created test round
+  if (testRoundId) {
+    try {
+      const { FastTrackRound } = require('../src/models');
+      await FastTrackRound.deleteOne({ $or: [{ roundId: testRoundId }, { _id: testRoundId }] });
+    } catch (e) {}
+  }
 
   console.log('\n=============================================');
   console.log(`STEP 4 TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);

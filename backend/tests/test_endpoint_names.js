@@ -8,6 +8,7 @@
  * - Notification Aliases: /notifications/read-all (PUT, PATCH), /notifications/:id/read (PATCH, PUT, POST)
  */
 
+try { require('dns').setServers(['8.8.8.8', '1.1.1.1']); } catch(e) {}
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const http = require('http');
 const jwt = require('jsonwebtoken');
@@ -174,6 +175,19 @@ async function run() {
 
   const readPost = await request(`/api/notifications/${dummyId}/read`, 'POST', {}, farmerJwt);
   assert([200, 404].includes(readPost.status), `POST /api/notifications/:id/read (alias) returns HTTP ${readPost.status}`);
+
+  // Clean up created round
+  if (roundId && roundId.startsWith('FTR-')) {
+    try {
+      const mongoose = require('mongoose');
+      if (mongoose.connection.readyState !== 1) {
+        await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
+      }
+      const { FastTrackRound } = require('../src/models');
+      await FastTrackRound.deleteOne({ roundId });
+      await mongoose.disconnect();
+    } catch (e) {}
+  }
 
   console.log(`\n==================================================`);
   console.log(`Results: ${passed} PASSED | ${failed} FAILED`);
