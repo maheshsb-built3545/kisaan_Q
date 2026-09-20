@@ -172,6 +172,10 @@ const tokenSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  fastTrackCommitment: {
+    amount: { type: Number, default: 0 },
+    status: { type: String, enum: ['COMMITTED', 'SETTLE_AT_PAYOUT', null], default: null }
+  },
   fastTrackTier: {
     type: Number,
     default: null

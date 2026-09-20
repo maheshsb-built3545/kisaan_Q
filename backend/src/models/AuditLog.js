@@ -14,7 +14,12 @@ const auditLogSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Actor role is required'],
       enum: {
-        values: ['farmer', 'operator', 'staff', 'supervisor', 'district_admin', 'auditor', 'system'],
+        values: [
+          'farmer', 'operator', 'staff', 'supervisor', 'resource_officer',
+          'planning_officer', 'district_admin', 'admin', 'auditor',
+          'gate_officer', 'quality_assayer', 'weighbridge_operator',
+          'procurement_officer', 'finance_officer', 'system'
+        ],
         message: '{VALUE} is not a valid actor role'
       }
     },

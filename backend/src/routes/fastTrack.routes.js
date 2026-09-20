@@ -1,55 +1,69 @@
 const express = require('express');
 const router = express.Router();
 const fastTrackBiddingController = require('../controllers/fastTrackBidding.controller');
-const { authenticateToken, optionalAuthenticate } = require('../middleware/auth.middleware');
+const { authenticateToken, optionalAuthenticate, scopeToCentre } = require('../middleware/auth.middleware');
 
 /**
- * @route   POST /api/fasttrack/rounds/start
- * @desc    Farmer starts a 100s Fast-Track bidding auction for their token
- * @access  Public / Farmer
+ * @route   GET /api/fasttrack/rounds
+ * @desc    List rounds (with centre / status filters)
+ * @access  Public / Authenticated
  */
-router.post('/rounds/start', optionalAuthenticate, fastTrackBiddingController.startRound);
-
-/**
- * @route   POST /api/fasttrack/rounds/:id/bid
- * @desc    Place a higher discount bid (Resets timer to 100s, checks MSP floor)
- * @access  Public / Trader / Farmer
- */
-router.post('/rounds/:id/bid', optionalAuthenticate, fastTrackBiddingController.placeBid);
-
-/**
- * @route   GET /api/fasttrack/rounds/active
- * @desc    Get all active bidding rounds
- * @access  Public
- */
-router.get('/rounds/active', optionalAuthenticate, fastTrackBiddingController.getActiveRounds);
+router.get('/rounds', optionalAuthenticate, fastTrackBiddingController.getRounds);
 
 /**
  * @route   GET /api/fasttrack/rounds/:id
  * @desc    Get single round detail
- * @access  Public
+ * @access  Public / Authenticated
  */
 router.get('/rounds/:id', optionalAuthenticate, fastTrackBiddingController.getRoundById);
 
 /**
  * @route   GET /api/fasttrack/rounds/:id/bids
  * @desc    Get bid history for a round
- * @access  Public
+ * @access  Public / Authenticated
  */
 router.get('/rounds/:id/bids', optionalAuthenticate, fastTrackBiddingController.getRoundBids);
 
 /**
- * @route   PATCH /api/fasttrack/rounds/:id/approve
- * @desc    Planning / Resource Officer approves winning bid
- * @access  Officer / Supervisor / Admin
+ * @route   POST /api/fasttrack/rounds/open
+ * @desc    Open a new round for a centre slot
+ * @access  Staff / Farmer (Authenticated)
  */
-router.patch('/rounds/:id/approve', authenticateToken, fastTrackBiddingController.approveRound);
+router.post('/rounds/open', authenticateToken, fastTrackBiddingController.openRound);
 
 /**
- * @route   PATCH /api/fasttrack/rounds/:id/decline
- * @desc    Planning / Resource Officer declines round
- * @access  Officer / Supervisor / Admin
+ * @route   POST /api/fasttrack/rounds/:id/join
+ * @desc    Farmer joins a round with their confirmed booking
+ * @access  Farmer (Authenticated)
  */
-router.patch('/rounds/:id/decline', authenticateToken, fastTrackBiddingController.declineRound);
+router.post('/rounds/:id/join', authenticateToken, fastTrackBiddingController.joinRound);
+
+/**
+ * @route   POST /api/fasttrack/rounds/:id/request-start
+ * @desc    Participant requests start when under quorum
+ * @access  Farmer (Authenticated)
+ */
+router.post('/rounds/:id/request-start', authenticateToken, fastTrackBiddingController.requestStart);
+
+/**
+ * @route   POST /api/fasttrack/rounds/:id/bids
+ * @desc    Place an atomic bid on a LIVE round
+ * @access  Farmer (Authenticated)
+ */
+router.post('/rounds/:id/bids', authenticateToken, fastTrackBiddingController.placeBid);
+
+/**
+ * @route   POST /api/fasttrack/rounds/:id/start-decision
+ * @desc    Centre Officer approves or declines start request
+ * @access  Resource Officer / Supervisor / Admin
+ */
+router.post('/rounds/:id/start-decision', authenticateToken, scopeToCentre, fastTrackBiddingController.officerStartDecision);
+
+/**
+ * @route   POST /api/fasttrack/rounds/:id/decision
+ * @desc    Centre Officer approves or declines winning bid
+ * @access  Resource Officer / Supervisor / Admin
+ */
+router.post('/rounds/:id/decision', authenticateToken, scopeToCentre, fastTrackBiddingController.officerDecision);
 
 module.exports = router;

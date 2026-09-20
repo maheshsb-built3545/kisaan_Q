@@ -6,6 +6,7 @@ const Token = require('../models/Token');
 const Farmer = require('../models/Farmer');
 const authService = require('../services/authService');
 const notificationService = require('../services/notificationService');
+const fastTrackAuctionService = require('../services/fastTrackAuctionService');
 const logger = require('../utils/logger');
 const { optionalAuthenticate } = require('../middleware/auth.middleware');
 
@@ -1979,6 +1980,7 @@ const handleTokenCancellation = async (req, res) => {
       token.cancelledAt = now;
       token.cancellationReason = reason;
       await token.save();
+      await fastTrackAuctionService.handleLeaderCancellation(token.tokenNumber || tokenNumber, req.io);
 
       if (farmerPhone) {
         let farmer = await Farmer.findOne({ phone: farmerPhone });

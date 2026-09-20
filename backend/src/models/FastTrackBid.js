@@ -15,31 +15,40 @@ const fastTrackBidSchema = new mongoose.Schema(
       required: [true, 'Round reference is required'],
       index: true
     },
+    farmerId: {
+      type: String,
+      required: [true, 'Farmer ID is required'],
+      index: true
+    },
+    farmerPhone: {
+      type: String,
+      required: [true, 'Farmer phone number is required'],
+      trim: true,
+      index: true
+    },
+    farmerName: {
+      type: String,
+      default: 'Farmer',
+      trim: true
+    },
+    bookingId: {
+      type: mongoose.Schema.Types.Mixed,
+      required: true
+    },
     tokenNumber: {
       type: String,
       required: [true, 'Token number is required'],
       trim: true,
       index: true
     },
-    bidderPhone: {
-      type: String,
-      required: [true, 'Bidder phone number is required'],
-      trim: true,
-      index: true
-    },
-    bidderName: {
-      type: String,
-      default: 'Trader / Buyer',
-      trim: true
-    },
-    bidDiscountPerQtl: {
+    amount: {
       type: Number,
-      required: [true, 'Bid discount per quintal is required'],
-      min: [1, 'Bid discount must be at least ₹1/Qtl']
+      required: [true, 'Bid amount (rupees committed) is required'],
+      min: [1, 'Bid amount must be at least ₹1']
     },
-    netPriceOffered: {
+    seq: {
       type: Number,
-      required: [true, 'Net price offered is required']
+      required: true
     },
     bidTime: {
       type: Date,
@@ -51,6 +60,6 @@ const fastTrackBidSchema = new mongoose.Schema(
   }
 );
 
-fastTrackBidSchema.index({ roundId: 1, bidDiscountPerQtl: -1, createdAt: 1 });
+fastTrackBidSchema.index({ roundId: 1, amount: -1, bidTime: 1 });
 
 module.exports = mongoose.model('FastTrackBid', fastTrackBidSchema);

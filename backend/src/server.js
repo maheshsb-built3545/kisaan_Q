@@ -27,6 +27,7 @@ const authService = require('./services/authService');
 const centreService = require('./services/centreService');
 const cropPriceService = require('./services/cropPriceService');
 const slotReallocationService = require('./services/slotReallocationService');
+const fastTrackAuctionService = require('./services/fastTrackAuctionService');
 
 // Connect to Database & Seed Administrative Staff, Official APMC Centres, and Crop Prices once
 connectDB().then(() => {
@@ -34,6 +35,7 @@ connectDB().then(() => {
   centreService.ensureOfficialCentres().catch((err) => logger.warn(`Centre sync notice: ${err.message}`));
   cropPriceService.seedCropPrices().catch((err) => logger.warn(`Crop price sync notice: ${err.message}`));
   slotReallocationService.startReallocationJob(60000);
+  fastTrackAuctionService.startAuctionWorker(5000);
 }).catch(() => {
   // Prime in-memory fallbacks only if DB connection is unavailable
   authService.seedStaffRegistry().catch(() => {});

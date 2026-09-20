@@ -1,5 +1,41 @@
 const mongoose = require('mongoose');
 
+const participantSchema = new mongoose.Schema(
+  {
+    farmerId: { type: String, required: true },
+    phone: { type: String, required: true },
+    name: { type: String, default: 'Farmer' },
+    bookingId: { type: mongoose.Schema.Types.Mixed, required: true },
+    tokenNumber: { type: String, required: true },
+    joinedAt: { type: Date, default: Date.now }
+  },
+  { _id: false }
+);
+
+const leaderSchema = new mongoose.Schema(
+  {
+    farmerId: { type: String, required: true },
+    phone: { type: String, required: true },
+    name: { type: String, default: 'Farmer' },
+    bookingId: { type: mongoose.Schema.Types.Mixed, required: true },
+    tokenNumber: { type: String, required: true },
+    amount: { type: Number, required: true },
+    bidTime: { type: Date, default: Date.now }
+  },
+  { _id: false }
+);
+
+const officerDecisionSchema = new mongoose.Schema(
+  {
+    status: { type: String, enum: ['APPROVED', 'DECLINED', 'TIMEOUT'], default: null },
+    decidedBy: { type: String, default: null },
+    officerRole: { type: String, default: null },
+    decidedAt: { type: Date, default: null },
+    reason: { type: String, default: null }
+  },
+  { _id: false }
+);
+
 const fastTrackRoundSchema = new mongoose.Schema(
   {
     roundId: {
@@ -8,27 +44,6 @@ const fastTrackRoundSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       index: true
-    },
-    tokenNumber: {
-      type: String,
-      required: [true, 'Token number is required'],
-      trim: true,
-      index: true
-    },
-    tokenId: {
-      type: mongoose.Schema.Types.Mixed,
-      default: null
-    },
-    farmerPhone: {
-      type: String,
-      required: [true, 'Farmer phone number is required'],
-      trim: true,
-      index: true
-    },
-    farmerName: {
-      type: String,
-      default: 'Farmer',
-      trim: true
     },
     centreId: {
       type: String,
@@ -46,73 +61,79 @@ const fastTrackRoundSchema = new mongoose.Schema(
       default: 'APMC Mandi',
       trim: true
     },
-    crop: {
+    slotDate: {
       type: String,
-      required: [true, 'Crop is required'],
-      trim: true
-    },
-    quantity: {
-      type: Number,
-      required: [true, 'Quantity is required']
-    },
-    baseMarketPrice: {
-      type: Number,
-      required: [true, 'Base mandi market price is required']
-    },
-    floorPrice: {
-      type: Number,
-      required: [true, 'Floor MSP price is required']
-    },
-    startingBid: {
-      type: Number,
-      default: 10
-    },
-    highestBid: {
-      type: Number,
-      default: 10
-    },
-    highestBidderPhone: {
-      type: String,
-      default: null
-    },
-    highestBidderName: {
-      type: String,
-      default: null
-    },
-    bidsCount: {
-      type: Number,
-      default: 0
-    },
-    roundStartTime: {
-      type: Date,
-      default: Date.now
-    },
-    roundEndTime: {
-      type: Date,
-      required: true,
+      required: [true, 'Slot date is required'],
+      trim: true,
       index: true
     },
-    timerSeconds: {
-      type: Number,
-      default: 100
+    slotHour: {
+      type: String,
+      required: [true, 'Slot hour/time is required'],
+      trim: true
     },
     status: {
       type: String,
-      enum: ['ACTIVE', 'TIMER_EXPIRED', 'APPROVED', 'DECLINED', 'CANCELLED'],
-      default: 'ACTIVE',
+      enum: [
+        'JOINING',
+        'START_REQUESTED',
+        'LIVE',
+        'AWAITING_APPROVAL',
+        'APPROVED',
+        'CANCELLED_NO_QUORUM',
+        'CLOSED_NO_BIDS',
+        'DECLINED'
+      ],
+      default: 'JOINING',
       index: true
     },
-    decisionBy: {
-      type: String,
+    participants: [participantSchema],
+    currentLeader: {
+      type: leaderSchema,
       default: null
     },
-    decisionAt: {
+    candidateQueue: [leaderSchema],
+    endsAt: {
+      type: Date,
+      default: null,
+      index: true
+    },
+    officerDecisionExpiresAt: {
+      type: Date,
+      default: null,
+      index: true
+    },
+    officerDecision: {
+      type: officerDecisionSchema,
+      default: () => ({})
+    },
+    startRequestedBy: {
+      type: Object,
+      default: null
+    },
+    startRequestedAt: {
       type: Date,
       default: null
     },
-    decisionNotes: {
-      type: String,
-      default: null
+    seq: {
+      type: Number,
+      default: 0
+    },
+    reserveFee: {
+      type: Number,
+      default: 200
+    },
+    bidStep: {
+      type: Number,
+      default: 10
+    },
+    bidCeiling: {
+      type: Number,
+      default: 500
+    },
+    capPerHour: {
+      type: Number,
+      default: 2
     }
   },
   {
@@ -120,6 +141,6 @@ const fastTrackRoundSchema = new mongoose.Schema(
   }
 );
 
-fastTrackRoundSchema.index({ centreId: 1, status: 1 });
+fastTrackRoundSchema.index({ centreId: 1, slotDate: 1, status: 1 });
 
 module.exports = mongoose.model('FastTrackRound', fastTrackRoundSchema);

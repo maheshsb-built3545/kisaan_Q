@@ -48,8 +48,11 @@ const optionalAuthenticate = (req, res, next) => {
   next();
 };
 
+const { scopeToCentre } = require('./scopeToCentre.middleware');
+
 module.exports = {
   authenticate,
   authenticateToken: authenticate,
-  optionalAuthenticate
+  optionalAuthenticate,
+  scopeToCentre
 };
