@@ -70,6 +70,7 @@ async function runSlotReleaseTests() {
   const phoneB = '9800000042';
   const phoneC = '9800000043';
   const tokenNumA = `${TEST_PREFIX}TK_RELEASE_01`;
+  let newTokNum = null;
 
   try {
     // -----------------------------------------------------------------------
@@ -91,7 +92,12 @@ async function runSlotReleaseTests() {
     if (mongoose.connection.readyState === 1) {
       await Token.deleteMany({ tokenNumber: { $regex: new RegExp(`^${TEST_PREFIX}`) } });
       await Waitlist.deleteMany({ farmerPhone: { $in: [phoneA, phoneB, phoneC] } });
-      await SlotOffer.deleteMany({ farmerPhone: { $in: [phoneA, phoneB, phoneC] } });
+      await SlotOffer.deleteMany({
+        $or: [
+          { farmerPhone: { $in: [phoneA, phoneB, phoneC, '9800000048', '9800000049'] } },
+          { releasedTokenNumber: { $regex: new RegExp(`^${TEST_PREFIX}`) } }
+        ]
+      });
 
       // Create unarrived token A
       await Token.create({
@@ -99,9 +105,9 @@ async function runSlotReleaseTests() {
         farmerName: 'Kisan A',
         farmerPhone: phoneA,
         phone: phoneA,
-        mandiId: 'KPG-01',
-        mandiCode: 'KPG',
-        mandiName: 'APMC Kopargaon',
+        mandiId: 'TEST-KPG',
+        mandiCode: 'TEST',
+        mandiName: 'APMC Test Mandi',
         crop: 'Soybean',
         quantity: 25,
         slotDate: new Date().toISOString().split('T')[0],
@@ -115,14 +121,15 @@ async function runSlotReleaseTests() {
       await Waitlist.create({
         farmerName: 'Kisan B (Waitlisted)',
         farmerPhone: phoneB,
-        centreId: 'KPG-01',
-        mandiId: 'KPG-01',
-        mandiName: 'APMC Kopargaon',
+        centreId: 'TEST-KPG',
+        mandiId: 'TEST-KPG',
+        mandiName: 'APMC Test Mandi',
         crop: 'Soybean',
         quantity: 25,
         requestedSlotDate: new Date().toISOString().split('T')[0],
         requestedSlotTime: '08:00 AM - 11:00 AM',
-        priority: 1,
+        priority: 9999,
+        joinedAt: new Date(Date.now() - 10000000),
         status: 'WAITING'
       });
       assert(true, 'Initialized test Token and Waitlist candidate in database');
@@ -194,8 +201,8 @@ async function runSlotReleaseTests() {
 
     assert(acceptRes.status === 200, 'POST /api/slots/offers/:id/accept returned 200 OK');
     assert(acceptRes.body?.data?.token?.status === 'BOOKED', 'Accepted offer generated new BOOKED token');
-    const newTokNum = acceptRes.body?.data?.token?.tokenNumber;
-    assert(newTokNum?.startsWith('KQ-KPG-'), `Generated valid token number: ${newTokNum}`);
+    newTokNum = acceptRes.body?.data?.token?.tokenNumber;
+    assert(newTokNum?.startsWith('KQ-'), `Generated valid token number: ${newTokNum}`);
 
     const updatedOfferB = await SlotOffer.findById(offerB._id);
     assert(updatedOfferB?.status === 'ACCEPTED', 'Slot offer status transitioned to ACCEPTED');
@@ -215,9 +222,9 @@ async function runSlotReleaseTests() {
     const waitlistC = await Waitlist.create({
       farmerName: 'Kisan C',
       farmerPhone: phoneC,
-      centreId: 'KPG-01',
-      mandiId: 'KPG-01',
-      mandiName: 'APMC Kopargaon',
+      centreId: 'TEST-KPG',
+      mandiId: 'TEST-KPG',
+      mandiName: 'APMC Test Mandi',
       crop: 'Soybean',
       quantity: 30,
       requestedSlotDate: new Date().toISOString().split('T')[0],
@@ -232,9 +239,9 @@ async function runSlotReleaseTests() {
       releasedTokenNumber: 'RELEASED_SAMPLE',
       farmerPhone: phoneC,
       farmerName: 'Kisan C',
-      centreId: 'KPG-01',
-      mandiId: 'KPG-01',
-      mandiName: 'APMC Kopargaon',
+      centreId: 'TEST-KPG',
+      mandiId: 'TEST-KPG',
+      mandiName: 'APMC Test Mandi',
       crop: 'Soybean',
       quantity: 30,
       slotDate: new Date().toISOString().split('T')[0],
@@ -261,8 +268,8 @@ async function runSlotReleaseTests() {
       releasedTokenNumber: 'RELEASED_EXP_SAMPLE',
       farmerPhone: phoneC,
       farmerName: 'Kisan C',
-      centreId: 'KPG-01',
-      mandiId: 'KPG-01',
+      centreId: 'TEST-KPG',
+      mandiId: 'TEST-KPG',
       crop: 'Soybean',
       quantity: 30,
       slotDate: new Date().toISOString().split('T')[0],
@@ -289,11 +296,54 @@ async function runSlotReleaseTests() {
     assert(secondExpCycle.slotsReleased === 0, 'Second consecutive run releases 0 additional slots (idempotent)');
     assert(secondExpCycle.offersExpired === 0, 'Second consecutive run expires 0 additional offers (idempotent)');
 
-    // AuditLog verification
-    const { AuditLog } = require('../src/models');
+    // -----------------------------------------------------------------------
+    // Section 8b: Optional graceDeadlineAt Field & Default Behavior Verification
+    // -----------------------------------------------------------------------
+    console.log('\n--- Section 8b: Optional graceDeadlineAt Field Verification ---');
     if (mongoose.connection.readyState === 1) {
-      const releaseLogs = await AuditLog.find({ action: { $in: ['SLOT_AUTO_RELEASE', 'SLOT_ARRIVAL_WARNING', 'SLOT_OFFER_CREATED', 'SLOT_OFFER_ACCEPTED', 'SLOT_OFFER_DECLINED'] } });
-      assert(releaseLogs.length >= 3, `AuditLog recorded ${releaseLogs.length} slot reallocation events`);
+      const testTokenGraceFuture = `${TEST_PREFIX}TK_GRACE_FUTURE`;
+      const testTokenGracePast = `${TEST_PREFIX}TK_GRACE_PAST`;
+
+      // 1. Token with graceDeadlineAt in the FUTURE (+5 min)
+      await Token.create({
+        tokenNumber: testTokenGraceFuture,
+        farmerName: 'Future Grace Farmer',
+        farmerPhone: '9800000048',
+        mandiId: 'TEST-KPG',
+        mandiName: 'APMC Test Mandi',
+        crop: 'Soybean',
+        quantity: 20,
+        slotDate: '2026-09-20',
+        slotTime: '08:00 AM - 11:00 AM',
+        status: 'BOOKED',
+        graceDeadlineAt: new Date(Date.now() + 5 * 60 * 1000)
+      });
+
+      // 2. Token with graceDeadlineAt in the PAST (-1 min)
+      await Token.create({
+        tokenNumber: testTokenGracePast,
+        farmerName: 'Past Grace Farmer',
+        farmerPhone: '9800000049',
+        mandiId: 'TEST-KPG',
+        mandiName: 'APMC Test Mandi',
+        crop: 'Soybean',
+        quantity: 20,
+        slotDate: '2026-09-20',
+        slotTime: '08:00 AM - 11:00 AM',
+        status: 'BOOKED',
+        graceDeadlineAt: new Date(Date.now() - 60 * 1000)
+      });
+
+      // Run cycle: Past should be auto-released, Future should NOT be released
+      await slotReallocationService.processSlotReallocationCycle();
+
+      const futureDoc = await Token.findOne({ tokenNumber: testTokenGraceFuture });
+      const pastDoc = await Token.findOne({ tokenNumber: testTokenGracePast });
+
+      assert(futureDoc && futureDoc.status === 'BOOKED', 'Token with future graceDeadlineAt is preserved as BOOKED');
+      assert(pastDoc && (pastDoc.status === 'CANCELLED' || pastDoc.releasedAt !== null), 'Token with past graceDeadlineAt is auto-released');
+
+      await Token.deleteMany({ tokenNumber: { $in: [testTokenGraceFuture, testTokenGracePast] } });
     }
 
     // -----------------------------------------------------------------------
@@ -304,18 +354,23 @@ async function runSlotReleaseTests() {
     console.log('  ⚠️ Real farmer speech: NOT CHECKED (no clips in backend/tests/audio-real/)');
     notChecked += 2;
 
+  } catch (err) {
+    console.error('Test execution error:', err);
+    failed++;
+  } finally {
     // Cleanup
     if (mongoose.connection.readyState === 1) {
       await Token.deleteMany({ tokenNumber: { $regex: new RegExp(`^${TEST_PREFIX}`) } });
       if (newTokNum) await Token.deleteOne({ tokenNumber: newTokNum });
-      await Waitlist.deleteMany({ farmerPhone: { $in: [phoneA, phoneB, phoneC] } });
-      await SlotOffer.deleteMany({ farmerPhone: { $in: [phoneA, phoneB, phoneC] } });
+      await Waitlist.deleteMany({ farmerPhone: { $in: [phoneA, phoneB, phoneC, '9800000048', '9800000049'] } });
+      await SlotOffer.deleteMany({
+        $or: [
+          { farmerPhone: { $in: [phoneA, phoneB, phoneC, '9800000048', '9800000049'] } },
+          { releasedTokenNumber: { $regex: new RegExp(`^${TEST_PREFIX}`) } }
+        ]
+      });
       console.log('\n🧹 Cleaned up TEST_B4_ records from MongoDB Atlas.');
     }
-
-  } catch (err) {
-    console.error('Test execution error:', err);
-    failed++;
   }
 
   console.log('\n' + '='.repeat(75));

@@ -106,6 +106,10 @@ const bookingSchema = new mongoose.Schema(
     gracePeriodEnd: {
       type: Date
     },
+    graceDeadlineAt: {
+      type: Date,
+      default: null
+    },
     paymentStatus: {
       type: String,
       enum: {

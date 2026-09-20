@@ -114,7 +114,7 @@ const tokenSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Crop name is required'],
     enum: {
-      values: ['Wheat', 'Soybean', 'Onion', 'Cotton', 'Red Onion'],
+      values: ['Wheat', 'Soybean', 'Onion', 'Cotton', 'Red Onion', 'Maize', 'Chana', 'Gram'],
       message: '{VALUE} is not a supported crop'
     }
   },
@@ -161,6 +161,10 @@ const tokenSchema = new mongoose.Schema({
     default: null
   },
   warnedAt: {
+    type: Date,
+    default: null
+  },
+  graceDeadlineAt: {
     type: Date,
     default: null
   },

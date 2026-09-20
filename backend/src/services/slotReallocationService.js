@@ -164,8 +164,12 @@ async function processSlotReallocationCycle(options = {}) {
       const slotStart = parseSlotStartTime(token.slotDate, token.slotTime);
       const elapsedMs = now.getTime() - slotStart.getTime();
 
-      // Case A: Grace Expiry (>= GRACE threshold) -> AUTO RELEASE
-      if (elapsedMs >= timings.graceMs) {
+      const isGraceExpired = token.graceDeadlineAt
+        ? now.getTime() >= new Date(token.graceDeadlineAt).getTime()
+        : elapsedMs >= timings.graceMs;
+
+      // Case A: Grace Expiry (>= GRACE threshold or past graceDeadlineAt) -> AUTO RELEASE
+      if (isGraceExpired) {
         token.status = 'CANCELLED';
         token.cancellationReason = 'Auto-cancelled: missed arrival grace period';
         token.cancelledAt = now;
