@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsApi } from '../api/notifications.api';
+import { staffNotificationsApi } from '../api/staffNotifications.api';
 import { joinUserRoom, joinStaffRole, onNotificationNew } from '../services/socketService';
 import GovHeader from '../components/common/GovHeader';
 
@@ -40,8 +41,24 @@ const EVENT_CATEGORIES = [
 ];
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
+  const { farmerUser, staffUser, user } = useAuth();
   const navigate = useNavigate();
+
+  // Area-aware client and user resolution (staff vs farmer)
+  const isStaffArea = Boolean(
+    (user?.role && user.role !== 'farmer') ||
+    (staffUser && !farmerUser) ||
+    (typeof window !== 'undefined' && (
+      window.location.pathname.startsWith('/staff') ||
+      window.location.pathname.startsWith('/supervisor') ||
+      window.location.pathname.startsWith('/admin') ||
+      (typeof document !== 'undefined' && (document.referrer.includes('/staff') || document.referrer.includes('/supervisor') || document.referrer.includes('/admin')))
+    ))
+  );
+
+  const activeUser = isStaffArea ? (staffUser || user) : (farmerUser || user);
+  const api = isStaffArea ? staffNotificationsApi : notificationsApi;
+  const area = isStaffArea ? 'staff' : 'farmer';
 
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -52,20 +69,20 @@ export default function NotificationsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [lang, setLang] = useState(() => localStorage.getItem('kisanq_lang') || 'en');
 
-  const userId = user?.id || user?._id || user?.phone || 'anonymous';
-  const userRole = user?.role;
-  const userCentreId = user?.centreId || user?.assignedMandi;
+  const userId = activeUser?.id || activeUser?._id || activeUser?.phone || 'anonymous';
+  const userRole = activeUser?.role;
+  const userCentreId = activeUser?.centreId || activeUser?.assignedMandi;
 
-  // Fetch notification list
+  // Fetch notification list using the area-scoped API client
   const loadNotifications = useCallback(async (quiet = false) => {
-    if (!user) return;
+    if (!activeUser) return;
     try {
       if (!quiet) setIsLoading(true);
       else setIsRefreshing(true);
 
       const [listRes, countRes] = await Promise.allSettled([
-        notificationsApi.getMyNotifications({ limit: 100 }),
-        notificationsApi.getUnreadCount()
+        api.getMyNotifications({ limit: 100 }),
+        api.getUnreadCount()
       ]);
 
       if (listRes.status === 'fulfilled' && listRes.value?.success) {
@@ -80,15 +97,15 @@ export default function NotificationsPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [user]);
+  }, [activeUser, api]);
 
   useEffect(() => {
     loadNotifications();
 
     if (userId && userId !== 'anonymous') {
-      joinUserRoom(userId);
+      joinUserRoom(userId, area);
     }
-    if (userRole) {
+    if (area === 'staff' && userRole) {
       joinStaffRole(userRole, userCentreId);
     }
 
@@ -99,13 +116,13 @@ export default function NotificationsPage() {
     });
 
     return () => unsubscribe();
-  }, [loadNotifications, userId, userRole, userCentreId]);
+  }, [loadNotifications, userId, userRole, userCentreId, area]);
 
   // Mark single notification as read
   const handleMarkAsRead = async (id, e) => {
     e?.stopPropagation();
     try {
-      await notificationsApi.markAsRead(id);
+      await api.markAsRead(id);
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, read: true, channels: { ...n.channels, inApp: { status: 'read' } } } : n))
       );
@@ -118,7 +135,7 @@ export default function NotificationsPage() {
   // Mark all notifications as read
   const handleMarkAllAsRead = async () => {
     try {
-      await notificationsApi.markAllAsRead();
+      await api.markAllAsRead();
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, read: true, channels: { ...n.channels, inApp: { status: 'read' } } }))
       );
