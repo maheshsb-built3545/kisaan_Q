@@ -169,11 +169,14 @@ async function seedDemoFlow() {
   const now = new Date();
   const istNow = getISTDateParts(now);
 
-  // Upcoming slot 35 minutes ahead in IST
-  const slotAheadDate = new Date(now.getTime() + 35 * 60 * 1000);
-  const istSlotAhead = getISTDateParts(slotAheadDate);
-  const slotAheadDateStr = istSlotAhead.dateStr;
-  const slotAheadHour = istSlotAhead.hour;
+  // Upcoming slot is next hour (30-60 minutes ahead in IST)
+  const slotAheadHour = (istNow.hour + 1) % 24;
+  const isNextDay = istNow.hour === 23;
+  let slotAheadDateStr = istNow.dateStr;
+  if (isNextDay) {
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    slotAheadDateStr = getISTDateParts(tomorrow).dateStr;
+  }
   const slotAheadTimeStr = formatSlotTimeRange(slotAheadHour, 1);
 
   // 1. Seed Demo Farmers (Registered in citizen directory)
