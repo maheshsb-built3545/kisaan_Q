@@ -16,7 +16,7 @@ const {
   ARRIVAL_CURVE_ASSUMED,
   getDeadlineSeconds
 } = require('../config/forecast');
-const { getTiming, getCentreTimings } = require('../config/timings');
+const { getTiming, getCentreTimings, syncSamplesFromDatabase } = require('../config/timings');
 const { Booking, Centre, Resource, ForecastSnapshot, PlanRequest, AuditLog } = require('../models');
 const notificationService = require('./notificationService');
 const logger = require('../utils/logger');
@@ -96,9 +96,8 @@ function computeDayForecast(centreId, date, confirmedBookings = []) {
   const weighbridgeTiming = getTiming(centreId, 'weighbridgeServiceTime');
   const workingHours = 8;
   const arrivalsPerHour = arrivalsMid / workingHours;
-  const neededWeighbridgeStaff = Math.ceil(
-    (arrivalsPerHour * weighbridgeTiming.value) / 60 / DESK_UTIL_TARGET
-  );
+  const rawWeighbridgeStaff = (arrivalsPerHour * weighbridgeTiming.value) / 60 / DESK_UTIL_TARGET;
+  const neededWeighbridgeStaff = Math.ceil(rawWeighbridgeStaff);
 
   // 6. Data quality badge from timings
   const timings = getCentreTimings(centreId);
@@ -112,8 +111,8 @@ function computeDayForecast(centreId, date, confirmedBookings = []) {
   // 7. Bottleneck and heat status
   // Simple: compare labour capacity to need
   const bottleneck = labourNeeded > 5 ? 'labour' : 'none';
-  // Capacity ratio: resources-on-hand / needed (simplified: use neededWeighbridgeStaff vs 2 weighbridges)
-  const capacityRatio = neededWeighbridgeStaff > 0 ? 2 / neededWeighbridgeStaff : 2;
+  // Capacity ratio: resources-on-hand / needed (continuous ratio against 2 weighbridges)
+  const capacityRatio = rawWeighbridgeStaff > 0 ? 2 / rawWeighbridgeStaff : 2;
   const heatStatus = getHeatStatus(capacityRatio);
 
   return {
@@ -150,6 +149,10 @@ function computeDayForecast(centreId, date, confirmedBookings = []) {
 async function computeWeekForecast(centreId) {
   const today = new Date();
   const results = [];
+
+  if (syncSamplesFromDatabase) {
+    await syncSamplesFromDatabase(centreId);
+  }
 
   // Resolve centreId string to ObjectId for Booking queries
   let centreObjectId = null;

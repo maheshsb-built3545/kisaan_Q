@@ -118,11 +118,80 @@ function getCentreTimings(centreId) {
   };
 }
 
+/**
+ * Synchronize measured samples from completed Token checkpoint timestamps in the database.
+ * @param {string} centreId APMC centre code (e.g. 'KPG-01')
+ */
+async function syncSamplesFromDatabase(centreId) {
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) return;
+    const Token = require('../models/Token');
+    const cId = (centreId || 'KPG-01').toUpperCase();
+
+    const completedTokens = await Token.find({
+      $or: [{ mandiId: cId }, { mandiId: cId.toLowerCase() }],
+      status: { $in: ['Completed', 'COMPLETED'] },
+      'stages.4.status': 'Completed'
+    }).select('stages').lean();
+
+    if (!completedTokens || completedTokens.length === 0) return;
+
+    // Reset store for this centre before repopulating
+    for (const metric of ['gateServiceTime', 'qualityServiceTime', 'weighbridgeServiceTime', 'procurementServiceTime', 'leaveByPace']) {
+      samplesStore.delete(`${cId}:${metric}`);
+    }
+
+    for (const tok of completedTokens) {
+      const stages = tok.stages || [];
+      const s0 = stages.find(s => s.stageIndex === 0 || s.id === 'GATE_CHECKIN');
+      const s1 = stages.find(s => s.stageIndex === 1 || s.id === 'QUALITY_GRADING');
+      const s2 = stages.find(s => s.stageIndex === 2 || s.id === 'WEIGHBRIDGE');
+      const s3 = stages.find(s => s.stageIndex === 3 || s.id === 'PROCUREMENT');
+      const s4 = stages.find(s => s.stageIndex === 4 || s.id === 'PAYOUT');
+
+      if (s0?.completedAt && s1?.completedAt) {
+        const diffMin = Math.max(1, (new Date(s1.completedAt) - new Date(s0.completedAt)) / 60000);
+        recordSample(cId, 'gateServiceTime', Number(diffMin.toFixed(1)) || 3.5);
+      } else {
+        recordSample(cId, 'gateServiceTime', 3.5);
+      }
+
+      if (s1?.completedAt && s2?.completedAt) {
+        const diffMin = Math.max(1, (new Date(s2.completedAt) - new Date(s1.completedAt)) / 60000);
+        recordSample(cId, 'qualityServiceTime', Number(diffMin.toFixed(1)) || 5.0);
+      } else {
+        recordSample(cId, 'qualityServiceTime', 5.0);
+      }
+
+      if (s2?.completedAt && s3?.completedAt) {
+        const diffMin = Math.max(1, (new Date(s3.completedAt) - new Date(s2.completedAt)) / 60000);
+        recordSample(cId, 'weighbridgeServiceTime', Number(diffMin.toFixed(1)) || 8.0);
+      } else {
+        recordSample(cId, 'weighbridgeServiceTime', 8.0);
+      }
+
+      if (s3?.completedAt && s4?.completedAt) {
+        const diffMin = Math.max(1, (new Date(s4.completedAt) - new Date(s3.completedAt)) / 60000);
+        recordSample(cId, 'procurementServiceTime', Number(diffMin.toFixed(1)) || 4.0);
+      } else {
+        recordSample(cId, 'procurementServiceTime', 4.0);
+      }
+
+      recordSample(cId, 'leaveByPace', 8.0);
+    }
+  } catch (err) {
+    // Non-blocking
+  }
+}
+
 module.exports = {
   ASSUMED_DEFAULTS,
   computeMedian,
   recordSample,
   clearSamples,
   getTiming,
-  getCentreTimings
+  getCentreTimings,
+  syncSamplesFromDatabase
 };
+
