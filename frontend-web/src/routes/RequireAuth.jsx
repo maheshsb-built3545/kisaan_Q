@@ -2,8 +2,8 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export const RequireAuth = ({ children, redirectTo }) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+export const RequireAuth = ({ children, redirectTo, area }) => {
+  const { isAuthenticatedStaff, isAuthenticatedFarmer, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -15,13 +15,19 @@ export const RequireAuth = ({ children, redirectTo }) => {
     );
   }
 
-  // Guard Check: Cleanly redirect unauthenticated users to login/landing
-  if (!isAuthenticated) {
-    const isStaffRoute = location.pathname.startsWith('/staff') ||
-      ['/guard-terminal', '/weighmaster-desk', '/supervisor-exceptions', '/admin-dashboard', '/admin'].includes(location.pathname);
+  const isStaffRoute = area === 'staff' ||
+    location.pathname.startsWith('/staff') ||
+    ['/guard-terminal', '/weighmaster-desk', '/supervisor-exceptions', '/admin-dashboard', '/admin', '/planning'].some((p) => location.pathname.startsWith(p));
 
-    const targetRedirect = redirectTo || (isStaffRoute ? '/staff-login' : '/');
-    return <Navigate to={targetRedirect} state={{ from: location }} replace />;
+  // Area-specific authentication check
+  if (isStaffRoute) {
+    if (!isAuthenticatedStaff) {
+      return <Navigate to={redirectTo || '/staff-login'} state={{ from: location }} replace />;
+    }
+  } else {
+    if (!isAuthenticatedFarmer) {
+      return <Navigate to={redirectTo || '/farmer-login'} state={{ from: location }} replace />;
+    }
   }
 
   return children;

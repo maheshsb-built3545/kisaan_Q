@@ -27,9 +27,8 @@ export default function GovHeader({
     if (onLogout) {
       await onLogout();
     } else {
-      await logout();
-      console.log('[AuthContext] kisanq_token after logout:', localStorage.getItem('kisanq_token'));
-      navigate('/', { replace: true });
+      await logout(portalType);
+      navigate(portalType === 'staff' ? '/staff-login' : '/', { replace: true });
     }
   };
 

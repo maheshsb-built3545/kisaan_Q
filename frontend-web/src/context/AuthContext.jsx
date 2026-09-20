@@ -4,41 +4,83 @@ import { authApi } from '../api/auth.api';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
+  // Farmer Session State
+  const [farmerUser, setFarmerUser] = useState(() => {
     try {
-      const savedUser = localStorage.getItem('kq_user');
-      return savedUser ? JSON.parse(savedUser) : null;
+      const saved = localStorage.getItem('kisanq_farmer_user') || localStorage.getItem('kisanq_farmer_profile');
+      if (saved) return JSON.parse(saved);
+      const legacy = localStorage.getItem('kq_user');
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        if (parsed.role === 'farmer' || !parsed.role) return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
   });
 
-  const [token, setToken] = useState(() => {
-    return localStorage.getItem('kq_token') || null;
+  const [farmerToken, setFarmerToken] = useState(() => {
+    return localStorage.getItem('kisanq_farmer_token') ||
+      (localStorage.getItem('kq_user') && JSON.parse(localStorage.getItem('kq_user') || '{}').role === 'farmer' ? localStorage.getItem('kq_token') : null);
+  });
+
+  // Staff Session State
+  const [staffUser, setStaffUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('kisanq_staff_user') || localStorage.getItem('kisanq_staff_session');
+      if (saved) return JSON.parse(saved);
+      const legacy = localStorage.getItem('kq_user');
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        if (parsed.role && parsed.role !== 'farmer') return parsed;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [staffToken, setStaffToken] = useState(() => {
+    return localStorage.getItem('kisanq_staff_token') ||
+      (localStorage.getItem('kq_user') && JSON.parse(localStorage.getItem('kq_user') || '{}').role !== 'farmer' ? localStorage.getItem('kq_token') : null);
   });
 
   const [isLoading, setIsLoading] = useState(true);
 
-  // Validate session on mount if token exists
+  // Determine current active user/token context based on pathname or active presence
+  const isStaffRoute = typeof window !== 'undefined' && (
+    window.location.pathname.startsWith('/staff') ||
+    window.location.pathname.startsWith('/admin') ||
+    window.location.pathname.startsWith('/supervisor') ||
+    window.location.pathname.startsWith('/guard') ||
+    window.location.pathname.startsWith('/weighmaster') ||
+    window.location.pathname.startsWith('/planning')
+  );
+
+  const activeUser = isStaffRoute ? (staffUser || farmerUser) : (farmerUser || staffUser);
+  const activeToken = isStaffRoute ? (staffToken || farmerToken) : (farmerToken || staffToken);
+
+  // Validate active session on mount
   useEffect(() => {
     const initAuth = async () => {
-      if (token) {
+      if (staffToken) {
         try {
           const res = await authApi.getMe();
-          if (res.data?.user) {
-            setUser(res.data.user);
-            localStorage.setItem('kq_user', JSON.stringify(res.data.user));
+          if (res.data?.user && res.data.user.role !== 'farmer') {
+            setStaffUser(res.data.user);
+            localStorage.setItem('kisanq_staff_user', JSON.stringify(res.data.user));
+            localStorage.setItem('kisanq_staff_session', JSON.stringify(res.data.user));
           }
         } catch (err) {
-          console.warn('[AuthContext] Session validation failed or offline fallback', err.message);
-          // Retain stored user
+          console.warn('[AuthContext] Staff session validation fallback:', err.message);
         }
       }
       setIsLoading(false);
     };
 
     initAuth();
-  }, [token]);
+  }, [staffToken]);
 
   /**
    * Request OTP for Farmer
@@ -49,7 +91,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /**
-   * Verify Farmer OTP and persist token
+   * Verify Farmer OTP and persist isolated farmer token
    */
   const farmerOtpVerify = useCallback(async ({ phone, otp, name, preferredLanguage, registeredVia = 'app', passcode, mode }) => {
     const res = await authApi.verifyFarmerOtp({ phone, otp, name, preferredLanguage, registeredVia, passcode, mode });
@@ -57,12 +99,15 @@ export const AuthProvider = ({ children }) => {
       const authToken = res.data.token;
       const authUser = res.data.user;
 
-      setToken(authToken);
-      setUser(authUser);
+      setFarmerToken(authToken);
+      setFarmerUser(authUser);
 
+      localStorage.setItem('kisanq_farmer_token', authToken);
+      localStorage.setItem('kisanq_farmer_user', JSON.stringify(authUser));
+      localStorage.setItem('kisanq_farmer_profile', JSON.stringify(authUser));
+      // Retain fallback key for non-isolated legacy readers
       localStorage.setItem('kq_token', authToken);
       localStorage.setItem('kq_user', JSON.stringify(authUser));
-      localStorage.setItem('kisanq_farmer_profile', JSON.stringify(authUser));
     }
     return res;
   }, []);
@@ -76,7 +121,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /**
-   * Step 2: Staff Verify OTP & Establish Authenticated Session
+   * Step 2: Staff Verify OTP & Establish Authenticated Staff Session
    */
   const staffVerifyOtp = useCallback(async ({ challengeToken, otp }) => {
     const res = await authApi.verifyStaffOtp({ challengeToken, otp });
@@ -84,11 +129,11 @@ export const AuthProvider = ({ children }) => {
       const authToken = res.data.token;
       const authUser = res.data.user;
 
-      setToken(authToken);
-      setUser(authUser);
+      setStaffToken(authToken);
+      setStaffUser(authUser);
 
-      localStorage.setItem('kq_token', authToken);
-      localStorage.setItem('kq_user', JSON.stringify(authUser));
+      localStorage.setItem('kisanq_staff_token', authToken);
+      localStorage.setItem('kisanq_staff_user', JSON.stringify(authUser));
       localStorage.setItem('kisanq_staff_session', JSON.stringify(authUser));
       if (authUser.assignedMandi) {
         localStorage.setItem('kisanq_active_mandi_id', authUser.assignedMandi);
@@ -98,7 +143,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /**
-   * Switch Active Mandi Center
+   * Switch Active Mandi Center for Staff
    */
   const switchCenter = useCallback(async ({ targetMandiId, targetMandiName }) => {
     const res = await authApi.switchStaffCenter({ targetMandiId, targetMandiName });
@@ -106,11 +151,11 @@ export const AuthProvider = ({ children }) => {
       const authToken = res.data.token;
       const authUser = res.data.user;
 
-      setToken(authToken);
-      setUser(authUser);
+      setStaffToken(authToken);
+      setStaffUser(authUser);
 
-      localStorage.setItem('kq_token', authToken);
-      localStorage.setItem('kq_user', JSON.stringify(authUser));
+      localStorage.setItem('kisanq_staff_token', authToken);
+      localStorage.setItem('kisanq_staff_user', JSON.stringify(authUser));
       localStorage.setItem('kisanq_staff_session', JSON.stringify(authUser));
       localStorage.setItem('kisanq_active_mandi_id', targetMandiId);
     }
@@ -126,11 +171,11 @@ export const AuthProvider = ({ children }) => {
       const authToken = res.data.token;
       const authUser = res.data.user;
 
-      setToken(authToken);
-      setUser(authUser);
+      setStaffToken(authToken);
+      setStaffUser(authUser);
 
-      localStorage.setItem('kq_token', authToken);
-      localStorage.setItem('kq_user', JSON.stringify(authUser));
+      localStorage.setItem('kisanq_staff_token', authToken);
+      localStorage.setItem('kisanq_staff_user', JSON.stringify(authUser));
       localStorage.setItem('kisanq_staff_session', JSON.stringify(authUser));
       if (authUser.assignedMandi) {
         localStorage.setItem('kisanq_active_mandi_id', authUser.assignedMandi);
@@ -156,56 +201,105 @@ export const AuthProvider = ({ children }) => {
     const res = await authApi.updatePickupLocation({ latitude, longitude, address, phone });
     if (res?.data?.pickupLocation) {
       const updatedUser = {
-        ...(user || {}),
+        ...(farmerUser || {}),
         pickupLocation: res.data.pickupLocation
       };
-      setUser(updatedUser);
-      localStorage.setItem('kq_user', JSON.stringify(updatedUser));
+      setFarmerUser(updatedUser);
+      localStorage.setItem('kisanq_farmer_user', JSON.stringify(updatedUser));
       localStorage.setItem('kisanq_farmer_profile', JSON.stringify(updatedUser));
     }
     return res;
-  }, [user]);
+  }, [farmerUser]);
 
   /**
    * Clear active Farmer session before starting new login / registration flow
    */
   const clearFarmerSession = useCallback(() => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('kq_token');
-    localStorage.removeItem('kq_user');
-    localStorage.removeItem('kisanq_token');
-    localStorage.removeItem('kisanq_user');
+    setFarmerToken(null);
+    setFarmerUser(null);
+    localStorage.removeItem('kisanq_farmer_token');
+    localStorage.removeItem('kisanq_farmer_user');
     localStorage.removeItem('kisanq_farmer_profile');
-    localStorage.removeItem('kisanq_staff_session');
-    localStorage.removeItem('kisanq_active_mandi_id');
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
   }, []);
 
   /**
-   * Logout user and completely purge authentication tokens
+   * Logout Farmer specifically (Preserves staff session!)
    */
-  const logout = useCallback(async () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('kq_token');
-    localStorage.removeItem('kq_user');
-    localStorage.removeItem('kisanq_token');
-    localStorage.removeItem('kisanq_user');
+  const logoutFarmer = useCallback(() => {
+    setFarmerToken(null);
+    setFarmerUser(null);
+    localStorage.removeItem('kisanq_farmer_token');
+    localStorage.removeItem('kisanq_farmer_user');
     localStorage.removeItem('kisanq_farmer_profile');
+    if (!staffToken) {
+      localStorage.removeItem('kq_token');
+      localStorage.removeItem('kq_user');
+    }
+  }, [staffToken]);
+
+  /**
+   * Logout Staff specifically (Preserves farmer session!)
+   */
+  const logoutStaff = useCallback(() => {
+    setStaffToken(null);
+    setStaffUser(null);
+    localStorage.removeItem('kisanq_staff_token');
+    localStorage.removeItem('kisanq_staff_user');
     localStorage.removeItem('kisanq_staff_session');
     localStorage.removeItem('kisanq_active_mandi_id');
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-  }, []);
+    if (!farmerToken) {
+      localStorage.removeItem('kq_token');
+      localStorage.removeItem('kq_user');
+    }
+  }, [farmerToken]);
+
+  /**
+   * Context-Aware Logout: Logs out only the relevant area
+   */
+  const logout = useCallback(async (area) => {
+    if (area === 'farmer') {
+      logoutFarmer();
+      return;
+    }
+    if (area === 'staff') {
+      logoutStaff();
+      return;
+    }
+
+    // Auto-detect area based on current URL
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+    const isStaff = currentPath.startsWith('/staff') ||
+      currentPath.startsWith('/admin') ||
+      currentPath.startsWith('/supervisor') ||
+      currentPath.startsWith('/guard') ||
+      currentPath.startsWith('/weighmaster') ||
+      currentPath.startsWith('/planning');
+
+    if (isStaff) {
+      logoutStaff();
+    } else {
+      logoutFarmer();
+    }
+  }, [logoutFarmer, logoutStaff]);
 
   const value = {
-    user,
-    token,
-    role: user?.role || null,
-    isAuthenticated: !!token && !!user,
+    // Current Active (Context-Sensitive)
+    user: activeUser,
+    token: activeToken,
+    role: activeUser?.role || null,
+    isAuthenticated: Boolean(activeToken && activeUser),
     isLoading,
+
+    // Explicit Isolated Sessions
+    farmerUser,
+    farmerToken,
+    isAuthenticatedFarmer: Boolean(farmerToken && farmerUser),
+
+    staffUser,
+    staffToken,
+    isAuthenticatedStaff: Boolean(staffToken && staffUser),
+
+    // Auth actions
     farmerOtpRequest,
     farmerOtpVerify,
     updateFarmerPickupLocation,
@@ -216,8 +310,9 @@ export const AuthProvider = ({ children }) => {
     staffLogin,
     login,
     logout,
+    logoutFarmer,
+    logoutStaff,
   };
-
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
@@ -231,4 +326,3 @@ export const useAuth = () => {
 };
 
 export default AuthContext;
-

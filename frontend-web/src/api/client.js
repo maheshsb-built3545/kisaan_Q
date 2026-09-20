@@ -13,13 +13,25 @@ const apiClient = axios.create({
   },
 });
 
-/**
- * Request Interceptor
- * Automatically injects the stored JWT Bearer token if available
- */
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('kq_token') || localStorage.getItem('token');
+    const isStaffArea = typeof window !== 'undefined' && (
+      window.location.pathname.startsWith('/staff') ||
+      window.location.pathname.startsWith('/admin') ||
+      window.location.pathname.startsWith('/supervisor') ||
+      window.location.pathname.startsWith('/guard') ||
+      window.location.pathname.startsWith('/weighmaster') ||
+      window.location.pathname.startsWith('/planning')
+    );
+
+    const staffToken = localStorage.getItem('kisanq_staff_token') || localStorage.getItem('kq_staff_token');
+    const farmerToken = localStorage.getItem('kisanq_farmer_token') || localStorage.getItem('kq_farmer_token');
+
+    let token = isStaffArea ? (staffToken || farmerToken) : (farmerToken || staffToken);
+    if (!token) {
+      token = localStorage.getItem('kq_token') || localStorage.getItem('token');
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
