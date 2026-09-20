@@ -92,6 +92,31 @@ async function runTests() {
     mandiId: 'SRD-02'
   });
 
+  const supervisorToken = signToken({
+    id: '64b8f0a1c1d2e3f4a5b6c707',
+    phone: '9800000007',
+    name: 'V. Pawar',
+    role: 'supervisor',
+    assignedMandi: 'KPG-01',
+    mandiId: 'KPG-01'
+  });
+
+  const districtAdminToken = signToken({
+    id: '64b8f0a1c1d2e3f4a5b6c708',
+    phone: '9800000008',
+    name: 'District Collector',
+    role: 'district_admin',
+    assignedMandi: 'KPG-01',
+    mandiId: 'KPG-01'
+  });
+
+  const adminToken = signToken({
+    id: '64b8f0a1c1d2e3f4a5b6c799',
+    phone: '9800000099',
+    name: 'Global Administrator',
+    role: 'admin'
+  });
+
   // 1. TEST POST /api/fasttrack/rounds/open
   console.log('\n--- Testing POST /api/fasttrack/rounds/open ---');
   
@@ -103,7 +128,23 @@ async function runTests() {
   }, farmerToken);
   assert(resFarmerOpen.status === 403, `Farmer open round refused: [${resFarmerOpen.status}] ${resFarmerOpen.data?.message}`);
 
-  // 1b. Other-centre officer calling rounds/open for KPG-01 -> REFUSED (403)
+  // 1b. Supervisor calling rounds/open -> REFUSED (403)
+  const resSupervisorOpen = await apiRequest('post', '/fasttrack/rounds/open', {
+    centreId: 'KPG-01',
+    slotDate: '2026-09-25',
+    slotHour: 10
+  }, supervisorToken);
+  assert(resSupervisorOpen.status === 403, `Supervisor open round refused: [${resSupervisorOpen.status}] ${resSupervisorOpen.data?.message}`);
+
+  // 1c. District Admin calling rounds/open -> REFUSED (403)
+  const resDistrictAdminOpen = await apiRequest('post', '/fasttrack/rounds/open', {
+    centreId: 'KPG-01',
+    slotDate: '2026-09-25',
+    slotHour: 10
+  }, districtAdminToken);
+  assert(resDistrictAdminOpen.status === 403, `District admin open round refused: [${resDistrictAdminOpen.status}] ${resDistrictAdminOpen.data?.message}`);
+
+  // 1d. Other-centre officer calling rounds/open for KPG-01 -> REFUSED (403)
   const resOtherOfficerOpen = await apiRequest('post', '/fasttrack/rounds/open', {
     centreId: 'KPG-01',
     slotDate: '2026-09-25',
@@ -111,7 +152,7 @@ async function runTests() {
   }, otherCentreOfficerToken);
   assert(resOtherOfficerOpen.status === 403, `Other-centre officer open round refused: [${resOtherOfficerOpen.status}] ${resOtherOfficerOpen.data?.message}`);
 
-  // 1c. Authorised centre officer calling rounds/open -> SUCCESS (201)
+  // 1e. Authorised centre officer calling rounds/open -> SUCCESS (201)
   const resAuthOfficerOpen = await apiRequest('post', '/fasttrack/rounds/open', {
     centreId: 'KPG-01',
     mandiId: 'KPG-01',
@@ -137,7 +178,32 @@ async function runTests() {
     assert(res.status === 403, `Farmer calling ${alias.path} refused: [${res.status}] ${res.data?.message}`);
   }
 
-  // 2b. Other-centre officer calling decision aliases -> REFUSED (403)
+  // 2b. Supervisor calling decision aliases -> REFUSED (403)
+  for (const alias of decisionAliases) {
+    const res = await apiRequest(alias.method, alias.path, alias.body, supervisorToken);
+    assert(res.status === 403, `Supervisor calling ${alias.path} refused: [${res.status}] ${res.data?.message}`);
+  }
+
+  // 2c. District Admin calling decision aliases -> REFUSED (403)
+  for (const alias of decisionAliases) {
+    const res = await apiRequest(alias.method, alias.path, alias.body, districtAdminToken);
+    assert(res.status === 403, `District admin calling ${alias.path} refused: [${res.status}] ${res.data?.message}`);
+  }
+
+  // 2d. Global Admin calling decision aliases -> REFUSED (403)
+  for (const alias of decisionAliases) {
+    const res = await apiRequest(alias.method, alias.path, alias.body, adminToken);
+    assert(res.status === 403, `Global Admin calling ${alias.path} refused: [${res.status}] ${res.data?.message}`);
+  }
+
+  // 2e. Supervisor & District Admin calling start-decision -> REFUSED (403)
+  const resSupStart = await apiRequest('post', `/fasttrack/rounds/${testRoundId}/start-decision`, { approved: true }, supervisorToken);
+  assert(resSupStart.status === 403, `Supervisor calling start-decision refused: [${resSupStart.status}] ${resSupStart.data?.message}`);
+
+  const resDistStart = await apiRequest('post', `/fasttrack/rounds/${testRoundId}/start-decision`, { approved: true }, districtAdminToken);
+  assert(resDistStart.status === 403, `District Admin calling start-decision refused: [${resDistStart.status}] ${resDistStart.data?.message}`);
+
+  // 2f. Other-centre officer calling decision aliases -> REFUSED (403)
   for (const alias of decisionAliases) {
     const res = await apiRequest(alias.method, alias.path, alias.body, otherCentreOfficerToken);
     assert(res.status === 403, `Other-centre officer calling ${alias.path} refused: [${res.status}] ${res.data?.message}`);

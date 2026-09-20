@@ -33,7 +33,7 @@ router.get('/rounds/:id/bids', optionalAuthenticate, fastTrackBiddingController.
 router.post(
   '/rounds/open',
   authenticateToken,
-  checkRole('resource_officer', 'supervisor', 'admin', 'system'),
+  checkRole('resource_officer', 'system'),
   scopeToCentre,
   fastTrackBiddingController.openRound
 );
@@ -62,12 +62,12 @@ router.post('/rounds/:id/bids', authenticateToken, checkRole('farmer'), fastTrac
 /**
  * @route   POST /api/fasttrack/rounds/:id/start-decision
  * @desc    Centre Officer approves or declines start request
- * @access  Resource Officer / Supervisor / Admin
+ * @access  Resource Officer of that centre only
  */
 router.post(
   '/rounds/:id/start-decision',
   authenticateToken,
-  checkRole('resource_officer', 'supervisor', 'admin'),
+  checkRole('resource_officer'),
   scopeToCentre,
   fastTrackBiddingController.officerStartDecision
 );
@@ -75,12 +75,12 @@ router.post(
 /**
  * @route   POST /api/fasttrack/rounds/:id/decision
  * @desc    Centre Officer approves or declines winning bid
- * @access  Resource Officer / Supervisor / Admin
+ * @access  Resource Officer of that centre only
  */
 router.post(
   '/rounds/:id/decision',
   authenticateToken,
-  checkRole('resource_officer', 'supervisor', 'admin'),
+  checkRole('resource_officer'),
   scopeToCentre,
   fastTrackBiddingController.officerDecision
 );
@@ -102,7 +102,7 @@ router.post('/rounds/:id/bid', authenticateToken, checkRole('farmer'), fastTrack
 router.patch(
   '/rounds/:id/approve',
   authenticateToken,
-  checkRole('resource_officer', 'supervisor', 'admin'),
+  checkRole('resource_officer'),
   scopeToCentre,
   (req, res) => {
     req.body = { ...req.body, approved: true };
@@ -117,7 +117,7 @@ router.patch(
 router.patch(
   '/rounds/:id/decline',
   authenticateToken,
-  checkRole('resource_officer', 'supervisor', 'admin'),
+  checkRole('resource_officer'),
   scopeToCentre,
   (req, res) => {
     req.body = { ...req.body, approved: false };
@@ -132,7 +132,7 @@ router.patch(
 router.post(
   '/:id/approve',
   authenticateToken,
-  checkRole('resource_officer', 'supervisor', 'admin'),
+  checkRole('resource_officer'),
   scopeToCentre,
   (req, res) => {
     req.body = { ...req.body, approved: true };
@@ -147,7 +147,7 @@ router.post(
 router.post(
   '/:id/reject',
   authenticateToken,
-  checkRole('resource_officer', 'supervisor', 'admin'),
+  checkRole('resource_officer'),
   scopeToCentre,
   (req, res) => {
     req.body = { ...req.body, approved: false };
