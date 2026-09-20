@@ -154,15 +154,26 @@ async function runComplaintTests() {
     const validComplaintRes = await makeRequest('/api/complaints', 'POST', {
       tokenNumber: tokActiveA,
       checkpoint: 'QUALITY_GRADING',
-      category: 'QUALITY_DISPUTE',
+      category: 'ASSAYING_DISPUTE',
       description: 'Assayer assigned Grade B instead of Grade A for clean moisture lot'
     }, farmerAJwt);
 
     assert(validComplaintRes.status === 201, 'POST /api/complaints returns 201 Created for active token');
     const compA = validComplaintRes.body?.data;
     assert(compA?.complaintId?.startsWith('CMP-'), `Generated complaint ID: ${compA?.complaintId}`);
-    assert(compA?.status === 'OPEN', 'Initial grievance status is OPEN');
+    assert(compA?.status === 'PENDING', 'Initial grievance status is PENDING per PRD contract');
     assert(compA?.checkpoint === 'QUALITY_GRADING', 'Canonical checkpoint mapped to QUALITY_GRADING');
+    assert(compA?.category === 'ASSAYING_DISPUTE', 'Dispute category is ASSAYING_DISPUTE');
+    assert(compA?.source === 'farmer', 'Complaint source is farmer');
+
+    // Test A.2: Exactly 1 open complaint per checkpoint per token
+    const duplicateCheckpointRes = await makeRequest('/api/complaints', 'POST', {
+      tokenNumber: tokActiveA,
+      checkpoint: 'QUALITY_GRADING',
+      category: 'ASSAYING_DISPUTE',
+      description: 'Second duplicate complaint on quality grading checkpoint'
+    }, farmerAJwt);
+    assert(duplicateCheckpointRes.status === 400, 'Second complaint on same checkpoint for same token rejected with 400 (1 open per checkpoint rule)');
 
     // Test B: Attempt complaint on cancelled token (Must be rejected)
     const cancelledComplaintRes = await makeRequest('/api/complaints', 'POST', {
@@ -183,7 +194,7 @@ async function runComplaintTests() {
     // Test D: Farmer B cannot file complaint on Farmer A's token
     const unauthorizedRes = await makeRequest('/api/complaints', 'POST', {
       tokenNumber: tokActiveA,
-      checkpoint: 'QUALITY_GRADING',
+      checkpoint: 'WEIGHBRIDGE',
       description: 'Farmer B unauthorized hijack attempt'
     }, farmerBJwt);
     assert(unauthorizedRes.status === 403, 'Unauthorized filing on stranger token rejected with 403');
@@ -195,7 +206,7 @@ async function runComplaintTests() {
     const compShirdiRes = await makeRequest('/api/complaints', 'POST', {
       tokenNumber: tokShirdiB,
       checkpoint: 'WEIGHBRIDGE',
-      category: 'WEIGHT_DISCREPANCY',
+      category: 'WEIGHMENT_VARIANCE',
       description: 'Tare weight mismatch on scale #2 by 150 kg'
     }, farmerBJwt);
     assert(compShirdiRes.status === 201, 'Farmer B filed grievance at Shirdi APMC (201 Created)');
@@ -241,6 +252,13 @@ async function runComplaintTests() {
     // Section 6: Supervisor Resolution & Cross-Centre Security
     // -----------------------------------------------------------------------
     console.log('\n--- Section 6: Supervisor Resolution & Cross-Centre Security ---');
+    // Resolution without reason rejected with 400
+    const noNotesRes = await makeRequest(`/api/complaints/${compA?.complaintId}/resolve`, 'PATCH', {
+      status: 'RESOLVED',
+      resolutionNotes: ''
+    }, supervisorKpgJwt);
+    assert(noNotesRes.status === 400, 'Resolution attempt without mandatory notes rejected with 400');
+
     // Shirdi supervisor cannot resolve Kopargaon grievance
     const crossCentreRes = await makeRequest(`/api/complaints/${compA?.complaintId}/resolve`, 'PATCH', {
       status: 'RESOLVED',
@@ -256,6 +274,11 @@ async function runComplaintTests() {
     assert(validResolveRes.status === 200, 'Kopargaon supervisor resolved grievance with 200 OK');
     assert(validResolveRes.body?.data?.status === 'RESOLVED', 'Complaint status updated to RESOLVED');
     assert(validResolveRes.body?.data?.resolutionNotes?.includes('Grade upgraded to Grade A'), 'Resolution notes persisted');
+
+    // Query with source filter
+    const sourceFarmerRes = await makeRequest('/api/complaints?source=farmer', 'GET', null, supervisorKpgJwt);
+    assert(sourceFarmerRes.status === 200, 'GET /api/complaints?source=farmer returns 200 OK');
+    assert(sourceFarmerRes.body?.data?.complaints.every((c) => c.source === 'farmer'), 'Source filter farmer strictly matched');
 
     // -----------------------------------------------------------------------
     // Section 7: Farmer History View (GET /api/complaints/my)
