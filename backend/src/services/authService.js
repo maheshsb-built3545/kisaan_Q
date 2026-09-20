@@ -37,6 +37,12 @@ const inMemoryFarmers = new Map();
 const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 const CHALLENGE_EXPIRY_MS = 2 * 60 * 1000; // 2 minutes (Step 1 -> Step 2 2FA)
 
+const isDevAuthAllowed = () => {
+  if (process.env.ALLOW_DEV_AUTH === 'false') return false;
+  if (process.env.ALLOW_DEV_AUTH === 'true') return true;
+  return process.env.NODE_ENV !== 'production';
+};
+
 // Official 5-Desk Seeded Staff Registry Specification
 const SEEDED_STAFF_REGISTRY = [
   {
@@ -322,8 +328,8 @@ const authService = {
     if (staff.passwordHash) {
       isMatch = await bcrypt.compare(password.toString().trim(), staff.passwordHash);
     }
-    // Allow default password or dev master password in offline mode
-    if (!isMatch && (password === 'Staff@KisanQ2026' || password === '123456')) {
+    // Allow default password or dev master password in offline mode only when dev auth is enabled
+    if (isDevAuthAllowed() && !isMatch && (password === 'Staff@KisanQ2026' || password === '123456')) {
       isMatch = true;
     }
 
@@ -336,6 +342,7 @@ const authService = {
     // Generate 2-Minute Internal Challenge Token
     const challengeToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = Date.now() + CHALLENGE_EXPIRY_MS;
+    const staffOtp = isDevAuthAllowed() ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
     const challengeData = {
       challengeToken,
       staffId: (staff._id || staff.id).toString(),
@@ -348,7 +355,7 @@ const authService = {
       terminalCode: staff.terminalCode || 'TERM-01',
       assignedMandi: staff.assignedMandi || 'KPG-01',
       assignedMandiName: staff.assignedMandiName || 'APMC Kopargaon',
-      otp: '123456',
+      otp: staffOtp,
       expiresAt
     };
 
@@ -394,7 +401,8 @@ const authService = {
     }
 
     const enteredOtp = otp.toString().trim();
-    if (enteredOtp !== challenge.otp && enteredOtp !== '123456') {
+    const isDev2FaBypass = isDevAuthAllowed() && enteredOtp === '123456';
+    if (enteredOtp !== challenge.otp && !isDev2FaBypass) {
       const err = new Error('Invalid verification OTP. Enter the 6-digit code dispatched to your registered mobile.');
       err.statusCode = 401;
       throw err;
@@ -572,7 +580,7 @@ const authService = {
       isRegistered: Boolean(existingFarmer),
       farmerName: existingFarmer?.name || name,
       expiresInSeconds: OTP_EXPIRY_MS / 1000,
-      devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
+      devOtp: isDevAuthAllowed() ? otp : undefined
     };
   },
 
@@ -588,8 +596,8 @@ const authService = {
     }
 
     const cleanOtp = otp.toString().trim();
-    // Universal Magic Dev Bypass: 999999, 123456, 111111 bypass the in-memory otpStore entirely
-    const isBypassOtp = cleanOtp === '999999' || cleanOtp === '123456' || cleanOtp === '111111';
+    // Universal Magic Dev Bypass: 999999, 123456, 111111 bypass the in-memory otpStore entirely in dev mode
+    const isBypassOtp = isDevAuthAllowed() && (cleanOtp === '999999' || cleanOtp === '123456' || cleanOtp === '111111');
 
     const storedData = otpStore.get(rawPhone);
 
@@ -760,7 +768,7 @@ const authService = {
     if (staff.passwordHash) {
       isMatch = await bcrypt.compare(password.toString().trim(), staff.passwordHash);
     }
-    if (!isMatch && (password === 'Staff@KisanQ2026' || password === '123456')) {
+    if (isDevAuthAllowed() && !isMatch && (password === 'Staff@KisanQ2026' || password === '123456')) {
       isMatch = true;
     }
 
@@ -868,7 +876,8 @@ const authService = {
     };
   },
 
-  inMemoryFarmers
+  inMemoryFarmers,
+  isDevAuthAllowed
 };
 
 module.exports = authService;
