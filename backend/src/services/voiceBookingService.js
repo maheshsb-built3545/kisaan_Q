@@ -12,31 +12,38 @@ const queueService = require('./queueService');
 const procurementService = require('./procurementService');
 const { TOKEN_STATUS, normalizeStatus } = require('../utils/statusEnums');
 
-// ─── Constants & Master Lists ──────────────────────────────────────────────────
+const {
+  VOICE_CONFIG,
+  CANONICAL_CENTRES,
+  CANONICAL_CROPS,
+  CANONICAL_SLOTS,
+  normalizeCentre,
+  normalizeCrop,
+  normalizeQuantity,
+  normalizeSlot,
+  extractRuleBasedBookingFields
+} = require('../config/voiceConfig');
 
-const KNOWN_CENTRES = [
-  { code: 'KPG-01', id: 'KPG-01', name: 'APMC Kopargaon', nameMarathi: 'कोपरगाव कृषी उत्पन्न बाजार समिती', nameHindi: 'कोपरगांव कृषि उपज मंडी', keywords: ['kopargaon', 'kopergaon', 'कोपरगाव', 'कोपरगांव'] },
-  { code: 'SRD-02', id: 'SRD-02', name: 'APMC Shirdi', nameMarathi: 'शिर्डी कृषी उत्पन्न बाजार समिती', nameHindi: 'शिर्डी कृषि उपज मंडी', keywords: ['shirdi', 'sirdi', 'शिर्डी', 'शिरडी'] },
-  { code: 'RHT-03', id: 'RHT-03', name: 'APMC Rahata', nameMarathi: 'राहाता कृषी उत्पन्न बाजार समिती', nameHindi: 'राहाता कृषि उपज मंडी', keywords: ['rahata', 'rahta', 'राहाता', 'राहता'] },
-  { code: 'VJP-04', id: 'VJP-04', name: 'APMC Vaijapur', nameMarathi: 'वैजापूर कृषी उत्पन्न बाजार समिती', nameHindi: 'वैजापुर कृषि उपज मंडी', keywords: ['vaijapur', 'vaizapur', 'वैजापूर', 'वैजापुर'] },
-  { code: 'SRP-05', id: 'SRP-05', name: 'APMC Shrirampur', nameMarathi: 'श्रीरामपूर कृषी उत्पन्न बाजार समिती', nameHindi: 'श्रीरामपुर कृषि उपज मंडी', keywords: ['shrirampur', 'shreerampur', 'श्रीरामपूर', 'श्रीरामपुर'] },
-  { code: 'LSG-06', id: 'LSG-06', name: 'APMC Lasalgaon', nameMarathi: 'लासलगाव कांदा बाजार समिती', nameHindi: 'लासलगांव प्याज मंडी', keywords: ['lasalgaon', 'lasalganw', 'लासलगाव', 'लासलगांव'] }
-];
+// ─── Constants & Master Lists (re-exported for backward compatibility) ─────────
 
-const KNOWN_CROPS = [
-  { id: 'Soybean', nameEn: 'Soybean', nameMr: 'सोयाबीन', nameHi: 'सोयाबीन', keywords: ['soybean', 'soya', 'soyabean', 'सोयाबीन', 'सोया'] },
-  { id: 'Cotton', nameEn: 'Cotton', nameMr: 'कापूस', nameHi: 'कपास', keywords: ['cotton', 'kapas', 'kapus', 'कापूस', 'कपास'] },
-  { id: 'Wheat', nameEn: 'Wheat', nameMr: 'गहू', nameHi: 'गेहूं', keywords: ['wheat', 'gehu', 'gahu', 'गहू', 'गेहूं'] },
-  { id: 'Onion', nameEn: 'Onion', nameMr: 'कांदा', nameHi: 'प्याज', keywords: ['onion', 'kanda', 'pyaj', 'pyaz', 'कांदा', 'प्याज', 'red onion'] },
-  { id: 'Maize', nameEn: 'Maize', nameMr: 'मका', nameHi: 'मक्का', keywords: ['maize', 'corn', 'maka', 'makka', 'मका', 'मक्का'] },
-  { id: 'Chana', nameEn: 'Chana', nameMr: 'हरभरा', nameHi: 'चना', keywords: ['chana', 'harbhara', 'gram', 'हरभरा', 'चना'] }
-];
+const KNOWN_CENTRES = CANONICAL_CENTRES.map((c) => ({
+  code: c.code,
+  id: c.id,
+  name: c.canonicalName,
+  nameMarathi: c.nameMarathi,
+  nameHindi: c.nameHindi,
+  keywords: c.keywords
+}));
 
-const DEFAULT_SLOTS = [
-  { id: 'S1', label: 'Morning  08:00 – 11:00 AM', slotLabel: '08:00 AM - 11:00 AM', start: '08:00', end: '11:00', keywords: ['morning', 'sakali', 'subah', 'सकाळी', 'सुबह', 'सकाळ', '8', '8 to 11', 'pahila', 'पहिला'] },
-  { id: 'S2', label: 'Midday   11:00 AM – 02:00 PM', slotLabel: '11:00 AM - 02:00 PM', start: '11:00', end: '14:00', keywords: ['midday', 'noon', 'dupari', 'dopahar', 'दुपारी', 'दोपहर', 'dupar', '11', '11 to 2', 'dusra', 'दूसरा'] },
-  { id: 'S3', label: 'Afternoon 02:00 – 05:00 PM', slotLabel: '02:00 PM - 05:00 PM', start: '14:00', end: '17:00', keywords: ['afternoon', 'evening', 'sandhyakali', 'sham', 'संध्याकाळी', 'शाम', 'tisra', 'तीसरा', '2 to 5', '2'] }
-];
+const KNOWN_CROPS = CANONICAL_CROPS.map((c) => ({
+  id: c.id,
+  nameEn: c.canonicalName,
+  nameMr: c.nameMarathi,
+  nameHi: c.nameHindi,
+  keywords: c.keywords
+}));
+
+const DEFAULT_SLOTS = CANONICAL_SLOTS;
 
 // Master Support Info
 const SUPPORT_INFO = {
@@ -222,22 +229,26 @@ async function transcribeAudio(audioBuffer, languageHint = 'mr', mimeType = 'aud
  */
 async function handleBookSlot({ centre, crop, quantity, slot }, session) {
   try {
-    // Normalize centre
-    let matchedCentre = KNOWN_CENTRES.find((c) =>
-      c.code.toLowerCase() === String(centre).toLowerCase() ||
-      c.name.toLowerCase().includes(String(centre).toLowerCase()) ||
-      c.keywords.some((kw) => String(centre).toLowerCase().includes(kw.toLowerCase()))
-    ) || KNOWN_CENTRES[0];
+    // 1. Normalize centre (enforces never accepting a list of centres as one centre)
+    const centreNorm = normalizeCentre(String(centre || ''));
+    if (centreNorm && centreNorm.error === 'ambiguous_multiple_centres') {
+      return {
+        success: false,
+        action: 'book_slot',
+        error: 'ambiguous_centre',
+        message: 'Multiple APMC centres detected in your request. Please specify which single centre you prefer (e.g. Kopargaon or Shirdi).'
+      };
+    }
 
-    // Normalize crop
-    let matchedCrop = KNOWN_CROPS.find((cr) =>
-      cr.id.toLowerCase() === String(crop).toLowerCase() ||
-      cr.keywords.some((kw) => String(crop).toLowerCase().includes(kw.toLowerCase()))
-    ) || { id: 'Soybean', nameEn: 'Soybean', nameMr: 'सोयाबीन', nameHi: 'सोयाबीन' };
+    const matchedCentre = centreNorm?.centre || KNOWN_CENTRES[0];
 
-    // Normalize quantity
-    let qty = Number(quantity);
-    if (isNaN(qty) || qty <= 0) qty = 25;
+    // 2. Normalize crop (en/hi/mr canonical mapping)
+    const cropNorm = normalizeCrop(String(crop || ''));
+    const matchedCrop = cropNorm ? { id: cropNorm.id, nameEn: cropNorm.name, nameMr: cropNorm.nameMarathi, nameHi: cropNorm.nameHindi } : KNOWN_CROPS[0];
+
+    // 3. Normalize quantity (converts "25 Quintal", "25 क्विंटल", "30 ton", etc. to numbers)
+    let qty = normalizeQuantity(quantity);
+    if (!qty || isNaN(qty) || qty <= 0) qty = 25;
     if (qty > 100) qty = 100;
 
     // Normalize slot & date
@@ -840,129 +851,186 @@ async function processConversationalMessage(sessionId, { audioBuffer, textAnswer
     content: userText
   });
 
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    logger.warn('[VoiceBooking] GROQ_API_KEY missing, using offline fallback reply');
-    return getOfflineFallbackReply(sessionId, userText, currentLang);
-  }
-
-  // Verified tool-calling models on Groq
-  const models = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'];
+  const groqKey = process.env.GROQ_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
 
   let finalReplyText = '';
   let executedAction = 'none';
   let executedActionResult = null;
 
-  for (const model of models) {
-    try {
-      const sanitizedMessages = cleanMessagesForGroq(session.messages);
+  // ── Step A: Groq Primary NLU Tool-Calling ─────────────────────────────────────
+  if (groqKey) {
+    const models = VOICE_CONFIG.nlu.groqModels || ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model,
-          messages: sanitizedMessages,
-          tools: ASSISTANT_TOOLS,
-          tool_choice: 'auto',
-          temperature: 0.2
-        }),
-        signal: AbortSignal.timeout(18000)
-      });
+    for (const model of models) {
+      try {
+        const sanitizedMessages = cleanMessagesForGroq(session.messages);
 
-      if (!response.ok) {
-        const errText = await response.text();
-        logger.warn(`[VoiceBooking] Groq chat ${model} error ${response.status}: ${errText}`);
-        continue;
-      }
-
-      const json = await response.json();
-      const assistantMessage = json.choices?.[0]?.message;
-
-      if (!assistantMessage) continue;
-
-      // Check if LLM invoked tool calls
-      if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
-        session.messages.push({
-          role: 'assistant',
-          content: assistantMessage.content || null,
-          tool_calls: assistantMessage.tool_calls
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${groqKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model,
+            messages: sanitizedMessages,
+            tools: ASSISTANT_TOOLS,
+            tool_choice: 'auto',
+            temperature: 0.1
+          }),
+          signal: AbortSignal.timeout(18000)
         });
 
-        for (const toolCall of assistantMessage.tool_calls) {
-          const fnName = toolCall.function.name;
-          let fnArgs = {};
-          try {
-            fnArgs = JSON.parse(toolCall.function.arguments || '{}');
-          } catch (e) {
-            fnArgs = {};
-          }
+        if (!response.ok) {
+          const errText = await response.text();
+          logger.warn(`[VoiceBooking] Groq chat ${model} error ${response.status}: ${errText}`);
+          continue;
+        }
 
-          const toolResult = await executeAssistantTool(fnName, fnArgs, session);
-          executedAction = fnName;
-          executedActionResult = toolResult;
+        const json = await response.json();
+        const assistantMessage = json.choices?.[0]?.message;
 
-          // Append tool response
+        if (!assistantMessage) continue;
+
+        // Check if LLM invoked tool calls
+        if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
           session.messages.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(toolResult)
-          });
-        }
-
-        // Secondary LLM call to synthesize natural spoken reply with tool results
-        const secondSanitized = cleanMessagesForGroq(session.messages);
-        try {
-          const secondResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              model,
-              messages: secondSanitized,
-              temperature: 0.2
-            }),
-            signal: AbortSignal.timeout(12000)
+            role: 'assistant',
+            content: assistantMessage.content || null,
+            tool_calls: assistantMessage.tool_calls
           });
 
-          if (secondResponse.ok) {
-            const secondJson = await secondResponse.json();
-            const secondReply = secondJson.choices?.[0]?.message?.content;
-            if (secondReply) {
-              finalReplyText = secondReply.trim();
-              session.messages.push({ role: 'assistant', content: finalReplyText });
+          for (const toolCall of assistantMessage.tool_calls) {
+            const fnName = toolCall.function.name;
+            let fnArgs = {};
+            try {
+              fnArgs = JSON.parse(toolCall.function.arguments || '{}');
+            } catch (e) {
+              fnArgs = {};
             }
-          }
-        } catch (secErr) {
-          logger.warn(`[VoiceBooking] Secondary synthesis note: ${secErr.message}`);
-        }
 
-        // Resilient deterministic format if second response was unavailable / rate-limited
-        if (!finalReplyText && executedAction !== 'none') {
-          finalReplyText = formatLocalizedToolResponse(executedAction, executedActionResult, currentLang);
+            const toolResult = await executeAssistantTool(fnName, fnArgs, session);
+            executedAction = fnName;
+            executedActionResult = toolResult;
+
+            // Append tool response
+            session.messages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(toolResult)
+            });
+          }
+
+          // Secondary LLM call to synthesize natural spoken reply with tool results
+          const secondSanitized = cleanMessagesForGroq(session.messages);
+          try {
+            const secondResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${groqKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model,
+                messages: secondSanitized,
+                temperature: 0.1
+              }),
+              signal: AbortSignal.timeout(12000)
+            });
+
+            if (secondResponse.ok) {
+              const secondJson = await secondResponse.json();
+              const secondReply = secondJson.choices?.[0]?.message?.content;
+              if (secondReply) {
+                finalReplyText = secondReply.trim();
+                session.messages.push({ role: 'assistant', content: finalReplyText });
+              }
+            }
+          } catch (secErr) {
+            logger.warn(`[VoiceBooking] Secondary synthesis note: ${secErr.message}`);
+          }
+
+          // Resilient deterministic format if second response was unavailable / rate-limited
+          if (!finalReplyText && executedAction !== 'none') {
+            finalReplyText = formatLocalizedToolResponse(executedAction, executedActionResult, currentLang);
+            session.messages.push({ role: 'assistant', content: finalReplyText });
+          }
+        } else if (assistantMessage.content) {
+          // Direct conversational answer (clarification or guidance)
+          finalReplyText = assistantMessage.content.trim();
           session.messages.push({ role: 'assistant', content: finalReplyText });
         }
-      } else if (assistantMessage.content) {
-        // Direct conversational answer (clarification or guidance)
-        finalReplyText = assistantMessage.content.trim();
-        session.messages.push({ role: 'assistant', content: finalReplyText });
-      }
 
-      if (finalReplyText) {
-        break; // Successfully got response
+        if (finalReplyText) {
+          break; // Successfully got response from Groq
+        }
+      } catch (err) {
+        logger.warn(`[VoiceBooking] Groq conversation attempt with ${model} failed: ${err.message}`);
       }
-    } catch (err) {
-      logger.warn(`[VoiceBooking] Groq conversation attempt with ${model} failed: ${err.message}`);
     }
   }
 
-  // Resilient heuristic intent matching if LLM calls were rate-limited or failed
+  // ── Step B: Gemini Fallback NLU (gemini-3.6-flash) ──────────────────────────────
+  if (!finalReplyText && executedAction === 'none' && geminiKey) {
+    try {
+      const geminiModel = VOICE_CONFIG.nlu.geminiModel || 'gemini-3.6-flash';
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`;
+
+      const geminiPrompt = `You are the KisanQ AI Voice Assistant for Maharashtra APMC Mandis.
+Available centres: Kopargaon (KPG-01), Shirdi (SRD-02), Rahata (RHT-03), Vaijapur (VJP-04), Shrirampur (SRP-05), Lasalgaon (LSG-06).
+Crops: Soybean, Cotton, Wheat, Onion, Maize, Chana.
+Language: ${currentLang}.
+Farmer input: "${userText}".
+
+Respond ONLY with valid JSON:
+{
+  "action": "book_slot" | "check_queue_position" | "check_crop_price" | "check_token_status" | "check_payout_status" | "cancel_booking" | "get_support_info" | "none",
+  "centre": "Kopargaon" | "Shirdi" | null,
+  "crop": "Soybean" | null,
+  "quantity": 25 | null,
+  "slot": "Tomorrow morning" | null,
+  "reply": "Spoken reply in ${currentLang}"
+}`;
+
+      const gRes = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: geminiPrompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: 'application/json'
+          }
+        }),
+        signal: AbortSignal.timeout(12000)
+      });
+
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        const gText = gData.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (gText) {
+          const parsed = JSON.parse(gText);
+          if (parsed.action && parsed.action !== 'none') {
+            const toolResult = await executeAssistantTool(parsed.action, parsed, session);
+            executedAction = parsed.action;
+            executedActionResult = toolResult;
+            finalReplyText = parsed.reply || formatLocalizedToolResponse(executedAction, toolResult, currentLang);
+            session.messages.push({ role: 'assistant', content: finalReplyText });
+          } else if (parsed.reply) {
+            finalReplyText = parsed.reply;
+            session.messages.push({ role: 'assistant', content: finalReplyText });
+          }
+        }
+      }
+    } catch (gErr) {
+      logger.warn(`[VoiceBooking] Gemini fallback call note: ${gErr.message}`);
+    }
+  }
+
+  // ── Step C: Rule-Based Fallback Engine (Regex & Master Dictionary) ─────────────
   if (!finalReplyText && executedAction === 'none') {
+    const ruleResult = extractRuleBasedBookingFields(userText, currentLang);
     const cleanLower = userText.toLowerCase();
 
     // Staff guardrails check
