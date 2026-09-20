@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Globe, Clock, Sparkles, Building2, User, ArrowRight, Shield, Layers, RefreshCw, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { MANDIS } from '../../services/storageService';
+import NotificationBell from './NotificationBell';
 
 export default function GovHeader({
   currentLang = 'en',
@@ -190,6 +191,9 @@ export default function GovHeader({
                 <span>Reset Data</span>
               </button>
             )}
+
+            {/* Unified Notification Bell (Rendered strictly for authenticated sessions) */}
+            {activeUserProfile && <NotificationBell />}
 
             {/* User Profile Pill & Logout */}
             {activeUserProfile && (

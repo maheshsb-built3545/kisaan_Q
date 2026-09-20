@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { Exception, Booking, AuditLog } = require('../models');
+const notificationService = require('./notificationService');
 const logger = require('../utils/logger');
 
 // In-memory fallback stores
@@ -99,6 +100,34 @@ const exceptionService = {
       reason: `[${type}] ${reasonCode}`,
       timestamp: new Date()
     });
+
+    // Scoped Notification Dispatch (Supervisor Desk only — NEVER farmer)
+    try {
+      const centreIdStr = (booking.centreId?._id || booking.centreId || 'KPG-01').toString();
+      notificationService.notify(
+        {
+          id: `staff_${centreIdStr}_supervisor`,
+          type: 'staff',
+          role: 'supervisor',
+          centreId: centreIdStr
+        },
+        'exception_raised',
+        {
+          bookingId: booking._id?.toString() || bookingId,
+          tokenNumber: booking.tokenNumber,
+          category: type,
+          reasonCode,
+          exceptionId: exception._id?.toString(),
+          centreId: centreIdStr
+        },
+        {
+          dedupeKey: `staff_${centreIdStr}_exception_raised_${exception._id}_step`,
+          io: global.io
+        }
+      ).catch((e) => logger.warn(`[Exception] Notification notice: ${e.message}`));
+    } catch (notifErr) {
+      logger.warn(`[Exception] Notification error: ${notifErr.message}`);
+    }
 
     return exception;
   },

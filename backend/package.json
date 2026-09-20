@@ -8,7 +8,8 @@
     "dev": "nodemon src/server.js",
     "seed": "node scripts/seed.js",
     "seed:demo": "node scripts/seedDemo.js",
-    "db:reset": "node scripts/resetData.js"
+    "db:reset": "node scripts/resetData.js",
+    "test:notifications": "node tests/test_notifications.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

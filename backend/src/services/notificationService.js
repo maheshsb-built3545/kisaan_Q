@@ -1,8 +1,10 @@
 const mongoose = require('mongoose');
 const https = require('https');
-const { Notification, Booking, Farmer } = require('../models');
+const { Notification, Booking, Farmer, StaffUser } = require('../models');
 const { inMemoryFarmers } = require('./authService');
 const logger = require('../utils/logger');
+const { SMS_POLICY, DEFAULT_SMS_BUDGET_PER_FARMER } = require('../config/smsPolicy');
+const { renderTemplate } = require('../utils/notificationTemplates');
 
 // In-memory fallback
 const inMemoryNotifications = [];
@@ -15,15 +17,20 @@ const _resolvePhoneAndContext = async (bookingId) => {
   try {
     if (mongoose.connection.readyState !== 1) return null;
     const booking = await Booking.findById(bookingId)
-      .select('farmerId tokenNumber arrivalWindowStart')
+      .select('farmerId tokenNumber arrivalWindowStart centreId')
       .lean();
     if (!booking?.farmerId) return null;
-    const farmer = await Farmer.findById(booking.farmerId).select('phone').lean();
+    const farmer = await Farmer.findById(booking.farmerId).select('phone preferredLanguage noSmartphone smsSentCount').lean();
     if (!farmer?.phone) return null;
     return {
+      farmerId:    booking.farmerId.toString(),
       phone:       farmer.phone,
+      lang:        farmer.preferredLanguage || 'mr',
+      noSmartphone: farmer.noSmartphone || false,
+      smsSentCount: farmer.smsSentCount || 0,
       tokenNumber: booking.tokenNumber || null,
       windowStart: booking.arrivalWindowStart || null,
+      centreId:    booking.centreId?.toString() || null,
     };
   } catch {
     return null;
@@ -31,48 +38,28 @@ const _resolvePhoneAndContext = async (bookingId) => {
 };
 
 // ---------------------------------------------------------------------------
-// Build a real farmer-facing SMS string from messageType + booking context.
-// ---------------------------------------------------------------------------
-const _buildSmsText = (messageType, ctx) => {
-  const token = ctx?.tokenNumber ? `Token ${ctx.tokenNumber}` : 'your booking';
-  const window = ctx?.windowStart
-    ? new Date(ctx.windowStart).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
-    : null;
-
-  switch (messageType) {
-    case 'booking_confirmed':
-      return window
-        ? `KisanQ: ${token} confirmed. Arrive by ${window} at your mandi. Show this SMS at the gate.`
-        : `KisanQ: ${token} confirmed. Please arrive during your scheduled window.`;
-    case 'window_approaching':
-      return window
-        ? `KisanQ: Your arrival window starts at ${window}. Please proceed to the mandi gate now. Token: ${ctx?.tokenNumber || ''}`
-        : `KisanQ: Your arrival window is approaching. Please proceed to the mandi gate.`;
-    case 'status_update':
-      return `KisanQ: Status update for ${token}. Visit the KisanQ app or check with gate staff for details.`;
-    case 'vacancy_released':
-      return `KisanQ: A slot has opened at your mandi. Open the KisanQ app to book now.`;
-    default:
-      return `KisanQ: Update for ${token}.`;
-  }
-};
-
-// ---------------------------------------------------------------------------
 // Internal helper: send one SMS via Fast2SMS
-// Returns 'sent' on success, 'failed' on error.
+// Returns 'sent' on success, 'mock' in dev/unset key, 'failed' on error.
 // ---------------------------------------------------------------------------
 const _fast2smsSend = (phone, message) => {
   return new Promise((resolve) => {
     const apiKey = process.env.FAST2SMS_API_KEY;
     if (!apiKey) {
       logger.warn('[Fast2SMS] FAST2SMS_API_KEY not set — running in SMS mock mode. Real SMS NOT sent.');
-      resolve('mock');
+      resolve({ status: 'mock' });
+      return;
+    }
+
+    const cleanPhone = (phone || '').toString().replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      logger.warn(`[Fast2SMS] Invalid 10-digit Indian phone number: ${phone}`);
+      resolve({ status: 'failed', error: 'Invalid phone number' });
       return;
     }
 
     const body = JSON.stringify({
       route: 'q',           // Quick Transactional route
-      numbers: phone,
+      numbers: cleanPhone,
       message,
       flash: 0,
       language: 'english',
@@ -96,28 +83,28 @@ const _fast2smsSend = (phone, message) => {
         try {
           const parsed = JSON.parse(data);
           if (parsed.return === true) {
-            logger.info(`[Fast2SMS] SMS sent to +91${phone} — request_id: ${parsed.request_id}`);
-            resolve('sent');
+            logger.info(`[Fast2SMS] SMS sent to +91${cleanPhone} — request_id: ${parsed.request_id}`);
+            resolve({ status: 'sent', providerRef: parsed.request_id });
           } else {
-            logger.warn(`[Fast2SMS] API rejected — ${JSON.stringify(parsed)}`);
-            resolve('failed');
+            logger.error(`[Fast2SMS] Gateway rejected message to +91${cleanPhone}: ${JSON.stringify(parsed)}`);
+            resolve({ status: 'failed', error: parsed.message || 'Gateway error' });
           }
-        } catch {
-          logger.warn(`[Fast2SMS] Unexpected response: ${data}`);
-          resolve('failed');
+        } catch (e) {
+          logger.error(`[Fast2SMS] Invalid JSON response from gateway: ${data}`);
+          resolve({ status: 'failed', error: e.message });
         }
       });
     });
 
     req.on('error', (err) => {
-      logger.warn(`[Fast2SMS] Network error: ${err.message}`);
-      resolve('failed');
+      logger.error(`[Fast2SMS] Network error connecting to Fast2SMS: ${err.message}`);
+      resolve({ status: 'failed', error: err.message });
     });
 
     req.setTimeout(8000, () => {
-      logger.warn('[Fast2SMS] Request timed out after 8s');
       req.destroy();
-      resolve('failed');
+      logger.error('[Fast2SMS] Request timed out after 8000ms');
+      resolve({ status: 'failed', error: 'Timeout' });
     });
 
     req.write(body);
@@ -125,303 +112,360 @@ const _fast2smsSend = (phone, message) => {
   });
 };
 
-// ---------------------------------------------------------------------------
-// Internal helper: resolve push token AND booking context from a bookingId.
-// ---------------------------------------------------------------------------
-const _resolvePushTokenAndContext = async (bookingId) => {
-  try {
-    if (mongoose.connection.readyState !== 1) return null;
-    const booking = await Booking.findById(bookingId)
-      .select('farmerId tokenNumber arrivalWindowStart centreId mandiName')
-      .lean();
-    if (!booking?.farmerId) return null;
-    const farmer = await Farmer.findById(booking.farmerId).select('phone pushToken preferredLanguage').lean();
-    return {
-      pushToken: farmer?.pushToken || null,
-      phone: farmer?.phone || null,
-      tokenNumber: booking.tokenNumber || null,
-      windowStart: booking.arrivalWindowStart || null,
-      centreId: booking.centreId || null,
-      mandiName: booking.mandiName || null,
-      preferredLanguage: farmer?.preferredLanguage || 'mr'
-    };
-  } catch {
-    return null;
-  }
-};
-
-// ---------------------------------------------------------------------------
-// Internal helper: send one Push Notification via Expo Push Service
-// Returns 'sent' on success, 'mock' if no real token, 'failed' on error.
-// ---------------------------------------------------------------------------
-const _expoPushSend = (pushToken, { title, body, data }) => {
-  return new Promise((resolve) => {
-    if (!pushToken || typeof pushToken !== 'string' || !pushToken.startsWith('ExponentPushToken[')) {
-      logger.info(`[ExpoPush] No valid ExponentPushToken (${pushToken || 'none'}) — operating in mock push mode.`);
-      resolve('mock');
-      return;
-    }
-
-    const payloadBody = JSON.stringify({
-      to: pushToken,
-      sound: 'default',
-      priority: 'high',
-      title: title || '🌾 किसान क्यू: सूचना',
-      body: body || 'तुमच्या टोकनबद्दल नवीन अपडेट उपलब्ध आहे.',
-      data: data || {}
-    });
-
-    const options = {
-      hostname: 'exp.host',
-      path: '/--/api/v2/push/send',
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Accept-Encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payloadBody)
-      }
-    };
-
-    const req = https.request(options, (res) => {
-      let responseData = '';
-      res.on('data', (chunk) => { responseData += chunk; });
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(responseData);
-          if (parsed.data?.status === 'ok' || parsed.data?.[0]?.status === 'ok') {
-            logger.info(`[ExpoPush] Push notification dispatched to ${pushToken}`);
-            resolve('sent');
-          } else {
-            logger.warn(`[ExpoPush] Expo push response: ${responseData}`);
-            resolve('delivered');
-          }
-        } catch {
-          resolve('delivered');
-        }
-      });
-    });
-
-    req.on('error', (err) => {
-      logger.warn(`[ExpoPush] Network error: ${err.message}`);
-      resolve('failed');
-    });
-
-    req.setTimeout(8000, () => {
-      logger.warn('[ExpoPush] Request timed out after 8s');
-      req.destroy();
-      resolve('failed');
-    });
-
-    req.write(payloadBody);
-    req.end();
-  });
-};
-
 const notificationService = {
   /**
-   * Dispatch a notification.
-   * channel=sms  → real Fast2SMS call (falls back to mock if API key absent)
-   * channel=push → Expo HTTP Push Notification dispatch (falls back to mock if no token)
-   * channel=ivr  → mock
+   * Unified notification dispatcher for all KisanQ events.
+   * Dispatches in-app notification, emits Socket.IO, and applies SMS policy rules.
+   *
+   * @param {object|string} recipient - { id, type, phone, lang, centreId, noSmartphone, smsSentCount } or recipient ID
+   * @param {string} event - Event name (e.g. 'booking_confirmed', 'gate_checkin', 'payout_settled')
+   * @param {object} payload - Contextual metadata (tokenNumber, mandiName, amount, etc.)
+   * @param {object} opts - { dedupeKey, io, forceSms, bookingId }
+   * @returns {Promise<object>} Created notification record
    */
-  sendNotification: async ({ bookingId, channel, messageType, payload }) => {
-    if (!bookingId || !channel || !messageType) {
-      throw new Error('bookingId, channel, and messageType are required');
-    }
+  notify: async (recipient, event, payload = {}, opts = {}) => {
+    try {
+      // 1. Normalize recipient details
+      let rec = typeof recipient === 'object' && recipient !== null ? { ...recipient } : { id: recipient };
+      rec.type = rec.type || (rec.role ? 'staff' : 'farmer');
+      rec.id = (rec.id || rec._id || rec.phone || 'system').toString();
 
-    const validChannels = ['sms', 'push', 'ivr'];
-    if (!validChannels.includes(channel)) {
-      throw new Error(`Invalid channel '${channel}'. Must be one of: ${validChannels.join(', ')}`);
-    }
-
-    const validMessageTypes = ['booking_confirmed', 'window_approaching', 'status_update', 'vacancy_released'];
-    if (!validMessageTypes.includes(messageType)) {
-      throw new Error(`Invalid messageType '${messageType}'. Must be one of: ${validMessageTypes.join(', ')}`);
-    }
-
-    let deliveryStatus;
-
-    if (channel === 'sms') {
-      // ── Real Fast2SMS dispatch ──────────────────────────────────────────
-      const ctx = await _resolvePhoneAndContext(bookingId);
-      if (!ctx) {
-        logger.warn(`[Fast2SMS] Could not resolve phone for booking ${bookingId} — falling back to mock`);
-        // Mock fallback when phone can't be resolved (offline / in-memory booking)
-        deliveryStatus = Math.random() > 0.1 ? 'delivered' : 'failed';
-      } else {
-        // payload.message wins if caller supplied an explicit string; otherwise build real text
-        const smsMessage = payload?.message || _buildSmsText(messageType, ctx);
-        const result = await _fast2smsSend(ctx.phone, smsMessage);
-        // 'mock' means FAST2SMS_API_KEY was absent — coin-flip, never reaches Notification schema
-        deliveryStatus = result === 'mock'
-          ? (Math.random() > 0.1 ? 'delivered' : 'failed')
-          : result; // 'sent' | 'failed' — both are valid enum values
+      // Look up farmer details if missing
+      if (rec.type === 'farmer' && (!rec.phone || rec.lang === undefined)) {
+        if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(rec.id)) {
+          const farmerDoc = await Farmer.findById(rec.id).select('phone preferredLanguage noSmartphone smsSentCount name').lean();
+          if (farmerDoc) {
+            rec.phone = rec.phone || farmerDoc.phone;
+            rec.lang = rec.lang || farmerDoc.preferredLanguage || 'en';
+            rec.noSmartphone = rec.noSmartphone !== undefined ? rec.noSmartphone : (farmerDoc.noSmartphone || false);
+            rec.smsSentCount = rec.smsSentCount !== undefined ? rec.smsSentCount : (farmerDoc.smsSentCount || 0);
+            rec.name = rec.name || farmerDoc.name;
+          }
+        }
       }
-      logger.info(
-        `[Notification SMS] Type: ${messageType} | Booking: ${bookingId} | Status: ${deliveryStatus}`
-      );
-    } else if (channel === 'push') {
-      // ── Expo Push Notification dispatch ─────────────────────────────────
-      const ctx = await _resolvePushTokenAndContext(bookingId);
-      const pushToken = payload?.pushToken || ctx?.pushToken;
-      const title = payload?.title || (
-        messageType === 'booking_confirmed' ? '🌾 किसान क्यू: बुकिंग निश्चित!' :
-        messageType === 'window_approaching' ? '🌾 किसान क्यू: आपला नंबर जवळ येत आहे!' :
-        messageType === 'status_update' ? '🌾 किसान क्यू: स्थिती अपडेट' :
-        '🌾 किसान क्यू: स्लॉट उपलब्ध'
-      );
-      const body = payload?.body || payload?.message || _buildSmsText(messageType, ctx);
-      const data = payload?.data || {
-        url: ctx?.centreId ? `kisanq://queue/${ctx.centreId}/${ctx?.tokenNumber || ''}` : 'kisanq://home',
-        tokenNumber: ctx?.tokenNumber || null,
-        centreId: ctx?.centreId || null,
-        notificationType: messageType.toUpperCase()
+
+      const lang = rec.lang || payload.lang || 'en';
+      const centreId = rec.centreId || payload.centreId || payload.mandiId || null;
+
+      // 2. Render localized template
+      const { title, body } = renderTemplate(event, payload, lang);
+
+      // 3. Deduplication Check
+      const dedupeKey = opts.dedupeKey || `${rec.id}_${event}_${payload.tokenNumber || payload.bookingId || ''}_${payload.stage || ''}`;
+      
+      if (mongoose.connection.readyState === 1) {
+        const existing = await Notification.findOne({ dedupeKey });
+        if (existing) {
+          logger.info(`[Notifications] Deduplication hit for key: ${dedupeKey} — returning existing notification.`);
+          return existing;
+        }
+      } else {
+        const existingMem = inMemoryNotifications.find((n) => n.dedupeKey === dedupeKey);
+        if (existingMem) {
+          logger.info(`[Notifications] In-memory deduplication hit for key: ${dedupeKey}`);
+          return existingMem;
+        }
+      }
+
+      // 4. Evaluate SMS Channel Eligibility
+      const isPolicySms = Boolean(SMS_POLICY[event]);
+      const isNoSmartphone = Boolean(rec.noSmartphone);
+      const isForceSms = Boolean(opts.forceSms);
+      const currentSmsCount = rec.smsSentCount || 0;
+      const isOverBudget = currentSmsCount >= DEFAULT_SMS_BUDGET_PER_FARMER;
+
+      // Send SMS if: (policy allows OR noSmartphone OR forceSms) AND (under budget OR is key policy event)
+      const shouldSendSms = Boolean(rec.phone) && (isPolicySms || isNoSmartphone || isForceSms) && (!isOverBudget || isPolicySms);
+
+      let smsResult = { status: 'none', attempts: 0 };
+
+      if (shouldSendSms) {
+        // Build clear SMS text
+        const smsText = `KisanQ: ${title}. ${body}`;
+        
+        // Attempt 1
+        smsResult.attempts = 1;
+        let dispatch = await _fast2smsSend(rec.phone, smsText);
+
+        // Max 2 attempts retry policy on failure
+        if (dispatch.status === 'failed') {
+          logger.warn(`[Notifications] SMS attempt 1 failed for ${rec.phone}, executing immediate retry (attempt 2)...`);
+          smsResult.attempts = 2;
+          dispatch = await _fast2smsSend(rec.phone, smsText);
+        }
+
+        smsResult.status = dispatch.status; // 'sent' | 'mock' | 'failed'
+        if (dispatch.providerRef) smsResult.providerRef = dispatch.providerRef;
+        smsResult.sentAt = new Date();
+
+        // Increment farmer smsSentCount if MongoDB active
+        if (rec.type === 'farmer' && dispatch.status === 'sent' && mongoose.connection.readyState === 1) {
+          try {
+            await Farmer.findOneAndUpdate(
+              { $or: [{ _id: mongoose.Types.ObjectId.isValid(rec.id) ? rec.id : null }, { phone: rec.phone }] },
+              { $inc: { smsSentCount: 1 } }
+            );
+          } catch (cntErr) {
+            logger.warn(`[Notifications] Failed to increment smsSentCount: ${cntErr.message}`);
+          }
+        }
+      }
+
+      // 5. Construct Notification Record
+      const notificationData = {
+        recipientType: rec.type,
+        recipientId: rec.id,
+        centreId: centreId ? centreId.toString() : undefined,
+        event,
+        lang,
+        title,
+        body,
+        payload,
+        dedupeKey,
+        channels: {
+          inApp: {
+            status: 'delivered',
+            deliveredAt: new Date()
+          },
+          sms: {
+            status: smsResult.status,
+            providerRef: smsResult.providerRef,
+            attempts: smsResult.attempts,
+            sentAt: smsResult.sentAt
+          }
+        },
+        read: false,
+        bookingId: opts.bookingId || payload.bookingId || undefined,
+        channel: shouldSendSms ? 'sms' : 'push',
+        messageType: event,
+        deliveryStatus: smsResult.status === 'sent' || smsResult.status === 'mock' ? 'sent' : 'delivered',
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
-      const result = await _expoPushSend(pushToken, { title, body, data });
-      deliveryStatus = result === 'mock'
-        ? (Math.random() > 0.1 ? 'delivered' : 'failed')
-        : (result === 'sent' ? 'delivered' : result);
+      let savedNotification = null;
 
-      logger.info(
-        `[Notification Push] Type: ${messageType} | Booking: ${bookingId} | Status: ${deliveryStatus} | Token: ${pushToken || 'mock'}`
-      );
-    } else {
-      // ── ivr: unchanged mock behaviour ───────────────────────────
-      const deliverySuccess = Math.random() > 0.1; // 90% success rate for mock
-      deliveryStatus = deliverySuccess ? 'delivered' : 'failed';
-      logger.info(
-        `[Notification Mock] Channel: ${channel.toUpperCase()} | Type: ${messageType} | ` +
-        `Booking: ${bookingId} | Status: ${deliveryStatus} | Payload: ${JSON.stringify(payload || {})}`
+      if (mongoose.connection.readyState === 1) {
+        try {
+          const doc = new Notification(notificationData);
+          savedNotification = await doc.save();
+        } catch (dbErr) {
+          logger.warn(`[Notifications] DB save error: ${dbErr.message}, falling back to in-memory`);
+          savedNotification = { _id: new mongoose.Types.ObjectId(), ...notificationData };
+          inMemoryNotifications.unshift(savedNotification);
+        }
+      } else {
+        savedNotification = { _id: new mongoose.Types.ObjectId(), ...notificationData };
+        inMemoryNotifications.unshift(savedNotification);
+      }
+
+      // 6. Socket.IO Real-time Push
+      const io = opts.io || global.io || null;
+      if (io) {
+        const eventPayload = {
+          notification: savedNotification,
+          id: savedNotification._id,
+          event,
+          title,
+          body,
+          createdAt: savedNotification.createdAt
+        };
+
+        // Emit to targeted user room
+        if (rec.id) {
+          io.to(`user:${rec.id}`).emit('notification:new', eventPayload);
+        }
+
+        // If staff role notification, emit only to centre-scoped role room and/or district_admin
+        if (rec.type === 'staff' || rec.type === 'role') {
+          if (centreId && rec.role && rec.role !== 'district_admin') {
+            io.to(`centre:${centreId}:role:${rec.role}`).emit('notification:new', eventPayload);
+          }
+          if (rec.role === 'district_admin') {
+            io.to('district_admin').emit('notification:new', eventPayload);
+          }
+        }
+      }
+
+      return savedNotification;
+    } catch (err) {
+      logger.error(`[Notifications] notify() encountered an error: ${err.message}`, { stack: err.stack });
+      throw err;
+    }
+  },
+
+  /**
+   * Fetch paginated notifications for a user (farmer or staff)
+   */
+  getUserNotifications: async ({ recipientId, unreadOnly = false, limit = 20 }) => {
+    const lim = Math.min(100, Math.max(1, Number(limit) || 20));
+    const query = { recipientId: recipientId.toString() };
+    if (unreadOnly) {
+      query.read = false;
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      return await Notification.find(query)
+        .sort({ createdAt: -1 })
+        .limit(lim)
+        .lean();
+    }
+
+    // In-memory fallback
+    return inMemoryNotifications
+      .filter((n) => n.recipientId === recipientId.toString() && (!unreadOnly || !n.read))
+      .slice(0, lim);
+  },
+
+  /**
+   * Get unread notification count for user
+   */
+  getUnreadCount: async (recipientId) => {
+    if (mongoose.connection.readyState === 1) {
+      return await Notification.countDocuments({
+        recipientId: recipientId.toString(),
+        read: false
+      });
+    }
+    return inMemoryNotifications.filter(
+      (n) => n.recipientId === recipientId.toString() && !n.read
+    ).length;
+  },
+
+  /**
+   * Mark a single notification as read
+   */
+  markAsRead: async (notificationId, recipientId) => {
+    const filter = { _id: notificationId };
+    if (recipientId) {
+      filter.recipientId = recipientId.toString();
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      return await Notification.findOneAndUpdate(
+        filter,
+        {
+          read: true,
+          readAt: new Date(),
+          'channels.inApp.status': 'read'
+        },
+        { new: true }
       );
     }
 
-    const notificationData = {
-      _id: new mongoose.Types.ObjectId(),
-      bookingId,
-      channel,
-      messageType,
-      deliveryStatus,
-      timestamp: new Date()
+    const n = inMemoryNotifications.find(
+      (item) => item._id?.toString() === notificationId.toString() && (!recipientId || item.recipientId === recipientId.toString())
+    );
+    if (n) {
+      n.read = true;
+      n.readAt = new Date();
+      if (n.channels?.inApp) n.channels.inApp.status = 'read';
+    }
+    return n;
+  },
+
+  /**
+   * Mark all notifications as read for a user
+   */
+  markAllAsRead: async (recipientId) => {
+    if (mongoose.connection.readyState === 1) {
+      const result = await Notification.updateMany(
+        { recipientId: recipientId.toString(), read: false },
+        { read: true, readAt: new Date(), 'channels.inApp.status': 'read' }
+      );
+      return { count: result.modifiedCount };
+    }
+
+    let modified = 0;
+    inMemoryNotifications.forEach((n) => {
+      if (n.recipientId === recipientId.toString() && !n.read) {
+        n.read = true;
+        n.readAt = new Date();
+        if (n.channels?.inApp) n.channels.inApp.status = 'read';
+        modified++;
+      }
+    });
+    return { count: modified };
+  },
+
+  // -------------------------------------------------------------------------
+  // Legacy methods preserved for backward compatibility
+  // -------------------------------------------------------------------------
+  sendNotification: async ({ bookingId, channel, messageType, payload }) => {
+    let context = null;
+    if (bookingId) {
+      context = await _resolvePhoneAndContext(bookingId);
+    }
+
+    const recipient = {
+      id: context?.farmerId || 'legacy_farmer',
+      type: 'farmer',
+      phone: context?.phone || payload?.phone,
+      lang: context?.lang || 'en',
+      noSmartphone: context?.noSmartphone || false,
+      smsSentCount: context?.smsSentCount || 0
     };
 
-    let notification = null;
-    try {
-      if (mongoose.connection.readyState === 1) {
-        notification = await Notification.create(notificationData);
-      }
-    } catch (err) {
-      logger.warn(`Notification DB fallback: ${err.message}`);
-    }
-
-    if (!notification) {
-      notification = { ...notificationData, createdAt: new Date(), updatedAt: new Date() };
-      inMemoryNotifications.push(notification);
-    }
-
-    return notification;
+    return await notificationService.notify(recipient, messageType, { ...payload, bookingId, tokenNumber: context?.tokenNumber }, { bookingId });
   },
 
-  /**
-   * Retry a failed notification.
-   *
-   * PREVIOUS BEHAVIOUR (now fixed): retryNotification ran its OWN Math.random() coin-flip
-   * (Math.random() > 0.05) and patched the DB record — it never called sendNotification and
-   * never dispatched a real SMS. This meant retrying a failed Fast2SMS delivery just faked a
-   * success.
-   *
-   * CURRENT BEHAVIOUR: re-dispatches through sendNotification so channel=sms gets a real
-   * Fast2SMS attempt on retry, same as the first send. push/ivr still run the mock path
-   * (unchanged) because sendNotification branches on channel.
-   */
+  getNotificationLog: async (bookingId) => {
+    if (mongoose.connection.readyState === 1) {
+      return await Notification.find({
+        $or: [{ bookingId }, { 'payload.bookingId': bookingId.toString() }]
+      }).sort({ createdAt: -1 });
+    }
+    return inMemoryNotifications.filter(
+      (n) => n.bookingId?.toString() === bookingId.toString() || n.payload?.bookingId === bookingId.toString()
+    );
+  },
+
   retryNotification: async (notificationId) => {
     let notification = null;
-    try {
-      if (mongoose.connection.readyState === 1) {
-        notification = await Notification.findById(notificationId);
-      }
-    } catch (e) { /* fallback */ }
-    if (!notification) {
+    if (mongoose.connection.readyState === 1) {
+      notification = await Notification.findById(notificationId);
+    } else {
       notification = inMemoryNotifications.find((n) => n._id?.toString() === notificationId.toString());
     }
+
     if (!notification) {
-      throw new Error(`Notification ${notificationId} not found`);
+      throw new Error(`Notification '${notificationId}' not found`);
     }
 
-    logger.info(
-      `[Notification Retry] Channel: ${notification.channel?.toUpperCase()} | ` +
-      `Booking: ${notification.bookingId} | notificationId: ${notificationId}`
-    );
-
-    // Re-dispatch through sendNotification — real SMS for sms channel, mock for push/ivr
-    const retried = await notificationService.sendNotification({
-      bookingId:   notification.bookingId,
-      channel:     notification.channel,
-      messageType: notification.messageType,
-      payload:     notification.payload,
-    });
-
-    // Patch the original record's deliveryStatus to reflect the retry outcome
-    const newStatus = retried.deliveryStatus === 'sent' || retried.deliveryStatus === 'delivered'
-      ? 'delivered'
-      : 'retried';
-
-    try {
-      if (mongoose.connection.readyState === 1) {
-        notification = await Notification.findByIdAndUpdate(
-          notificationId,
-          { deliveryStatus: newStatus },
-          { new: true }
-        );
-      }
-    } catch (e) { /* fallback */ }
-
-    if (notification && notification.deliveryStatus !== newStatus) {
-      notification.deliveryStatus = newStatus;
+    const currentAttempts = notification.channels?.sms?.attempts || 0;
+    if (currentAttempts >= 2) {
+      throw new Error(`Maximum retry limit reached (2 attempts). Cannot retry notification '${notificationId}'.`);
     }
 
+    // Perform retry dispatch
+    const phone = notification.payload?.phone;
+    const smsText = `KisanQ: ${notification.title}. ${notification.body}`;
+    const result = await _fast2smsSend(phone, smsText);
+
+    const updatedAttempts = currentAttempts + 1;
+    const updates = {
+      'channels.sms.attempts': updatedAttempts,
+      'channels.sms.status': result.status,
+      'channels.sms.sentAt': new Date(),
+      deliveryStatus: result.status === 'sent' || result.status === 'mock' ? 'sent' : 'delivered'
+    };
+    if (result.providerRef) updates['channels.sms.providerRef'] = result.providerRef;
+
+    if (mongoose.connection.readyState === 1) {
+      return await Notification.findByIdAndUpdate(notificationId, { $set: updates }, { new: true });
+    }
+
+    Object.assign(notification, updates);
     return notification;
   },
 
-  /**
-   * Get notification delivery log for a booking
-   */
-  getNotificationLog: async (bookingId) => {
-    let notifications = [];
-    try {
-      if (mongoose.connection.readyState === 1) {
-        notifications = await Notification.find({ bookingId }).sort({ timestamp: -1 });
-      }
-    } catch (e) { /* fallback */ }
-
-    if (notifications.length === 0) {
-      notifications = inMemoryNotifications.filter(
-        (n) => n.bookingId?.toString() === bookingId.toString()
-      );
-    }
-
-    return notifications;
-  },
-
-  /**
-   * Send batch notifications (convenience helper for booking events)
-   */
   sendBookingConfirmation: async (bookingId) => {
-    const results = [];
-    results.push(await notificationService.sendNotification({
+    return [await notificationService.sendNotification({
       bookingId,
       channel: 'sms',
       messageType: 'booking_confirmed',
-      payload: { message: 'Your booking has been confirmed. Please arrive during your scheduled window.' }
-    }));
-    results.push(await notificationService.sendNotification({
-      bookingId,
-      channel: 'push',
-      messageType: 'booking_confirmed',
-      payload: { title: 'Booking Confirmed', body: 'Your slot has been reserved.' }
-    }));
-    return results;
+      payload: { message: 'Your booking has been confirmed.' }
+    })];
   },
 
   sendWindowApproaching: async (bookingId) => {
@@ -429,7 +473,7 @@ const notificationService = {
       bookingId,
       channel: 'sms',
       messageType: 'window_approaching',
-      payload: { message: 'Your arrival window is approaching. Please proceed to the centre.' }
+      payload: { message: 'Your arrival window is approaching.' }
     });
   },
 
@@ -438,103 +482,7 @@ const notificationService = {
       bookingId,
       channel: 'push',
       messageType: 'status_update',
-      payload: { message: statusMessage || 'Your booking status has been updated.' }
-    });
-  },
-
-  /**
-   * Directly test dispatching a real remote push notification to Expo's Push API
-   */
-  sendTestPushNotification: async ({ farmerId, phone, pushToken, title, body, data }) => {
-    let targetToken = pushToken;
-
-    if (!targetToken) {
-      if (mongoose.connection.readyState === 1) {
-        let farmer = null;
-        if (farmerId && mongoose.Types.ObjectId.isValid(farmerId)) {
-          farmer = await Farmer.findById(farmerId).select('pushToken phone').lean();
-        }
-        if (!farmer && phone) {
-          const rawPhone = phone.toString().replace(/\D/g, '');
-          farmer = await Farmer.findOne({ phone: rawPhone }).select('pushToken phone').lean();
-        }
-        targetToken = farmer?.pushToken;
-      }
-
-      if (!targetToken && inMemoryFarmers) {
-        const rawPhone = (phone || '').toString().replace(/\D/g, '');
-        const memFarmer = inMemoryFarmers.get(rawPhone);
-        targetToken = memFarmer?.pushToken;
-      }
-    }
-
-    if (!targetToken) {
-      const err = new Error('No push token found for this user. Please ensure notifications are enabled in the mobile app.');
-      err.statusCode = 404;
-      throw err;
-    }
-
-    const payloadBody = JSON.stringify({
-      to: targetToken,
-      sound: 'default',
-      priority: 'high',
-      title: title || '🌾 किसान क्यू: आपला नंबर जवळ येत आहे!',
-      body: body || 'टोकन #KQ-KPG-2026-5809: कृपया पुढील १५ मिनिटांत कोपरगाव APMC गेट #१ कडे प्रस्थान करा.',
-      data: data || {
-        url: 'kisanq://queue/KPG-01/KQ-KPG-2026-5809',
-        tokenNumber: 'KQ-KPG-2026-5809',
-        centreId: 'KPG-01',
-        notificationType: 'WINDOW_APPROACHING'
-      }
-    });
-
-    return new Promise((resolve, reject) => {
-      const options = {
-        hostname: 'exp.host',
-        path: '/--/api/v2/push/send',
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Accept-Encoding': 'gzip, deflate',
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payloadBody)
-        }
-      };
-
-      const req = https.request(options, (res) => {
-        let responseData = '';
-        res.on('data', (chunk) => { responseData += chunk; });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(responseData);
-            logger.info(`[ExpoPush Test] Response from Expo API: ${responseData}`);
-            resolve({
-              httpStatus: res.statusCode,
-              expoResponse: parsed,
-              pushToken: targetToken
-            });
-          } catch (e) {
-            resolve({
-              httpStatus: res.statusCode,
-              rawResponse: responseData,
-              pushToken: targetToken
-            });
-          }
-        });
-      });
-
-      req.on('error', (err) => {
-        logger.error(`[ExpoPush Test] Request error: ${err.message}`);
-        reject(err);
-      });
-
-      req.setTimeout(10000, () => {
-        req.destroy();
-        reject(new Error('Expo push API timed out after 10s'));
-      });
-
-      req.write(payloadBody);
-      req.end();
+      payload: { message: statusMessage }
     });
   }
 };

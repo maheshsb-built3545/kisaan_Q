@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const Token = require('../models/Token');
 const Farmer = require('../models/Farmer');
 const authService = require('../services/authService');
+const notificationService = require('../services/notificationService');
 const logger = require('../utils/logger');
 const { optionalAuthenticate } = require('../middleware/auth.middleware');
 const fastTrackController = require('../controllers/fastTrack.controller');
@@ -838,12 +839,32 @@ async function createTokenReservation(params) {
     logger.warn(`[AgriPool] Proximity calculation notice: ${poolErr.message}`);
   }
 
-  // 8. WebSocket Broadcast
+  // 8. WebSocket Broadcast & Unified Notification Dispatch
   if (io) {
     broadcastNewBooking(io, assignedMandiId, savedToken);
     if (agriPoolMatch) {
       broadcastAgriPoolMatch(io, agriPoolMatch);
     }
+  }
+
+  // Unified Notification Dispatch
+  try {
+    const farmerIdStr = (savedToken.farmerId || savedToken.phone || assignedPhone).toString();
+    notificationService.notify(
+      { id: farmerIdStr, type: 'farmer', phone: assignedPhone },
+      'booking_confirmed',
+      {
+        tokenNumber: savedToken.tokenNumber,
+        crop: savedToken.crop,
+        quantity: savedToken.quantity,
+        mandiName: savedToken.mandiName,
+        slotTime: savedToken.slotTime,
+        slotDate: savedToken.slotDate
+      },
+      { io, dedupeKey: `${farmerIdStr}_booking_confirmed_${savedToken.tokenNumber}` }
+    ).catch((err) => logger.warn(`[Tokens] Notification dispatch notice: ${err.message}`));
+  } catch (notifErr) {
+    logger.warn(`[Tokens] Notification notice: ${notifErr.message}`);
   }
 
   return { savedToken, agriPoolMatch };
@@ -1483,7 +1504,69 @@ function validateSequentialPipeline(token, incomingStageIdx) {
           broadcastFarmerDuesUpdated(req.io, farmerPhone, { pendingDues: 0, cancellationHistory: [] });
         }
       }
+    }
 
+    // ─── Unified Notification Dispatch per Checkpoint Event ────────────────────────
+    try {
+      const farmerIdStr = (updatedToken?.farmerId || updatedToken?.farmerPhone || updatedToken?.phone || 'farmer').toString();
+      const farmerPhone = updatedToken?.farmerPhone || updatedToken?.phone;
+      const targetMandi = updatedToken?.mandiName || 'APMC Mandi';
+
+      const sIdx = Number(stageIndex !== undefined ? stageIndex : (
+        stageId === 'GATE_CHECKIN' ? 0 :
+        stageId === 'QUALITY_GRADING' ? 1 :
+        stageId === 'WEIGHBRIDGE' ? 2 :
+        stageId === 'PROCUREMENT' ? 3 :
+        stageId === 'PAYOUT' ? 4 : -1
+      ));
+
+      if (sIdx === 0) {
+        notificationService.notify(
+          { id: farmerIdStr, type: 'farmer', phone: farmerPhone },
+          'gate_checkin',
+          { tokenNumber, mandiName: targetMandi },
+          { io: req.io, dedupeKey: `${farmerIdStr}_gate_checkin_${tokenNumber}_stage0` }
+        ).catch(e => logger.warn(`[Checkpoint Notif] Gate error: ${e.message}`));
+      } else if (sIdx === 1) {
+        notificationService.notify(
+          { id: farmerIdStr, type: 'farmer', phone: farmerPhone },
+          'quality_assayed',
+          { tokenNumber, mandiName: targetMandi, grade: grade || mergedDetails.grade || 'Grade A', moisture: moisture || mergedDetails.moisture || 12 },
+          { io: req.io, dedupeKey: `${farmerIdStr}_quality_assayed_${tokenNumber}_stage1` }
+        ).catch(e => logger.warn(`[Checkpoint Notif] Quality error: ${e.message}`));
+      } else if (sIdx === 2) {
+        notificationService.notify(
+          { id: farmerIdStr, type: 'farmer', phone: farmerPhone },
+          'weighbridge_done',
+          { tokenNumber, mandiName: targetMandi, netWeight: netWeight || mergedDetails.netWeight || updatedToken?.quantity },
+          { io: req.io, dedupeKey: `${farmerIdStr}_weighbridge_done_${tokenNumber}_stage2` }
+        ).catch(e => logger.warn(`[Checkpoint Notif] Weigh error: ${e.message}`));
+      } else if (sIdx === 3) {
+        notificationService.notify(
+          { id: farmerIdStr, type: 'farmer', phone: farmerPhone },
+          'procurement_recorded',
+          { tokenNumber, mandiName: targetMandi, totalAmount: totalAmount || mergedDetails.totalAmount || 58320 },
+          { io: req.io, dedupeKey: `${farmerIdStr}_procurement_recorded_${tokenNumber}_stage3` }
+        ).catch(e => logger.warn(`[Checkpoint Notif] Procurement error: ${e.message}`));
+
+        // Also trigger payout_ready
+        notificationService.notify(
+          { id: farmerIdStr, type: 'farmer', phone: farmerPhone },
+          'payout_ready',
+          { tokenNumber, mandiName: targetMandi, totalAmount: totalAmount || mergedDetails.totalAmount || 58320 },
+          { io: req.io, dedupeKey: `${farmerIdStr}_payout_ready_${tokenNumber}_stage3_ready` }
+        ).catch(e => logger.warn(`[Checkpoint Notif] Payout ready error: ${e.message}`));
+      } else if (sIdx === 4 || isPayoutStage) {
+        const netPaidAmt = mergedDetails.netPaid || totalAmount || 58320;
+        notificationService.notify(
+          { id: farmerIdStr, type: 'farmer', phone: farmerPhone },
+          'payout_paid',
+          { tokenNumber, mandiName: targetMandi, netPaid: netPaidAmt, amount: netPaidAmt },
+          { io: req.io, dedupeKey: `${farmerIdStr}_payout_paid_${tokenNumber}_stage4_paid` }
+        ).catch(e => logger.warn(`[Checkpoint Notif] Payout paid error: ${e.message}`));
+      }
+    } catch (notifErr) {
+      logger.warn(`[Tokens] Checkpoint notification error: ${notifErr.message}`);
     }
 
     return res.status(200).json({

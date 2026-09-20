@@ -102,7 +102,15 @@ const farmerSchema = new mongoose.Schema(
           default: 'DUE'
         }
       }
-    ]
+    ],
+    noSmartphone: {
+      type: Boolean,
+      default: false
+    },
+    smsSentCount: {
+      type: Number,
+      default: 0
+    }
   },
   {
     timestamps: true

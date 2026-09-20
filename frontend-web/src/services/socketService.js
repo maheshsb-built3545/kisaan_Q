@@ -275,4 +275,39 @@ export async function triggerHardwareSimulation({ mandiId = 'KPG-01', device, ac
   }
 }
 
+/**
+ * Join Personal User Notification Room
+ */
+export function joinUserRoom(userId) {
+  const s = getSocket();
+  if (s && s.connected) {
+    s.emit('join_user', userId);
+  } else if (s) {
+    s.once('connect', () => s.emit('join_user', userId));
+  }
+}
+
+/**
+ * Join Staff Role & Centre Notification Room
+ */
+export function joinStaffRole(role, centreId) {
+  const s = getSocket();
+  const payload = { role, centreId };
+  if (s && s.connected) {
+    s.emit('join_staff_role', payload);
+  } else if (s) {
+    s.once('connect', () => s.emit('join_staff_role', payload));
+  }
+}
+
+/**
+ * Subscribe to real-time notification:new events
+ */
+export function onNotificationNew(callback) {
+  const s = getSocket();
+  s.on('notification:new', callback);
+  return () => s.off('notification:new', callback);
+}
+
+
 

@@ -4,23 +4,53 @@ const notificationController = require('../controllers/notification.controller')
 const { authenticate } = require('../middleware/auth.middleware');
 const { checkRole } = require('../middleware/rbac.middleware');
 
-// View notification delivery logs for a booking
+// 1. Authenticated User Inbox & Notification Bell Endpoints
+router.get(
+  '/',
+  authenticate,
+  notificationController.getMyNotifications
+);
+
+router.get(
+  '/unread-count',
+  authenticate,
+  notificationController.getUnreadCount
+);
+
+router.patch(
+  '/:id/read',
+  authenticate,
+  notificationController.markAsRead
+);
+
+router.post(
+  '/read-all',
+  authenticate,
+  notificationController.markAllAsRead
+);
+
+// 2. Administrative & Budget Oversight
+router.get(
+  '/sms-stats',
+  authenticate,
+  checkRole('supervisor', 'district_admin', 'auditor'),
+  notificationController.getSmsStats
+);
+
+// 3. Legacy / Booking-Specific Endpoints
 router.get(
   '/:bookingId/log',
   authenticate,
-  checkRole('operator', 'staff', 'supervisor', 'district_admin', 'auditor'),
   notificationController.getNotificationLog
 );
 
-// Dispatch a notification (restricted to supervisor and district_admin)
 router.post(
   '/send',
   authenticate,
-  checkRole('supervisor', 'district_admin'),
+  checkRole('operator', 'staff', 'supervisor', 'district_admin'),
   notificationController.sendNotification
 );
 
-// Retry a notification (restricted to supervisor and district_admin)
 router.post(
   '/:id/retry',
   authenticate,
@@ -28,7 +58,6 @@ router.post(
   notificationController.retryNotification
 );
 
-// Dispatch a real test push notification (authenticated farmer / user)
 router.post(
   '/test-push',
   authenticate,

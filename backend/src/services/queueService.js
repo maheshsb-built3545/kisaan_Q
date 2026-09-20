@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { Booking, QueueState, AuditLog } = require('../models');
+const notificationService = require('./notificationService');
 const { broadcastQueueUpdate } = require('../socket/queue.socket');
 const logger = require('../utils/logger');
 
@@ -112,7 +113,7 @@ const queueService = {
             $gte: new Date(`${dateStr}T00:00:00.000Z`),
             $lte: new Date(`${dateStr}T23:59:59.999Z`)
           }
-        }).sort({ arrivalWindowStart: 1, createdAt: 1 });
+        }).populate('farmerId').sort({ arrivalWindowStart: 1, createdAt: 1 });
       }
     } catch (err) {
       logger.warn(`Position computation fallback: ${err.message}`);
@@ -144,6 +145,37 @@ const queueService = {
         const rangeLow = Math.max(1, ahead - 1);
         const rangeHigh = ahead + 1;
         positionMap.set(id, `${rangeLow}-${rangeHigh} ahead`);
+      }
+
+      // Turn Near notification (Position <= 3)
+      // Deduplicated: fires once per token via unique dedupeKey, never repeatedly on recomputes
+      if (ahead <= 3) {
+        const b = activeBookings.find((item) => (item._id || item.id)?.toString() === id);
+        if (b) {
+          const farmerIdStr = (b.farmerId?._id || b.farmerId || b.phone || '').toString();
+          const tokenNum = b.tokenNumber || id;
+          if (farmerIdStr && tokenNum) {
+            notificationService.notify(
+              {
+                id: farmerIdStr,
+                type: 'farmer',
+                phone: b.farmerId?.phone || b.phone,
+                lang: b.farmerId?.preferredLanguage || 'mr'
+              },
+              'turn_near',
+              {
+                tokenNumber: tokenNum,
+                position: ahead === 0 ? '1' : String(ahead),
+                bookingId: id,
+                mandiId: centreId?.toString()
+              },
+              {
+                dedupeKey: `${farmerIdStr}_turn_near_${tokenNum}_pos3`,
+                io: global.io
+              }
+            ).catch((err) => logger.warn(`[Queue] turn_near dispatch notice: ${err.message}`));
+          }
+        }
       }
     });
 

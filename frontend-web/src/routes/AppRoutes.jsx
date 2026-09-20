@@ -18,6 +18,7 @@ import StaffLogin from '../pages/StaffLogin';
 import StaffDesk from '../pages/StaffDesk';
 import SupervisorExceptions from '../pages/SupervisorExceptions';
 import AdminDashboard from '../pages/AdminDashboard';
+import NotificationsPage from '../pages/NotificationsPage';
 
 export const AppRoutes = () => {
   const location = useLocation();
@@ -149,6 +150,18 @@ export const AppRoutes = () => {
           <RequireAuth>
             <PageErrorBoundary title="Farmer Command Center" resetKey={location.pathname}>
               <FarmerCommandCenter />
+            </PageErrorBoundary>
+          </RequireAuth>
+        }
+      />
+
+      {/* Unified Notification Centre */}
+      <Route
+        path="/notifications"
+        element={
+          <RequireAuth>
+            <PageErrorBoundary title="Notification Centre" resetKey={location.pathname}>
+              <NotificationsPage />
             </PageErrorBoundary>
           </RequireAuth>
         }

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { Booking, Centre, Farmer, AuditLog } = require('../models');
+const notificationService = require('./notificationService');
 const logger = require('../utils/logger');
 
 // In-memory store fallback for bookings and audit logs during testing/offline mode
@@ -264,6 +265,24 @@ const bookingService = {
       }
     } catch (err) {
       logger.warn(`AuditLog cancellation notice: ${err.message}`);
+    }
+
+    // Unified Notification Dispatch (booking_cancelled)
+    try {
+      const farmerIdStr = (booking.farmerId?._id || booking.farmerId || actorId || 'farmer').toString();
+      const tokenNum = booking.tokenNumber || id.toString();
+      notificationService.notify(
+        { id: farmerIdStr, type: 'farmer' },
+        'booking_cancelled',
+        {
+          tokenNumber: tokenNum,
+          mandiName: booking.centreId?.name || 'Mandi',
+          reason: reason || 'Farmer requested cancellation'
+        },
+        { dedupeKey: `${farmerIdStr}_booking_cancelled_${tokenNum}` }
+      ).catch((err) => logger.warn(`[Booking] Cancellation notification notice: ${err.message}`));
+    } catch (notifErr) {
+      logger.warn(`[Booking] Notification error: ${notifErr.message}`);
     }
 
     return booking;

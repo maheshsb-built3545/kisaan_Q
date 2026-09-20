@@ -1,48 +1,151 @@
+const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'kisanq_jwt_super_secret_key_change_in_production';
 
 /**
  * Queue & Real-Time Synchronization Socket Handler
- * Manages WebSocket rooms for mandis, tokens, and admin dashboards.
+ * Manages WebSocket rooms for mandis, tokens, and admin dashboards with JWT security.
  */
 const initQueueSocket = (io) => {
-  io.on('connection', (socket) => {
-    logger.info(`[Socket.IO] Client connected: ${socket.id}`);
+  // Handshake Authentication Middleware
+  io.use((socket, next) => {
+    const rawToken = socket.handshake.auth?.token ||
+      socket.handshake.headers?.authorization?.replace(/^Bearer\s+/i, '') ||
+      socket.handshake.query?.token;
 
-    // Join Mandi Room (supports both mandi:<id> and centre_<id>)
+    if (!rawToken) {
+      // Unauthenticated socket: allowed for public telemetry boards only
+      socket.user = null;
+      socket.isAuthenticated = false;
+      return next();
+    }
+
+    try {
+      const decoded = jwt.verify(rawToken, JWT_SECRET);
+
+      // Reject intermediate OTP or 2FA challenge tokens (only fully authenticated tokens accepted)
+      if (decoded.isTwoFactorPending || decoded.challengeToken || decoded.isPending2FA || decoded.otp) {
+        return next(new Error('Authentication failed: Intermediate 2FA tokens are not authorized for socket sessions.'));
+      }
+
+      socket.user = decoded;
+      socket.isAuthenticated = true;
+      return next();
+    } catch (err) {
+      logger.warn(`[Socket.IO Auth] Handshake token verification failed: ${err.message}`);
+      return next(new Error(`Authentication failed: ${err.message}`));
+    }
+  });
+
+  io.on('connection', (socket) => {
+    logger.info(`[Socket.IO] Client connected: ${socket.id} (Authenticated: ${socket.isAuthenticated}, User: ${socket.user?.name || 'Guest'})`);
+
+    // Public Mandi Telemetry Room (Unauthenticated permitted)
     socket.on('join_mandi', (mandiId) => {
       if (!mandiId) return;
-      const room = mandiId.startsWith('mandi:') ? mandiId : `mandi:${mandiId}`;
-      socket.join(room);
-      socket.join(`centre_${mandiId.replace('mandi:', '')}`);
-      logger.info(`[Socket.IO] Socket ${socket.id} joined room ${room}`);
-      socket.emit('joined_room', { room, message: `Connected to live telemetry for ${room}` });
+      const cleanMandi = mandiId.toString().replace(/^mandi:/, '');
+      socket.join(`mandi:${cleanMandi}`);
+      socket.join(`centre_${cleanMandi}`);
+      logger.info(`[Socket.IO] Socket ${socket.id} joined public telemetry room mandi:${cleanMandi}`);
+      socket.emit('joined_room', { room: `mandi:${cleanMandi}`, message: `Connected to live telemetry for mandi:${cleanMandi}` });
     });
 
-    // Legacy centre room support
+    // Public Legacy Centre Queue Feed
     socket.on('join_centre_queue', (centreId) => {
       if (!centreId) return;
-      const room = `centre_${centreId}`;
-      socket.join(room);
-      socket.join(`mandi:${centreId}`);
-      logger.info(`[Socket.IO] Socket ${socket.id} joined room ${room}`);
-      socket.emit('joined_queue', { centreId, room, message: `Joined live queue feed for centre ${centreId}` });
+      const cleanCentre = centreId.toString().replace(/^centre_/, '');
+      socket.join(`centre_${cleanCentre}`);
+      socket.join(`mandi:${cleanCentre}`);
+      socket.emit('joined_queue', { centreId: cleanCentre, room: `centre_${cleanCentre}`, message: `Joined live queue feed for centre ${cleanCentre}` });
     });
 
-    // Join Token Room for targeted farmer checkpoint updates
+    // Public Token Room (for checkpoint HUD / tracking)
     socket.on('join_token', (tokenNumber) => {
       if (!tokenNumber) return;
-      const room = tokenNumber.startsWith('token:') ? tokenNumber : `token:${tokenNumber}`;
-      socket.join(room);
-      logger.info(`[Socket.IO] Socket ${socket.id} joined token room ${room}`);
-      socket.emit('joined_token_room', { room, tokenNumber });
+      const cleanToken = tokenNumber.toString().replace(/^token:/, '');
+      socket.join(`token:${cleanToken}`);
+      socket.emit('joined_token_room', { room: `token:${cleanToken}`, tokenNumber: cleanToken });
     });
 
-    // Join Admin Global Monitoring Room
-    socket.on('join_admin', () => {
-      const room = 'admin_room';
+    // Private Personal User Room (Farmer or Staff personal notifications)
+    socket.on('join_user', (targetUserId) => {
+      if (!socket.isAuthenticated || !socket.user) {
+        logger.warn(`[Socket.IO Auth] Unauthenticated socket ${socket.id} attempted to join private user room: ${targetUserId}`);
+        socket.emit('error:unauthorized', { message: 'Authentication required to join private user notification room' });
+        return;
+      }
+
+      const currentUserId = (socket.user.id || socket.user.staffId || socket.user._id || socket.user.phone || '').toString();
+      const currentUserPhone = (socket.user.phone || '').toString();
+      const requestedId = (targetUserId || '').toString();
+
+      // Authorization guard: user can ONLY join their own personal room
+      if (requestedId !== currentUserId && requestedId !== currentUserPhone) {
+        logger.warn(`[Socket.IO Auth] User ${currentUserId} forbidden from joining other farmer room ${requestedId}`);
+        socket.emit('error:forbidden', { message: 'Access denied: Cannot join notification room of another user' });
+        return;
+      }
+
+      const room = `user:${requestedId}`;
       socket.join(room);
-      logger.info(`[Socket.IO] Socket ${socket.id} joined ${room}`);
-      socket.emit('joined_admin_room', { room, timestamp: new Date().toISOString() });
+      logger.info(`[Socket.IO] Socket ${socket.id} joined verified user room ${room}`);
+      socket.emit('joined_user_room', { room, userId: requestedId });
+    });
+
+    // Private Staff Centre-Role Room
+    socket.on('join_staff_role', (data) => {
+      if (!socket.isAuthenticated || !socket.user) {
+        logger.warn(`[Socket.IO Auth] Unauthenticated socket ${socket.id} attempted to join staff room`);
+        socket.emit('error:unauthorized', { message: 'Authentication required for staff operational rooms' });
+        return;
+      }
+
+      const userRole = socket.user.role;
+      const userCentre = socket.user.assignedMandi || socket.user.mandiId || socket.user.centreId;
+      const requestedRole = typeof data === 'object' && data !== null ? data.role : data;
+      const requestedCentre = typeof data === 'object' && data !== null ? data.centreId : userCentre;
+
+      // District Admin Room
+      if (userRole === 'district_admin' || requestedRole === 'district_admin') {
+        if (userRole !== 'district_admin') {
+          socket.emit('error:forbidden', { message: 'Only district administrators can join district_admin room' });
+          return;
+        }
+        socket.join('district_admin');
+        socket.join('admin_room');
+        logger.info(`[Socket.IO] Socket ${socket.id} (District Admin) joined district_admin room`);
+        socket.emit('joined_staff_room', { room: 'district_admin' });
+        return;
+      }
+
+      // Check Centre Scope: Shirdi supervisor cannot join Kopargaon room
+      if (requestedCentre && userCentre && requestedCentre !== userCentre && userRole !== 'district_admin') {
+        logger.warn(`[Socket.IO Auth] Supervisor ${socket.user.name} (${userCentre}) rejected from centre ${requestedCentre}`);
+        socket.emit('error:forbidden', { message: `Access denied: Duty station is ${userCentre}, cannot access ${requestedCentre}` });
+        return;
+      }
+
+      const effectiveRole = requestedRole || userRole;
+      const effectiveCentre = requestedCentre || userCentre;
+
+      if (effectiveCentre && effectiveRole) {
+        const room = `centre:${effectiveCentre}:role:${effectiveRole}`;
+        socket.join(room);
+        logger.info(`[Socket.IO] Socket ${socket.id} joined centre-scoped room ${room}`);
+        socket.emit('joined_staff_room', { room, centreId: effectiveCentre, role: effectiveRole });
+      }
+    });
+
+    // Join Admin Room (Restricted to district_admin)
+    socket.on('join_admin', () => {
+      if (socket.user?.role === 'district_admin') {
+        socket.join('district_admin');
+        socket.join('admin_room');
+        socket.emit('joined_admin_room', { room: 'district_admin' });
+      } else {
+        socket.emit('error:forbidden', { message: 'District administrator privileges required' });
+      }
     });
 
     // Leave rooms
