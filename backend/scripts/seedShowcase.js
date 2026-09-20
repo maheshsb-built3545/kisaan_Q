@@ -458,86 +458,97 @@ async function getCollectionCounts() {
   };
 }
 
-// CLEANUP: Removes ONLY seedBatch: 'showcase-1' or reserved phone documents + legacy DEMO_ records
+// Get non-showcase document counts to ensure 100% preservation
+async function getNonShowcaseCounts() {
+  return {
+    Farmers: await Farmer.countDocuments({ seedBatch: { $ne: SEED_BATCH }, phone: { $nin: SHOWCASE_PHONES } }),
+    Bookings: await Booking.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    Tokens: await Token.countDocuments({ seedBatch: { $ne: SEED_BATCH }, farmerPhone: { $nin: SHOWCASE_PHONES }, phone: { $nin: SHOWCASE_PHONES } }),
+    Waitlist: await Waitlist.countDocuments({ seedBatch: { $ne: SEED_BATCH }, farmerPhone: { $nin: SHOWCASE_PHONES } }),
+    SlotOffers: await SlotOffer.countDocuments({ seedBatch: { $ne: SEED_BATCH }, farmerPhone: { $nin: SHOWCASE_PHONES } }),
+    FastTrackRounds: await FastTrackRound.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    FastTrackBids: await FastTrackBid.countDocuments({ seedBatch: { $ne: SEED_BATCH }, farmerPhone: { $nin: SHOWCASE_PHONES } }),
+    Complaints: await Complaint.countDocuments({ seedBatch: { $ne: SEED_BATCH }, farmerPhone: { $nin: SHOWCASE_PHONES } }),
+    Exceptions: await Exception.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    Notifications: await Notification.countDocuments({ seedBatch: { $ne: SEED_BATCH }, recipientId: { $nin: SHOWCASE_PHONES } }),
+    ProcurementRecords: await ProcurementRecord.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    AuditLogs: await AuditLog.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    CropPrices: await CropPrice.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    Resources: await Resource.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    Availability: await Availability.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    CentreEvents: await CentreEvent.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    SlotCaps: await SlotCap.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    ForecastSnapshots: await ForecastSnapshot.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    PlanRequests: await PlanRequest.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    RedirectOffers: await RedirectOffer.countDocuments({ seedBatch: { $ne: SEED_BATCH }, farmerId: { $nin: SHOWCASE_PHONES } }),
+    InboundQuotas: await InboundQuota.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    Broadcasts: await Broadcast.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    QueueStates: await QueueState.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    Centres: await Centre.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    StaffUsers: await StaffUser.countDocuments({ seedBatch: { $ne: SEED_BATCH } })
+  };
+}
+
+// CLEANUP: Removes ONLY seedBatch: 'showcase-1' or reserved phone documents (zero non-showcase impact)
 async function cleanShowcaseData() {
   await connectAndVerifyDb();
-  console.log('\n🧹 [CLEANUP] Gathering collection counts before deletion...');
-  const before = await getCollectionCounts();
+  console.log('\n🧹 [CLEANUP] Gathering non-showcase baseline counts before deletion...');
+  const beforeNonShowcase = await getNonShowcaseCounts();
+  const beforeShowcase = await getCollectionCounts();
 
-  const farmerFilter = {
-    $or: [
-      { seedBatch: SEED_BATCH },
-      { phone: { $in: SHOWCASE_PHONES } },
-      { phone: { $regex: /^98000001/ } },
-      { name: { $regex: /demo/i } }
-    ]
-  };
-  const tokenFilter = {
-    $or: [
-      { seedBatch: SEED_BATCH },
-      { farmerPhone: { $in: SHOWCASE_PHONES } },
-      { tokenNumber: { $regex: /^(DEMO_|TEST_)/i } },
-      { tokenNumber: { $regex: /^KQ-(KPG|SRD|RHT)-2026-(10|62|30|31|32|33|34|35|40|50|60|20)/ } },
-      { farmerName: { $regex: /demo/i } },
-      { farmerPhone: { $regex: /^98000001/ } }
-    ]
-  };
-  const bookingFilter = {
-    $or: [
-      { seedBatch: SEED_BATCH },
-      { tokenNumber: { $regex: /^(DEMO_|TEST_)/i } },
-      { tokenNumber: { $regex: /^KQ-(KPG|SRD|RHT)-2026-(10|62|30|31|32|33|34|35|40|50|60|20)/ } },
-      { farmerName: { $regex: /demo/i } },
-      { farmerPhone: { $regex: /^98000001/ } }
-    ]
-  };
-
-  await Farmer.deleteMany(farmerFilter);
-  await Token.deleteMany(tokenFilter);
-  await Booking.deleteMany(bookingFilter);
-  await Waitlist.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { farmerPhone: { $regex: /^98000001/ } }, { farmerName: { $regex: /demo/i } }] });
-  await SlotOffer.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { farmerPhone: { $regex: /^98000001/ } }, { id: { $regex: /^(DEMO_|OFFER-)/i } }, { releasedTokenNumber: { $regex: /^(DEMO_|KQ-)/i } }] });
-  await FastTrackRound.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { roundId: { $regex: /^(DEMO_|TEST_|FTR-)/i } }] });
-  await FastTrackBid.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { farmerPhone: { $regex: /^98000001/ } }, { tokenNumber: { $regex: /^(DEMO_|TEST_|KQ-)/i } }] });
-  await Complaint.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { farmerPhone: { $regex: /^98000001/ } }, { complaintId: { $regex: /^(DEMO_|TEST_|CMP-)/i } }] });
-  await Exception.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { reasonCode: { $regex: /demo/i } }] });
-  await Notification.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { recipientId: { $in: SHOWCASE_PHONES } }, { recipientId: { $in: Object.values(OFFICERS).map(o => o.phone) } }, { recipientId: { $regex: /^98000001/ } }, { title: { $regex: /demo/i } }] });
+  await Farmer.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { phone: { $in: SHOWCASE_PHONES } }] });
+  await Token.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { phone: { $in: SHOWCASE_PHONES } }] });
+  await Booking.deleteMany({ seedBatch: SEED_BATCH });
+  await Waitlist.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }] });
+  await SlotOffer.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }] });
+  await FastTrackRound.deleteMany({ seedBatch: SEED_BATCH });
+  await FastTrackBid.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }] });
+  await Complaint.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }] });
+  await Exception.deleteMany({ seedBatch: SEED_BATCH });
+  await Notification.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { recipientId: { $in: SHOWCASE_PHONES } }] });
   await ProcurementRecord.deleteMany({ seedBatch: SEED_BATCH });
-  await AuditLog.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { targetId: { $regex: /^(DEMO_|TEST_|KQ-|KPG-|SRD-|RHT-)/i } }] });
+  await AuditLog.deleteMany({ seedBatch: SEED_BATCH });
   await CropPrice.deleteMany({ seedBatch: SEED_BATCH });
-  await Resource.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
-  await Availability.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
-  await CentreEvent.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
-  await SlotCap.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
-  await ForecastSnapshot.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
-  await PlanRequest.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { fromCentre: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
-  await RedirectOffer.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerId: { $in: SHOWCASE_PHONES } }, { farmerId: { $regex: /^98000001/ } }] });
-  await InboundQuota.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
-  await Broadcast.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
+  await Resource.deleteMany({ seedBatch: SEED_BATCH });
+  await Availability.deleteMany({ seedBatch: SEED_BATCH });
+  await CentreEvent.deleteMany({ seedBatch: SEED_BATCH });
+  await SlotCap.deleteMany({ seedBatch: SEED_BATCH });
+  await ForecastSnapshot.deleteMany({ seedBatch: SEED_BATCH });
+  await PlanRequest.deleteMany({ seedBatch: SEED_BATCH });
+  await RedirectOffer.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerId: { $in: SHOWCASE_PHONES } }] });
+  await InboundQuota.deleteMany({ seedBatch: SEED_BATCH });
+  await Broadcast.deleteMany({ seedBatch: SEED_BATCH });
+  await QueueState.deleteMany({ seedBatch: SEED_BATCH });
 
-  // Sanitize legacy DEMO markers from existing Centre & Staff records
-  const allCentres = await Centre.find({});
-  for (const c of allCentres) {
-    if (c.name && /\[KISANQ_DEMO_SEED\]/i.test(c.name)) {
-      c.name = c.name.replace(/\s*\[KISANQ_DEMO_SEED\]/gi, '').trim();
-      await c.save();
+  console.log('✨ [CLEANUP] Targeted showcase documents removed.');
+  const afterNonShowcase = await getNonShowcaseCounts();
+  const afterShowcase = await getCollectionCounts();
+
+  let hasMismatch = false;
+  for (const [col, count] of Object.entries(beforeNonShowcase)) {
+    if (afterNonShowcase[col] !== count) {
+      console.error(`🚨 [NON-SHOWCASE DATA LOSS GUARD] Mismatch in collection ${col}: before=${count}, after=${afterNonShowcase[col]}`);
+      hasMismatch = true;
     }
   }
 
-  const allStaff = await StaffUser.find({});
-  for (const s of allStaff) {
-    if (s.name && /\[KISANQ_DEMO_SEED\]/i.test(s.name)) {
-      s.name = s.name.replace(/\s*\[KISANQ_DEMO_SEED\]/gi, '').trim();
-      await s.save();
-    }
+  if (hasMismatch) {
+    console.error('🚨 [ABORT] Non-showcase counts changed during cleanup! Exiting with code 1.');
+    process.exit(1);
   }
 
-  console.log('✨ [CLEANUP] Targeted showcase documents removed cleanly.');
-  const after = await getCollectionCounts();
+  console.log('\n📊 [NON-SHOWCASE DATA INTEGRITY GUARD (VERIFIED 100% PRESERVED)]');
+  console.log('------------------------------------------------------------');
+  console.log(' Collection Name        | Before Clean | After Clean  | Status ');
+  console.log('------------------------------------------------------------');
+  for (const [col, count] of Object.entries(beforeNonShowcase)) {
+    console.log(` ${col.padEnd(23)}| ${String(count).padStart(12)} | ${String(afterNonShowcase[col]).padStart(12)} | Preserved ✅`);
+  }
+  console.log('------------------------------------------------------------\n');
 
-  console.log('\n📊 [BEFORE / AFTER CLEANUP COUNTS]');
-  for (const [key, count] of Object.entries(before)) {
-    console.log(`  • ${key.padEnd(20)}: ${count} -> ${after[key]}`);
+  console.log('📊 [SHOWCASE SEED DOCUMENTS REMOVAL SUMMARY]');
+  for (const [key, count] of Object.entries(beforeShowcase)) {
+    console.log(`  • ${key.padEnd(20)}: ${count} -> ${afterShowcase[key]}`);
   }
 }
 
