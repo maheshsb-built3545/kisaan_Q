@@ -163,8 +163,7 @@ async function seedDemoFlow() {
     process.exit(0);
   }
 
-  // Ensure staff registry in DB is up to date with official officers
-  await authService.seedStaffRegistry();
+  // Staff registry is maintained separately; do not touch or reseed staff in demo flow.
 
   const now = new Date();
   const istNow = getISTDateParts(now);
