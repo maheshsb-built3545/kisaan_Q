@@ -125,10 +125,28 @@ const notificationService = {
    */
   notify: async (recipient, event, payload = {}, opts = {}) => {
     try {
-      // 1. Normalize recipient details
-      let rec = typeof recipient === 'object' && recipient !== null ? { ...recipient } : { id: recipient };
-      rec.type = rec.type || (rec.role ? 'staff' : 'farmer');
-      rec.id = (rec.id || rec._id || rec.phone || 'system').toString();
+      // Support both positional (recipient, event, payload, opts) and single-object ({ recipientPhone, templateKey, params }) signatures
+      let effectiveEvent = event;
+      let effectivePayload = payload;
+      let effectiveOpts = opts;
+      let rec = recipient;
+
+      if (typeof recipient === 'object' && recipient !== null && (recipient.templateKey || recipient.event || !event)) {
+        effectiveEvent = (recipient.templateKey || recipient.event || '').toLowerCase();
+        effectivePayload = recipient.params || recipient.payload || {};
+        effectiveOpts = recipient.opts || opts || {};
+        rec = {
+          id: (recipient.recipientPhone || recipient.phone || recipient.recipientId || recipient.id || 'system').toString(),
+          phone: recipient.recipientPhone || recipient.phone,
+          name: recipient.recipientName || recipient.name,
+          type: recipient.recipientRole || recipient.type || 'farmer',
+          centreId: recipient.centreId || effectivePayload.centreId || effectivePayload.mandiId
+        };
+      } else {
+        rec = typeof recipient === 'object' && recipient !== null ? { ...recipient } : { id: recipient };
+        rec.type = rec.type || (rec.role ? 'staff' : 'farmer');
+        rec.id = (rec.id || rec._id || rec.phone || 'system').toString();
+      }
 
       // Look up farmer details if missing
       if (rec.type === 'farmer' && (!rec.phone || rec.lang === undefined)) {
@@ -144,14 +162,14 @@ const notificationService = {
         }
       }
 
-      const lang = rec.lang || payload.lang || 'en';
-      const centreId = rec.centreId || payload.centreId || payload.mandiId || null;
+      const lang = rec.lang || effectivePayload.lang || 'en';
+      const centreId = rec.centreId || effectivePayload.centreId || effectivePayload.mandiId || null;
 
       // 2. Render localized template
-      const { title, body } = renderTemplate(event, payload, lang);
+      const { title, body } = renderTemplate(effectiveEvent, effectivePayload, lang);
 
       // 3. Deduplication Check
-      const dedupeKey = opts.dedupeKey || `${rec.id}_${event}_${payload.tokenNumber || payload.bookingId || ''}_${payload.stage || ''}`;
+      const dedupeKey = effectiveOpts.dedupeKey || `${rec.id}_${effectiveEvent}_${effectivePayload.tokenNumber || effectivePayload.bookingId || ''}_${effectivePayload.stage || ''}`;
       
       if (mongoose.connection.readyState === 1) {
         const existing = await Notification.findOne({ dedupeKey });
@@ -216,7 +234,7 @@ const notificationService = {
         recipientType: rec.type,
         recipientId: rec.id,
         centreId: centreId ? centreId.toString() : undefined,
-        event,
+        event: effectiveEvent || 'general',
         lang,
         title,
         body,

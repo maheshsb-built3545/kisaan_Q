@@ -228,10 +228,70 @@ const TEMPLATES = {
     })
   },
 
+  slot_arrival_warning: {
+    en: (p) => ({
+      title: 'Arrival Grace Window Active',
+      body: `Slot #${p.tokenNumber || ''} arrival window started. ${p.graceMinutesRemaining || 5} mins remaining to check in at Gate.`
+    }),
+    hi: (p) => ({
+      title: 'आगमन अनुग्रह समय सक्रिय',
+      body: `स्लॉट #${p.tokenNumber || ''} का आगमन समय शुरू हुआ। गेट चेक-इन हेतु ${p.graceMinutesRemaining || 5} मिनट शेष हैं।`
+    }),
+    mr: (p) => ({
+      title: 'आगमन सवलत वेळ सुरू',
+      body: `स्लॉट #${p.tokenNumber || ''} चा आगमन कालावधी सुरू झाला आहे. गेट चेक-इनसाठी ${p.graceMinutesRemaining || 5} मिनिटे शिल्लक आहेत.`
+    })
+  },
+
+  slot_auto_released: {
+    en: (p) => ({
+      title: 'Slot Released Due to Non-Arrival',
+      body: `Booking #${p.tokenNumber || ''} was automatically released after grace period expired.`
+    }),
+    hi: (p) => ({
+      title: 'अनुपस्थिति के कारण स्लॉट निरस्त',
+      body: `अनुग्रह समय समाप्त होने पर बुकिंग #${p.tokenNumber || ''} स्वतः निरस्त व पुनः आवंटित कर दी गई।`
+    }),
+    mr: (p) => ({
+      title: 'वेळेत हजर न राहिल्याने स्लॉट रद्द',
+      body: `सवलत वेळ संपल्यामुळे बुकिंग #${p.tokenNumber || ''} आपोआप रद्द करून इतर शेतकऱ्यास उपलब्ध करण्यात आली.`
+    })
+  },
+
+  slot_offer_available: {
+    en: (p) => ({
+      title: 'Slot Vacancy Offer Available',
+      body: `A slot for ${p.crop || 'crop'} (${p.quantity || ''} Qtl) is available at APMC ${p.mandiName || ''}. You have 10 mins to accept!`
+    }),
+    hi: (p) => ({
+      title: 'स्लॉट रिक्ति प्रस्ताव उपलब्ध',
+      body: `APMC ${p.mandiName || ''} में ${p.crop || 'फसल'} के लिए स्लॉट उपलब्ध है। स्वीकारने हेतु 10 मिनट शेष हैं!`
+    }),
+    mr: (p) => ({
+      title: 'नवीन स्लॉट संधी उपलब्ध',
+      body: `APMC ${p.mandiName || ''} येथे ${p.crop || 'पिकासाठी'} स्लॉट उपलब्ध झाला आहे. स्वीकारण्यासाठी १० मिनिटे आहेत!`
+    })
+  },
+
+  slot_offer_confirmed: {
+    en: (p) => ({
+      title: 'Waitlist Slot Confirmed',
+      body: `Your slot at APMC ${p.mandiName || ''} is confirmed! Token #${p.tokenNumber || ''}.`
+    }),
+    hi: (p) => ({
+      title: 'प्रतीक्षा सूची स्लॉट पुष्टीकृत',
+      body: `APMC ${p.mandiName || ''} में आपका स्लॉट पुष्टीकृत हो गया है! टोकन #${p.tokenNumber || ''}.`
+    }),
+    mr: (p) => ({
+      title: 'प्रतीक्षा यादी स्लॉट निश्चित',
+      body: `APMC ${p.mandiName || ''} मधील आपला स्लॉट निश्चित झाला आहे! टोकन क्रमांक: #${p.tokenNumber || ''}.`
+    })
+  },
+
   fast_track_won: {
     en: (p) => ({
       title: 'Fast-Track Round Won (Awaiting Approval)',
-      body: `You placed the winning bid of ₹${p.amount || ''} for Token #${p.tokenNumber || ''}. Sent to Planning Officer for statutory approval.`
+      body: `You placed the winning bid of ₹${p.amount || ''} for Token #${p.tokenNumber || ''}. Sent to Planning Officer for approval.`
     }),
     hi: (p) => ({
       title: 'फास्ट-ट्रैक बोली जीती (स्वीकृति प्रतीक्षित)',
@@ -355,9 +415,10 @@ function renderTemplate(event, payload = {}, lang = 'en') {
   }
 
   // Generic fallback
+  const eventLabel = event ? String(event).replace(/_/g, ' ').toUpperCase() : 'GENERAL';
   return {
-    title: payload.title || `Notification: ${event.replace(/_/g, ' ').toUpperCase()}`,
-    body: payload.body || payload.message || `Update for your KisanQ service (${event}).`
+    title: payload.title || `Notification: ${eventLabel}`,
+    body: payload.body || payload.message || `Update for your KisanQ service (${eventLabel}).`
   };
 }
 

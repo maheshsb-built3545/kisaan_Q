@@ -10,6 +10,8 @@ const Exception = require('./Exception');
 const Token = require('./Token');
 const CropPrice = require('./CropPrice');
 const FastTrackRequest = require('./FastTrackRequest');
+const Waitlist = require('./Waitlist');
+const SlotOffer = require('./SlotOffer');
 
 module.exports = {
   Farmer,
@@ -23,5 +25,7 @@ module.exports = {
   Exception,
   Token,
   CropPrice,
-  FastTrackRequest
+  FastTrackRequest,
+  Waitlist,
+  SlotOffer
 };
