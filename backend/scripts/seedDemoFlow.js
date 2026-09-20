@@ -4,6 +4,7 @@ try { dns.setServers(['8.8.8.8', '1.1.1.1']); } catch (e) {}
 require('dotenv').config();
 const mongoose = require('mongoose');
 const { Farmer, Token, Booking, Waitlist, SlotOffer, FastTrackRound, Complaint, StaffUser } = require('../src/models');
+const authService = require('../src/services/authService');
 
 const DEMO_PREFIX = 'DEMO_';
 const CENTRE_ID = 'KPG-01';
@@ -22,13 +23,73 @@ const DEMO_FARMERS = [
   { id: '64b8f0a1c1d2e3f4a5b6d109', phone: '9800000109', name: 'Ishwar More (Demo Farmer 9 - Active Check-In)', crop: 'Soybean', qty: 35 },
 ];
 
+/**
+ * Helper to get date parts in Asia/Kolkata (IST) timezone
+ */
+function getISTDateParts(d = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(d);
+  const map = {};
+  for (const p of parts) map[p.type] = p.value;
+  return {
+    year: map.year,
+    month: map.month,
+    day: map.day,
+    hour: parseInt(map.hour, 10),
+    minute: parseInt(map.minute, 10),
+    second: parseInt(map.second, 10),
+    dateStr: `${map.year}-${map.month}-${map.day}`
+  };
+}
+
+/**
+ * Format 1-hour slot range in standard APMC slot format (e.g. 08:00 AM - 09:00 AM)
+ * Handles hour 23 seamlessly (11:00 PM - 12:00 AM)
+ */
+function formatSlotTimeRange(startHour, durationHours = 1) {
+  const formatHour = (h) => {
+    const norm = ((h % 24) + 24) % 24;
+    const ampm = norm >= 12 ? 'PM' : 'AM';
+    const h12 = norm % 12 === 0 ? 12 : norm % 12;
+    return `${String(h12).padStart(2, '0')}:00 ${ampm}`;
+  };
+  return `${formatHour(startHour)} - ${formatHour(startHour + durationHours)}`;
+}
+
+/**
+ * Format specific hour and minute in standard 12-hour AM/PM format
+ */
+function formatTimeWithMinutes(hours, minutes) {
+  const normHour = ((hours % 24) + 24) % 24;
+  const ampm = normHour >= 12 ? 'PM' : 'AM';
+  const h12 = normHour % 12 === 0 ? 12 : normHour % 12;
+  const hStr = String(h12).padStart(2, '0');
+  const mStr = String(minutes).padStart(2, '0');
+  return `${hStr}:${mStr} ${ampm}`;
+}
+
+/**
+ * Cleanup prior demo records safely.
+ * Deletes ONLY records with DEMO_ prefix or matching DEMO farmer phones.
+ * FastTrackRound clause by centre+hour is removed.
+ */
 async function cleanupDemoRecords() {
-  console.log('🧹 [DEMO DATA CLEANUP] Removing prior DEMO records...');
+  console.log('🧹 [DEMO DATA CLEANUP] Removing prior DEMO records (prefix DEMO_ or demo phones)...');
   const demoPhones = DEMO_FARMERS.map((f) => f.phone);
 
   await Token.deleteMany({
     $or: [
       { tokenNumber: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
+      { id: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
       { farmerPhone: { $in: demoPhones } },
       { phone: { $in: demoPhones } }
     ]
@@ -37,33 +98,34 @@ async function cleanupDemoRecords() {
   await Booking.deleteMany({
     $or: [
       { bookingId: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
+      { tokenNumber: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
       { farmerPhone: { $in: demoPhones } }
     ]
   });
 
   await Waitlist.deleteMany({
     $or: [
-      { farmerPhone: { $in: demoPhones } },
-      { centreId: CENTRE_ID, farmerName: { $regex: /Demo Farmer/i } }
+      { id: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
+      { farmerPhone: { $in: demoPhones } }
     ]
   });
 
   await SlotOffer.deleteMany({
     $or: [
+      { id: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
       { farmerPhone: { $in: demoPhones } },
       { releasedTokenNumber: { $regex: new RegExp(`^${DEMO_PREFIX}`) } }
     ]
   });
 
+  // FastTrackRound: delete ONLY by DEMO_ prefix (never by centre+hour)
   await FastTrackRound.deleteMany({
-    $or: [
-      { roundId: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
-      { centreId: CENTRE_ID, slotHour: new Date().getHours() }
-    ]
+    roundId: { $regex: new RegExp(`^${DEMO_PREFIX}`) }
   });
 
   await Complaint.deleteMany({
     $or: [
+      { complaintId: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
       { tokenNumber: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
       { farmerPhone: { $in: demoPhones } }
     ]
@@ -81,7 +143,16 @@ async function seedDemoFlow() {
 
   const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
   await mongoose.connect(mongoUri);
-  console.log('Connected to MongoDB Atlas.\n');
+
+  // Verification of connected database name (strict: kisanq_aveniq only; print db name only)
+  const dbName = mongoose.connection.name;
+  console.log(`Connected to database: ${dbName}`);
+  if (dbName !== 'kisanq_aveniq') {
+    console.error(`❌ Refusing to run: connected to database '${dbName}', expected 'kisanq_aveniq'.`);
+    await mongoose.disconnect();
+    process.exit(1);
+  }
+  console.log('✅ Database name verified.\n');
 
   const isCleanupOnly = process.argv.includes('--clean') || process.argv.includes('--cleanup');
   await cleanupDemoRecords();
@@ -92,17 +163,20 @@ async function seedDemoFlow() {
     process.exit(0);
   }
 
+  // Ensure staff registry in DB is up to date with official officers
+  await authService.seedStaffRegistry();
+
   const now = new Date();
-  const currentHour = now.getHours();
-  const todayStr = now.toISOString().split('T')[0];
+  const istNow = getISTDateParts(now);
 
-  // Slot 30-40 minutes ahead
-  const slotDateStr = todayStr;
-  const slotAheadStart = new Date(now.getTime() + 35 * 60 * 1000);
-  const slotAheadHour = slotAheadStart.getHours();
-  const slotAheadFormatted = `${String(slotAheadHour).padStart(2, '0')}:00 - ${String(slotAheadHour + 1).padStart(2, '0')}:00`;
+  // Upcoming slot 35 minutes ahead in IST
+  const slotAheadDate = new Date(now.getTime() + 35 * 60 * 1000);
+  const istSlotAhead = getISTDateParts(slotAheadDate);
+  const slotAheadDateStr = istSlotAhead.dateStr;
+  const slotAheadHour = istSlotAhead.hour;
+  const slotAheadTimeStr = formatSlotTimeRange(slotAheadHour, 1);
 
-  // 1. Seed Demo Farmers (Registered in farmer directory)
+  // 1. Seed Demo Farmers (Registered in citizen directory)
   console.log('1️⃣ Seeding 9 Demo Farmers in Citizen Registry...');
   for (const f of DEMO_FARMERS) {
     await Farmer.create({
@@ -127,7 +201,7 @@ async function seedDemoFlow() {
   console.log('   ↳ 9 Demo Farmers registered.\n');
 
   // 2. Seed 6 Farmers with Confirmed Bookings at Kopargaon (30-40 min ahead)
-  console.log(`2️⃣ Seeding 6 Confirmed Bookings at Kopargaon for upcoming slot (${slotAheadFormatted})...`);
+  console.log(`2️⃣ Seeding 6 Confirmed Bookings at Kopargaon for upcoming slot (${slotAheadDateStr}, ${slotAheadTimeStr})...`);
   const seededTokens = [];
   for (let i = 0; i < 6; i++) {
     const f = DEMO_FARMERS[i];
@@ -146,9 +220,9 @@ async function seedDemoFlow() {
       crop: f.crop,
       quantity: f.qty,
       quantityBand: f.qty <= 5 ? '0-5q' : f.qty <= 15 ? '5-15q' : '15q+',
-      slotDate: slotDateStr,
-      slotTime: slotAheadFormatted,
-      slotLabel: slotAheadFormatted,
+      slotDate: slotAheadDateStr,
+      slotTime: slotAheadTimeStr,
+      slotLabel: slotAheadTimeStr,
       status: 'BOOKED',
       queuePosition: i + 1,
       estimatedWaitTime: (i + 1) * 12,
@@ -164,15 +238,15 @@ async function seedDemoFlow() {
   }
   console.log('   ↳ 6 Confirmed Bookings created for Farmers 1 through 6.\n');
 
-  // 3. Fast-Track Round in JOINING status (5 Joinable Farmers)
-  console.log('3️⃣ Seeding Fast-Track Round in JOINING status at Kopargaon (5 joinable farmers)...');
+  // 3. Fast-Track Round in JOINING status (Cap 2/hour, 5 minParticipants)
+  console.log('3️⃣ Seeding Fast-Track Round in JOINING status at Kopargaon (cap: 2/hr, JOINING, participants: [])...');
   const fastTrackRound = await FastTrackRound.create({
-    roundId: `${DEMO_PREFIX}FTR_KPG_${todayStr}_H${slotAheadHour}`,
+    roundId: `${DEMO_PREFIX}FTR_KPG_${slotAheadDateStr}_H${slotAheadHour}`,
     centreId: CENTRE_ID,
     mandiId: CENTRE_ID,
     mandiName: MANDI_NAME,
-    slotDate: slotDateStr,
-    slotHour: slotAheadHour,
+    slotDate: slotAheadDateStr,
+    slotHour: slotAheadTimeStr,
     status: 'JOINING',
     participants: [],
     candidateQueue: [],
@@ -180,13 +254,14 @@ async function seedDemoFlow() {
     reserveFee: 200,
     bidStep: 10,
     bidCeiling: 500,
-    capPerHour: 5
+    capPerHour: 2
   });
-  console.log(`   ↳ Fast-Track Round created: ${fastTrackRound.roundId} (Status: JOINING, Reserve: ₹200, Ceiling: ₹500).\n`);
+  console.log(`   ↳ Fast-Track Round created: ${fastTrackRound.roundId} (Status: JOINING, Reserve: ₹200, Step: ₹10, Ceiling: ₹500, Cap: 2/hr).\n`);
 
   // 4. One Full Slot with a Waitlisted Farmer (Farmer 7)
   console.log('4️⃣ Seeding Full Slot and Waitlisted Farmer (Farmer 7: 9800000107)...');
   const waitlistFarmer7 = await Waitlist.create({
+    id: `${DEMO_PREFIX}WL_KPG_07`,
     farmerId: DEMO_FARMERS[6].id,
     farmerName: DEMO_FARMERS[6].name,
     farmerPhone: DEMO_FARMERS[6].phone,
@@ -195,7 +270,7 @@ async function seedDemoFlow() {
     mandiName: MANDI_NAME,
     crop: 'Soybean',
     quantity: 25,
-    requestedSlotDate: todayStr,
+    requestedSlotDate: istNow.dateStr,
     requestedSlotTime: '11:00 AM - 01:00 PM',
     priority: 0,
     status: 'WAITING',
@@ -205,10 +280,26 @@ async function seedDemoFlow() {
 
   // 5. One Booking Near No-Show Limit (Farmer 8: 9800000108)
   console.log('5️⃣ Seeding Booking Near No-Show Limit (Farmer 8: 9800000108)...');
-  // Slot started 8 minutes ago (Warned 3 mins ago, Grace threshold is 10 mins -> 2 mins remaining)
-  const noShowSlotStart = new Date(now.getTime() - 8 * 60 * 1000);
-  const noShowSlotHour = noShowSlotStart.getHours();
-  const noShowSlotFormatted = `${String(noShowSlotHour).padStart(2, '0')}:00 - ${String(noShowSlotHour + 1).padStart(2, '0')}:00`;
+  // Read configurable timer env values
+  const warnSec = process.env.SLOT_WARN_SEC ? Number(process.env.SLOT_WARN_SEC) : null;
+  const graceSec = process.env.SLOT_GRACE_SEC ? Number(process.env.SLOT_GRACE_SEC) : null;
+  const offerSec = process.env.SLOT_OFFER_SEC ? Number(process.env.SLOT_OFFER_SEC) : null;
+
+  const warnMs = warnSec !== null ? warnSec * 1000 : (Number(process.env.SLOT_WARN_MINUTES) || 5) * 60 * 1000;
+  const graceMs = graceSec !== null ? graceSec * 1000 : (Number(process.env.SLOT_GRACE_MINUTES) || 10) * 60 * 1000;
+  const offerMs = offerSec !== null ? offerSec * 1000 : (Number(process.env.SLOT_OFFER_MINUTES) || 10) * 60 * 1000;
+
+  console.log(`   ⏱️ Assumed Timer Config: WARN=${warnMs / 1000}s, GRACE=${graceMs / 1000}s, OFFER=${offerMs / 1000}s`);
+
+  // Set slot start so grace expiry occurs in ~2 minutes (120s)
+  const remainingBeforeGraceMs = Math.min(120 * 1000, Math.max(30 * 1000, graceMs * 0.2));
+  const targetElapsedMs = Math.max(0, graceMs - remainingBeforeGraceMs);
+  const noShowSlotStartDate = new Date(now.getTime() - targetElapsedMs);
+  const istNoShowStart = getISTDateParts(noShowSlotStartDate);
+  const istNoShowEnd = getISTDateParts(new Date(noShowSlotStartDate.getTime() + 60 * 60 * 1000));
+
+  const noShowSlotTimeFormatted = `${formatTimeWithMinutes(istNoShowStart.hour, istNoShowStart.minute)} - ${formatTimeWithMinutes(istNoShowEnd.hour, istNoShowEnd.minute)}`;
+  const noShowSlotDateStr = istNoShowStart.dateStr;
 
   const noShowToken = await Token.create({
     tokenNumber: `${DEMO_PREFIX}TK_KPG_NOSHOW_08`,
@@ -222,16 +313,16 @@ async function seedDemoFlow() {
     mandiName: MANDI_NAME,
     crop: 'Soybean',
     quantity: 30,
-    slotDate: todayStr,
-    slotTime: noShowSlotFormatted,
-    slotLabel: noShowSlotFormatted,
+    slotDate: noShowSlotDateStr,
+    slotTime: noShowSlotTimeFormatted,
+    slotLabel: noShowSlotTimeFormatted,
     status: 'BOOKED',
-    warnedAt: new Date(now.getTime() - 3 * 60 * 1000), // Warned 3 minutes ago
+    warnedAt: new Date(now.getTime() - Math.max(0, targetElapsedMs - warnMs)),
     stages: [
       { stageIndex: 0, id: 'GATE_CHECKIN', title: 'Gate Check-in', status: 'Pending', timestamp: null }
     ]
   });
-  console.log(`   ↳ Farmer 8 booking (${noShowToken.tokenNumber}) is at 8m elapsed (WarnedAt set, 2m to grace cancellation).\n`);
+  console.log(`   ↳ Farmer 8 booking (${noShowToken.tokenNumber}) at ${noShowSlotTimeFormatted} has elapsed ~${Math.round(targetElapsedMs / 1000)}s (~${Math.round(remainingBeforeGraceMs / 1000)}s to auto-release).\n`);
 
   // 6. One Checked-In Active Token for Grievance / Dispute Testing (Farmer 9: 9800000109)
   console.log('6️⃣ Seeding Active Checked-in Token for Grievance Filing (Farmer 9: 9800000109)...');
@@ -247,7 +338,7 @@ async function seedDemoFlow() {
     mandiName: MANDI_NAME,
     crop: 'Soybean',
     quantity: 35,
-    slotDate: todayStr,
+    slotDate: istNow.dateStr,
     slotTime: '08:00 AM - 11:00 AM',
     status: 'GATE_IN',
     currentStageIndex: 1,
@@ -258,11 +349,27 @@ async function seedDemoFlow() {
   });
   console.log(`   ↳ Farmer 9 token (${activeToken.tokenNumber}) is active at QUALITY_GRADING desk for grievance tests.\n`);
 
+  // 7. Verify round appears in GET /api/fasttrack/rounds
+  console.log('7️⃣ Verifying round visibility in GET /api/fasttrack/rounds...');
+  try {
+    const res = await fetch(`http://127.0.0.1:5000/api/fasttrack/rounds?centreId=${CENTRE_ID}`);
+    if (res.ok) {
+      const body = await res.json();
+      const rounds = body?.data?.rounds || [];
+      const found = rounds.some((r) => r.roundId === fastTrackRound.roundId);
+      console.log(`   ↳ Round ${fastTrackRound.roundId} visible in GET /api/fasttrack/rounds: ${found ? 'YES ✅' : 'NO ❌'}\n`);
+    } else {
+      console.log(`   ↳ GET /api/fasttrack/rounds responded with HTTP ${res.status}\n`);
+    }
+  } catch (e) {
+    console.log(`   ↳ Note: Local HTTP verification: ${e.message}\n`);
+  }
+
   // ---------------------------------------------------------------------------
-  // Demo Login Credentials Display (No Secrets)
+  // Demo Login Credentials & Authentication Guide (Demo Data Only - No Secrets)
   // ---------------------------------------------------------------------------
   console.log('================================================================================');
-  console.log('📋 DEMO LOGIN CREDENTIALS & SCENARIO GUIDE (DEMO DATA ONLY)');
+  console.log('📋 DEMO LOGIN CREDENTIALS & AUTHENTICATION GUIDE (NO SECRETS)');
   console.log('================================================================================');
   console.log(`
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -278,18 +385,42 @@ async function seedDemoFlow() {
 │ • 9800000108 (Farmer 8: Haribhau Kale)      -> Near No-Show (Warned, ~2m to auto-drop) │
 │ • 9800000109 (Farmer 9: Ishwar More)        -> Active Checked-in Token (Grievance test)│
 ├────────────────────────────────────────────────────────────────────────────────────────┤
-│ 🏛️ STAFF LOGINS (Staff Desk & Supervisor Exception Portals)                             │
+│ 🏛️ SEEDED OFFICIAL STAFF LOGINS (Real Kopargaon APMC Staff Registry)                   │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
-│ • 9800000008 (Kopargaon Mandi Supervisor)   -> Grievance desk, Exception overrides     │
-│ • 9800000010 (Resource Planning Officer KPG)-> Fast-track quorum/bid approvals         │
-│ • 9800000007 (District Agricultural Admin)  -> District read-only oversight            │
+│ • 9800000007 (V. Pawar — Mandi Supervisor)   -> Grievances, Exception overrides        │
+│ • 9800000006 (P. Kulkarni — Resource Officer)-> Fast-track approvals & capacity mgmt   │
+│ • 9800000008 (Collector Nagar — Dist Admin)  -> District read-only oversight           │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 
-💡 Demo Verification Instructions:
-  1. Fast-Track Round Demo: Log in with 9800000101 to 9800000105 and click 'Join Auction' on Round ${fastTrackRound.roundId}. When 5th farmer joins, round becomes LIVE.
-  2. Grievance Desk Demo: Log in with 9800000109 (Active Token: ${activeToken.tokenNumber}), click 'Report Grievance', file dispute on Quality Assaying. It immediately appears on Supervisor desk (9800000008).
-  3. No-Show Auto-Release Demo: Observe token ${noShowToken.tokenNumber} (Farmer 8). Trigger reallocation or wait for grace expiration to watch slot auto-offer to Waitlisted Farmer 7 (9800000107).
-  4. Cleanup Command: Run 'node scripts/seedDemoFlow.js --clean' to safely delete all demo records.
+🔐 HOW FARMERS LOG IN (NO SMS GATEWAY KEY REQUIRED):
+  1. Open Farmer Command Center / Login (Farmer Area).
+  2. Enter any registered 10-digit farmer mobile (e.g. 9800000101).
+  3. When no SMS gateway API key is configured, the server generates a mock OTP which is:
+     - Included in the API response: response.data.devOtp
+     - Printed directly to backend server console logs: "[Farmer SMS Dispatch] OTP for +91...: XXXXXX"
+     - Universal magic dev bypass OTPs: '123456', '999999', or '111111' can also be entered directly.
+  4. Authentication yields a signed farmer JWT stored in 'kisanq_farmer_token'.
+
+🔐 HOW STAFF LOG IN & 2FA WORK:
+  1. Open Staff Portal (/staff/login).
+  2. Step 1 (Credential verification):
+     - Enter Mobile Number: 9800000006 (Resource Officer), 9800000007 (Supervisor), or 9800000008 (District Admin)
+     - Select Role matching assigned station ('resource_officer', 'supervisor', 'district_admin')
+     - Enter Administrative Password: 'Staff@KisanQ2026'
+     - Server issues a 2-minute 2FA challenge token.
+  3. Step 2 (2FA OTP verification):
+     - Enter standard dev/mock OTP: '123456'
+     - Server verifies challenge session and issues an 8-hour JWT sealed with officer role & station claims.
+     - Token stored in isolated 'kisanq_staff_token' storage key (no fallback to farmer).
+
+💡 Demo Verification Flow:
+  1. Fast-Track: Log in as Farmers 1-5 (9800000101-9800000105) and join round ${fastTrackRound.roundId}.
+     When 5th farmer joins, round automatically becomes LIVE.
+  2. Grievance: Log in as Farmer 9 (9800000109), file grievance on active token ${activeToken.tokenNumber}.
+     Log in as Supervisor (9800000007) to view and resolve grievance.
+  3. No-Show Auto-Release: Token ${noShowToken.tokenNumber} (Farmer 8) will hit grace expiry in ~2 mins.
+     Slot automatically released and offered to Waitlisted Farmer 7 (9800000107).
+  4. Cleanup: Run 'node scripts/seedDemoFlow.js --clean' to safely delete all demo records.
 `);
 
   await mongoose.disconnect();

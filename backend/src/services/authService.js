@@ -182,6 +182,34 @@ const SEEDED_STAFF_REGISTRY = [
     assignedMandiName: 'APMC Lasalgaon',
     defaultPassword: 'Staff@KisanQ2026',
     isActive: true
+  },
+  // Mandi Supervisor — oversees day operations at Kopargaon
+  {
+    name: 'V. Pawar',
+    phone: '9800000007',
+    role: 'supervisor',
+    officerCode: 'SUP-KPG-01',
+    deskName: 'Mandi Operations Supervisor Desk',
+    terminalLane: 'Supervisor Terminal',
+    terminalCode: 'SUP-KPG-DESK',
+    assignedMandi: 'KPG-01',
+    assignedMandiName: 'APMC Kopargaon',
+    defaultPassword: 'Staff@KisanQ2026',
+    isActive: true
+  },
+  // District Admin — read-only district-level oversight
+  {
+    name: 'Collector Nagar',
+    phone: '9800000008',
+    role: 'district_admin',
+    officerCode: 'DA-AHD-01',
+    deskName: 'District Collector Dashboard',
+    terminalLane: 'Collectorate Terminal',
+    terminalCode: 'DA-AHD-DESK',
+    assignedMandi: 'KPG-01',
+    assignedMandiName: 'APMC Kopargaon',
+    defaultPassword: 'Staff@KisanQ2026',
+    isActive: true
   }
 ];
 
