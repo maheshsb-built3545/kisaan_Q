@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import GovHeader from '../components/common/GovHeader';
 import PickupLocationPicker from '../components/common/PickupLocationPicker';
 import VoiceBookingModal from '../components/farmer/VoiceBookingModal';
+import FarmerWaitlistOffersCard from '../components/farmer/FarmerWaitlistOffersCard';
+import FarmerFastTrackAuctionCard from '../components/farmer/FarmerFastTrackAuctionCard';
+import FarmerGrievanceModal from '../components/farmer/FarmerGrievanceModal';
 import { pricesApi, fastTrackApi, apiClient, BASE_URL } from '../api';
 import {
 
@@ -1303,217 +1306,27 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
         </div>
       )}
 
-      {/* ─── Fast-Track Priority Section ─── */}
-      {!isCancelled && !isCompleted && !isGateInDone && (
-        <div className="mb-4">
-          {fastTrackSuccessMsg && (
-            <div className="mb-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{fastTrackSuccessMsg}</span>
-            </div>
-          )}
-
-          {fastTrackData?.activeRequest?.status === 'PENDING' ? (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs">
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <div className="flex items-center gap-1.5 font-bold text-amber-800">
-                  <Zap className="w-4 h-4 text-amber-600 animate-pulse" />
-                  <span>Fast-Track Priority: Pending Approval</span>
-                </div>
-                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 font-mono">
-                  ₹{fastTrackData.activeRequest.tier}/Qtl Off
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-700 bg-white/90 p-2 rounded-lg border border-amber-200/70">
-                <span>Agreed Purchase Rate:</span>
-                <span className="font-black text-amber-900 font-mono">₹{fastTrackData.activeRequest.discountedPrice?.toLocaleString('en-IN')}/Qtl</span>
-              </div>
-              <p className="text-[10px] text-amber-700 mt-1">
-                Queue position will shift to #1 upon officer authorization.
-              </p>
-            </div>
-          ) : (fastTrackData?.activeRequest?.status === 'APPROVED' || token.isFastTrack) ? (
-            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs">
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <div className="flex items-center gap-1.5 font-black text-emerald-800">
-                  <Zap className="w-4 h-4 text-emerald-600" />
-                  <span>Fast-Track Priority: ACTIVE</span>
-                </div>
-                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-xs">
-                  Priority Intake #1
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-700 bg-white/90 p-2 rounded-lg border border-emerald-200">
-                <span>Certified Rate:</span>
-                <span className="font-black text-emerald-900 font-mono">
-                  ₹{(fastTrackData?.activeRequest?.discountedPrice || token.fastTrackDiscountedPrice)?.toLocaleString('en-IN')}/Qtl
-                </span>
-              </div>
-            </div>
-          ) : fastTrackData?.activeRequest?.status === 'REJECTED' ? (
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center justify-between">
-              <span className="text-[11px] text-slate-600 font-medium flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-slate-400" />
-                Fast-Track not approved for this run
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowFastTrackModal(true)}
-                className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer"
-              >
-                Resubmit
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowFastTrackModal(true)}
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-emerald-600 to-teal-700 hover:from-amber-600 hover:to-teal-800 text-white text-xs font-bold flex items-center justify-between shadow-md shadow-emerald-900/10 hover:shadow-lg transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-lg bg-white/20 flex items-center justify-center">
-                  <Zap className="w-3.5 h-3.5 text-amber-200 fill-amber-200" />
-                </div>
-                <span className="tracking-wide">Request Fast-Track Priority Intake</span>
-              </div>
-              <span className="text-[10px] font-black uppercase bg-white/20 text-white px-2 py-0.5 rounded-full tracking-wider group-hover:bg-white/30 transition-colors">
-                Priority #1 →
-              </span>
-            </button>
-          )}
+      {/* ─── B2 Exact Integer Position & Non-Overlapping Wait Range ─── */}
+      {!isCancelled && !isCompleted && (
+        <div className="mb-4 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-3 flex items-center justify-between text-xs">
+          <div>
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Live Mandi Queue (B2)</span>
+            <span className="font-extrabold text-slate-900 text-sm">
+              Position {queuePos} {token?.stages?.[0]?.status === 'Completed' ? '(Gate Checked In)' : '(not checked in)'}
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Estimated Wait Range</span>
+            <span className="font-bold text-emerald-800 text-xs font-mono">
+              {formatQueueRange(queuePos)}
+            </span>
+          </div>
         </div>
       )}
 
-      {/* ─── Fast-Track Request Modal ─── */}
-      {showFastTrackModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                  <Zap className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Request Fast-Track Priority</h3>
-                  <p className="text-[10px] text-slate-500 font-mono">{tokenNumber} · {mandiName}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setShowFastTrackModal(false); setFastTrackError(''); }}
-                className="text-slate-400 hover:text-slate-700 p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-              Voluntarily offer a small flat discount from today's market rate in exchange for priority gate queue placement (Queue Position #1). Discounted rates are strictly protected by the statutory MSP floor.
-            </p>
-
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 mb-4 text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Commodity:</span>
-                <span className="font-bold text-slate-800">{crop}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Today Market Rate:</span>
-                <span className="font-bold text-slate-800 font-mono">₹{fastTrackData?.tierAvailability?.marketPriceToday?.toLocaleString('en-IN') || '4,940'}/Qtl</span>
-              </div>
-              <div className="flex justify-between text-emerald-700 font-bold">
-                <span>Statutory MSP Floor:</span>
-                <span className="font-mono">₹{fastTrackData?.tierAvailability?.mspPrice?.toLocaleString('en-IN') || '4,892'}/Qtl</span>
-              </div>
-            </div>
-
-            <div className="space-y-2.5 mb-5">
-              <label className="text-xs font-bold text-slate-700 block">Select Priority Discount Tier:</label>
-              {(fastTrackData?.tierAvailability?.tierDetails || [
-                { tier: 10, discountPerQuintal: 10, discountedPrice: 4930, isValid: true, label: 'Tier 1: ₹10/Qtl Off' },
-                { tier: 20, discountPerQuintal: 20, discountedPrice: 4920, isValid: true, label: 'Tier 2: ₹20/Qtl Off' },
-                { tier: 40, discountPerQuintal: 40, discountedPrice: 4900, isValid: false, label: 'Tier 3: ₹40/Qtl Off' }
-              ]).map((td, idx) => {
-                const isSelected = selectedFastTrackTier === td.tier;
-                const tierNumber = idx + 1;
-                const tierLabel = td.label || `Tier ${tierNumber}: ₹${td.tier}/Qtl Off`;
-                return (
-                  <div
-                    key={td.tier}
-                    onClick={() => {
-                      if (td.isValid) {
-                        setSelectedFastTrackTier(td.tier);
-                        setFastTrackError('');
-                      }
-                    }}
-                    className={`p-3 rounded-xl border transition-all text-xs flex items-center justify-between ${
-                      !td.isValid
-                        ? 'bg-slate-100/70 border-slate-200 opacity-60 cursor-not-allowed'
-                        : isSelected
-                        ? 'bg-amber-50 border-amber-400 shadow-xs cursor-pointer'
-                        : 'bg-white border-slate-200 hover:border-amber-300 cursor-pointer'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900">{tierLabel}</span>
-                        {!td.isValid && (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-bold">
-                            Below Statutory MSP
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-0.5 font-mono">
-                        Final rate: ₹{td.discountedPrice?.toLocaleString('en-IN')}/Qtl
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      {td.isValid ? (
-                        <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                          isSelected ? 'border-amber-600 bg-amber-600 text-white' : 'border-slate-300'
-                        }`}>
-                          {isSelected && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
-                        </span>
-                      ) : (
-                        <Lock className="w-3.5 h-3.5 text-slate-400" />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {fastTrackError && (
-              <div className="mb-4 p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
-                {fastTrackError}
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => { setShowFastTrackModal(false); setFastTrackError(''); }}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isSubmittingFastTrack || !selectedFastTrackTier}
-                onClick={handleFastTrackSubmit}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
-              >
-                {isSubmittingFastTrack ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <Zap className="w-4 h-4" />
-                    <span>Submit Request</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* ─── Fast-Track Auction Section (B5 PRD 2.5) ─── */}
+      {!isCancelled && !isCompleted && !isGateInDone && (
+        <FarmerFastTrackAuctionCard token={token} />
       )}
 
       {/* Cancelled Banner if applicable */}
@@ -1540,6 +1353,19 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
           Live Terminal
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
+
+        {/* B6: Report Problem / Dispute */}
+        {!isCancelled && !isCompleted && (
+          <button
+            type="button"
+            onClick={() => setShowGrievanceModal(true)}
+            className="py-2.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all"
+            title="Report Problem / Dispute at Desk (B6)"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+            <span>Dispute</span>
+          </button>
+        )}
 
         {/* Cancellation or Gate Exit Button */}
         {!isCancelled && !isCompleted && (
@@ -1570,6 +1396,13 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
           )
         )}
       </div>
+
+      {/* ── B6: Farmer Grievance Modal ── */}
+      <FarmerGrievanceModal
+        token={token}
+        isOpen={showGrievanceModal}
+        onClose={() => setShowGrievanceModal(false)}
+      />
     </div>
   );
 }
@@ -2969,6 +2802,9 @@ export default function FarmerCommandCenter() {
                 </button>
               </div>
             </div>
+
+            {/* ── B4: Waitlist & Reallocated Slot Offers ── */}
+            <FarmerWaitlistOffersCard phone={farmerPhone} onOfferAccepted={() => { fetchTokens(); }} />
 
             {/* Skeleton Loader during fetch */}
             {isLoadingTokens ? (

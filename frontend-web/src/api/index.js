@@ -13,5 +13,7 @@ export { notificationsApi } from './notifications.api';
 export { pricesApi } from './prices.api';
 export { fastTrackApi } from './fastTrack.api';
 export { voiceBookingApi } from './voiceBooking.api';
+export { waitlistApi } from './waitlist.api';
+export { complaintsApi } from './complaints.api';
 
 export default apiClient;

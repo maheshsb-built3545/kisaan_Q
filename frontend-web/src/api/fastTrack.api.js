@@ -2,50 +2,80 @@ import apiClient from './client';
 
 export const fastTrackApi = {
   /**
-   * Submit a Fast-Track Priority request for a booked token
-   * POST /api/tokens/:tokenNumber/fasttrack-request
+   * Get active and past Fast-Track auction rounds
+   * GET /api/fasttrack/rounds
    */
-  requestFastTrack: async (tokenNumber, { tier, phone } = {}) => {
-    const res = await apiClient.post(`/tokens/${tokenNumber}/fasttrack-request`, {
-      tier,
-      phone
-    });
+  getRounds: async (params = {}) => {
+    const res = await apiClient.get('/fasttrack/rounds', { params });
     return res.data;
   },
 
   /**
-   * Get Fast-Track status and available tiers for a token
-   * GET /api/tokens/:tokenNumber/fasttrack-status
+   * Get single Fast-Track round details with candidateQueue and leader
+   * GET /api/fasttrack/rounds/:id
    */
-  getFastTrackStatus: async (tokenNumber, params = {}) => {
-    const res = await apiClient.get(`/tokens/${tokenNumber}/fasttrack-status`, { params });
+  getRoundById: async (id) => {
+    const res = await apiClient.get(`/fasttrack/rounds/${id}`);
     return res.data;
   },
 
   /**
-   * Get Pending Fast-Track requests for an APMC mandi (Staff)
-   * GET /api/staff/fasttrack-requests
+   * Get bid stream for a round
+   * GET /api/fasttrack/rounds/:id/bids
    */
+  getRoundBids: async (id) => {
+    const res = await apiClient.get(`/fasttrack/rounds/${id}/bids`);
+    return res.data;
+  },
+
+  /**
+   * Farmer joins a round with their confirmed booking
+   * POST /api/fasttrack/rounds/:id/join
+   */
+  joinRound: async (id, data) => {
+    const res = await apiClient.post(`/fasttrack/rounds/${id}/join`, data);
+    return res.data;
+  },
+
+  /**
+   * Farmer requests round start when <5 participants
+   * POST /api/fasttrack/rounds/:id/request-start
+   */
+  requestStart: async (id) => {
+    const res = await apiClient.post(`/fasttrack/rounds/${id}/request-start`);
+    return res.data;
+  },
+
+  /**
+   * Place atomic bid
+   * POST /api/fasttrack/rounds/:id/bids
+   */
+  placeBid: async (id, data) => {
+    const res = await apiClient.post(`/fasttrack/rounds/${id}/bids`, data);
+    return res.data;
+  },
+
+  /**
+   * Officer approves or declines start request
+   * POST /api/fasttrack/rounds/:id/start-decision
+   */
+  officerStartDecision: async (id, data) => {
+    const res = await apiClient.post(`/fasttrack/rounds/${id}/start-decision`, data);
+    return res.data;
+  },
+
+  /**
+   * Officer approves or declines round winner
+   * POST /api/fasttrack/rounds/:id/decision
+   */
+  officerDecision: async (id, data) => {
+    const res = await apiClient.post(`/fasttrack/rounds/${id}/decision`, data);
+    return res.data;
+  },
+
+  // Legacy fallback
   getPendingRequests: async (params = {}) => {
-    const res = await apiClient.get('/staff/fasttrack-requests', { params });
-    return res.data;
-  },
-
-  /**
-   * Approve a Fast-Track request (Staff)
-   * POST /api/staff/fasttrack-requests/:id/approve
-   */
-  approveRequest: async (id) => {
-    const res = await apiClient.post(`/staff/fasttrack-requests/${id}/approve`);
-    return res.data;
-  },
-
-  /**
-   * Reject a Fast-Track request (Staff)
-   * POST /api/staff/fasttrack-requests/:id/reject
-   */
-  rejectRequest: async (id) => {
-    const res = await apiClient.post(`/staff/fasttrack-requests/${id}/reject`);
+    const res = await apiClient.get('/fasttrack/rounds', { params: { ...params, status: 'AWAITING_APPROVAL' } });
     return res.data;
   }
 };

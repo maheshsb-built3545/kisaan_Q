@@ -19,6 +19,9 @@ import {
   StatusBadge,
   ActionButton
 } from '../components/staff';
+import StaffOfficerApprovalsCard from '../components/staff/StaffOfficerApprovalsCard';
+import StaffGrievanceResolutionCard from '../components/staff/StaffGrievanceResolutionCard';
+import StaffReleasedSlotsCard from '../components/staff/StaffReleasedSlotsCard';
 
 export default function SupervisorExceptions() {
   const { user } = useAuth();
@@ -238,8 +241,8 @@ export default function SupervisorExceptions() {
                 Executive Authority
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Review quality rejections, vehicle identity discrepancies, and apply audited statutory overrides.
+            <p className="text-xs text-slate-500 mt-1">
+              Statutory oversight for Mandi operations, moisture deductions, weighbridge disputes, and auction approvals.
             </p>
           </div>
 
@@ -264,6 +267,15 @@ export default function SupervisorExceptions() {
             />
           </div>
         </div>
+
+        {/* ── B5: Officer Approvals Inbox ── */}
+        <StaffOfficerApprovalsCard centreId={user?.assignedMandi || 'KPG-01'} userRole={user?.role} />
+
+        {/* ── B6: Farmer Grievance Resolution ── */}
+        <StaffGrievanceResolutionCard centreId={user?.assignedMandi || 'KPG-01'} userRole={user?.role} />
+
+        {/* ── B4: Released Slots & Waitlist Reallocations ── */}
+        <StaffReleasedSlotsCard centreId={user?.assignedMandi || 'KPG-01'} />
 
         {/* Filter Tabs Bar */}
         <div className="bg-white border border-slate-200 rounded-2xl p-3 mb-6 shadow-xs flex flex-wrap items-center justify-between gap-3">
