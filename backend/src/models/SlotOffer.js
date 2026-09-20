@@ -5,7 +5,7 @@ const slotOfferSchema = new mongoose.Schema(
     waitlistId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Waitlist',
-      required: true,
+      default: null,
       index: true
     },
     releasedTokenNumber: {

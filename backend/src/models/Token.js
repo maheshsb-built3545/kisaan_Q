@@ -160,6 +160,18 @@ const tokenSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  warnedAt: {
+    type: Date,
+    default: null
+  },
+  releasedAt: {
+    type: Date,
+    default: null
+  },
+  releaseReason: {
+    type: String,
+    default: null
+  },
   currentStageIndex: {
     type: Number,
     default: 0

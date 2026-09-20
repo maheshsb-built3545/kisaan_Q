@@ -13,6 +13,7 @@ const mongoose = require('mongoose');
 const Token = require('../models/Token');
 const Waitlist = require('../models/Waitlist');
 const SlotOffer = require('../models/SlotOffer');
+const AuditLog = require('../models/AuditLog');
 const notificationService = require('./notificationService');
 const logger = require('../utils/logger');
 
@@ -108,7 +109,22 @@ async function processSlotReallocationCycle(options = {}) {
       results.offersExpired++;
 
       // Mark waitlist entry expired or re-queue
-      await Waitlist.findByIdAndUpdate(offer.waitlistId, { status: 'EXPIRED' });
+      if (offer.waitlistId) {
+        await Waitlist.findByIdAndUpdate(offer.waitlistId, { status: 'EXPIRED' });
+      }
+
+      try {
+        await AuditLog.create({
+          actorId: 'SYSTEM',
+          actorRole: 'system',
+          action: 'SLOT_OFFER_EXPIRED',
+          targetId: offer._id.toString(),
+          reason: 'Offer expired without farmer response within decision window',
+          timestamp: now
+        });
+      } catch (e) {
+        logger.warn(`[SlotRelease] AuditLog error: ${e.message}`);
+      }
 
       // Offer to next waiting farmer
       const nextOffer = await offerNextWaitlistCandidate(offer.centreId, offer.slotDate, offer.releasedTokenNumber, options);
@@ -135,10 +151,25 @@ async function processSlotReallocationCycle(options = {}) {
         token.status = 'CANCELLED';
         token.cancellationReason = 'Auto-cancelled: missed arrival grace period';
         token.cancelledAt = now;
+        token.releasedAt = now;
+        token.releaseReason = 'Auto-released: missed arrival grace period';
         await token.save();
         results.slotsReleased++;
 
         logger.info(`[SlotRelease] Auto-cancelled token ${token.tokenNumber} at mandi ${token.mandiId} (Elapsed: ${Math.round(elapsedMs / 1000)}s)`);
+
+        try {
+          await AuditLog.create({
+            actorId: 'SYSTEM',
+            actorRole: 'system',
+            action: 'SLOT_AUTO_RELEASE',
+            targetId: token.tokenNumber,
+            reason: 'Auto-released slot: missed arrival grace period',
+            timestamp: now
+          });
+        } catch (e) {
+          logger.warn(`[SlotRelease] AuditLog error: ${e.message}`);
+        }
 
         // Send cancellation notification
         try {
@@ -173,6 +204,19 @@ async function processSlotReallocationCycle(options = {}) {
         logger.info(`[SlotRelease] Issued arrival warning for token ${token.tokenNumber} (Elapsed: ${Math.round(elapsedMs / 1000)}s)`);
 
         try {
+          await AuditLog.create({
+            actorId: 'SYSTEM',
+            actorRole: 'system',
+            action: 'SLOT_ARRIVAL_WARNING',
+            targetId: token.tokenNumber,
+            reason: `Arrival warning issued after ${Math.round(timings.warnMs / 60000)}m`,
+            timestamp: now
+          });
+        } catch (e) {
+          logger.warn(`[SlotRelease] AuditLog error: ${e.message}`);
+        }
+
+        try {
           await notificationService.notify({
             recipientPhone: token.farmerPhone || token.phone,
             recipientName: token.farmerName,
@@ -198,59 +242,117 @@ async function processSlotReallocationCycle(options = {}) {
 }
 
 /**
- * Offer a released slot to the next highest priority farmer in Waitlist
+ * Offer a released slot to the next candidate:
+ * Order:
+ * 1. Waitlist in priority / join order (priority DESC, joinedAt ASC)
+ * 2. Fallback: Later-slot confirmed bookings on the same day at the same centre
  */
 async function offerNextWaitlistCandidate(centreId, slotDate, releasedTokenNumber = null, options = {}) {
   const timings = getTimingConfig(options);
   const now = options.simulatedNow ? new Date(options.simulatedNow) : new Date();
 
-  // Find next waiting candidate
+  // 1. Find next waiting candidate in Waitlist
   const candidate = await Waitlist.findOne({
     centreId,
     status: 'WAITING'
   }).sort({ priority: -1, joinedAt: 1 });
 
-  if (!candidate) {
+  let offerTarget = null;
+  let waitlistId = null;
+
+  if (candidate) {
+    waitlistId = candidate._id;
+    offerTarget = {
+      farmerPhone: candidate.farmerPhone,
+      farmerName: candidate.farmerName,
+      centreId: candidate.centreId,
+      mandiId: candidate.mandiId,
+      mandiName: candidate.mandiName,
+      crop: candidate.crop,
+      quantity: candidate.quantity,
+      slotDate: slotDate || candidate.requestedSlotDate,
+      slotTime: candidate.requestedSlotTime || '08:00 AM - 11:00 AM'
+    };
+  } else if (slotDate) {
+    // 2. Fallback: Later-slot confirmed bookings on same day
+    const laterToken = await Token.findOne({
+      mandiId: centreId,
+      slotDate,
+      status: { $in: ['BOOKED', 'Booked'] },
+      currentStageIndex: 0
+    }).sort({ slotTime: 1, createdAt: 1 });
+
+    if (laterToken) {
+      offerTarget = {
+        farmerPhone: laterToken.farmerPhone || laterToken.phone,
+        farmerName: laterToken.farmerName,
+        centreId: laterToken.mandiId,
+        mandiId: laterToken.mandiId,
+        mandiName: laterToken.mandiName,
+        crop: laterToken.crop,
+        quantity: laterToken.quantity,
+        slotDate: laterToken.slotDate,
+        slotTime: laterToken.slotTime
+      };
+    }
+  }
+
+  if (!offerTarget) {
     return null;
   }
 
   const expiresAt = new Date(Date.now() + timings.offerMs);
 
   const offer = await SlotOffer.create({
-    waitlistId: candidate._id,
+    waitlistId,
     releasedTokenNumber,
-    farmerPhone: candidate.farmerPhone,
-    farmerName: candidate.farmerName,
-    centreId: candidate.centreId,
-    mandiId: candidate.mandiId,
-    mandiName: candidate.mandiName,
-    crop: candidate.crop,
-    quantity: candidate.quantity,
-    slotDate: slotDate || candidate.requestedSlotDate,
-    slotTime: candidate.requestedSlotTime || '08:00 AM - 11:00 AM',
+    farmerPhone: offerTarget.farmerPhone,
+    farmerName: offerTarget.farmerName,
+    centreId: offerTarget.centreId,
+    mandiId: offerTarget.mandiId,
+    mandiName: offerTarget.mandiName,
+    crop: offerTarget.crop,
+    quantity: offerTarget.quantity,
+    slotDate: offerTarget.slotDate,
+    slotTime: offerTarget.slotTime,
     offeredAt: now,
     expiresAt,
     status: 'PENDING'
   });
 
-  candidate.status = 'OFFERED';
-  await candidate.save();
+  if (candidate) {
+    candidate.status = 'OFFERED';
+    await candidate.save();
+  }
 
-  logger.info(`[SlotRelease] Created slot offer ${offer._id} for farmer ${candidate.farmerPhone} (Expires in ${Math.round(timings.offerMs / 1000)}s)`);
+  logger.info(`[SlotRelease] Created slot offer ${offer._id} for farmer ${offerTarget.farmerPhone} (Expires in ${Math.round(timings.offerMs / 1000)}s)`);
+
+  try {
+    await AuditLog.create({
+      actorId: 'SYSTEM',
+      actorRole: 'system',
+      action: 'SLOT_OFFER_CREATED',
+      targetId: offer._id.toString(),
+      reason: `Offered released slot ${releasedTokenNumber || ''} to farmer ${offerTarget.farmerPhone}`,
+      timestamp: now
+    });
+  } catch (e) {
+    logger.warn(`[SlotRelease] AuditLog error: ${e.message}`);
+  }
 
   // Send offer notification to farmer
   try {
     await notificationService.notify({
-      recipientPhone: candidate.farmerPhone,
-      recipientName: candidate.farmerName,
+      recipientPhone: offerTarget.farmerPhone,
+      recipientName: offerTarget.farmerName,
       recipientRole: 'farmer',
       templateKey: 'SLOT_OFFER_AVAILABLE',
-      centreId: candidate.centreId,
+      centreId: offerTarget.centreId,
       params: {
         offerId: offer._id.toString(),
-        mandiName: candidate.mandiName,
-        crop: candidate.crop,
-        quantity: candidate.quantity,
+        mandiName: offerTarget.mandiName,
+        crop: offerTarget.crop,
+        quantity: offerTarget.quantity,
         slotDate: offer.slotDate,
         slotTime: offer.slotTime,
         offerMinutesValid: Math.round(timings.offerMs / 60000)
@@ -342,6 +444,19 @@ async function acceptSlotOffer(offerId, farmerPhone = null, options = {}) {
 
   logger.info(`[SlotRelease] Farmer ${updatedOffer.farmerPhone} accepted offer ${offerId} -> Token ${tokenNumber}`);
 
+  try {
+    await AuditLog.create({
+      actorId: updatedOffer.farmerPhone,
+      actorRole: 'farmer',
+      action: 'SLOT_OFFER_ACCEPTED',
+      targetId: tokenNumber,
+      reason: `Farmer accepted slot offer ${offerId}`,
+      timestamp: now
+    });
+  } catch (e) {
+    logger.warn(`[SlotRelease] AuditLog accept error: ${e.message}`);
+  }
+
   // Send confirmation notification
   try {
     await notificationService.notify({
@@ -384,6 +499,19 @@ async function declineSlotOffer(offerId, farmerPhone = null, options = {}) {
 
   if (!offer) {
     return { success: false, message: 'Offer not found or not in pending state.' };
+  }
+
+  try {
+    await AuditLog.create({
+      actorId: offer.farmerPhone || 'farmer',
+      actorRole: 'farmer',
+      action: 'SLOT_OFFER_DECLINED',
+      targetId: offer._id.toString(),
+      reason: 'Farmer declined slot offer',
+      timestamp: new Date()
+    });
+  } catch (e) {
+    logger.warn(`[SlotRelease] AuditLog decline error: ${e.message}`);
   }
 
   await Waitlist.findByIdAndUpdate(offer.waitlistId, { status: 'CANCELLED' });

@@ -272,9 +272,27 @@ async function runSlotReleaseTests() {
     assert(reloadedExpOffer?.status === 'EXPIRED', 'Past offer marked EXPIRED');
 
     // -----------------------------------------------------------------------
-    // Section 8: Notification & SMS Disclaimers
+    // Section 8: Restart Safety & Job Idempotency (Run Twice)
     // -----------------------------------------------------------------------
-    console.log('\n--- Section 8: Real World Disclaimers ---');
+    console.log('\n--- Section 8: Restart Safety & Idempotency (Run Job Twice) ---');
+    // First run to settle any pending state
+    await slotReallocationService.processSlotReallocationCycle();
+    // Second run must find 0 work
+    const secondExpCycle = await slotReallocationService.processSlotReallocationCycle();
+    assert(secondExpCycle.slotsReleased === 0, 'Second consecutive run releases 0 additional slots (idempotent)');
+    assert(secondExpCycle.offersExpired === 0, 'Second consecutive run expires 0 additional offers (idempotent)');
+
+    // AuditLog verification
+    const { AuditLog } = require('../src/models');
+    if (mongoose.connection.readyState === 1) {
+      const releaseLogs = await AuditLog.find({ action: { $in: ['SLOT_AUTO_RELEASE', 'SLOT_ARRIVAL_WARNING', 'SLOT_OFFER_CREATED', 'SLOT_OFFER_ACCEPTED', 'SLOT_OFFER_DECLINED'] } });
+      assert(releaseLogs.length >= 3, `AuditLog recorded ${releaseLogs.length} slot reallocation events`);
+    }
+
+    // -----------------------------------------------------------------------
+    // Section 9: Notification & SMS Disclaimers
+    // -----------------------------------------------------------------------
+    console.log('\n--- Section 9: Real World Disclaimers ---');
     console.log('  ⚠️ Real SMS dispatch: NOT CHECKED (no Fast2SMS key)');
     console.log('  ⚠️ Real farmer speech: NOT CHECKED (no clips in backend/tests/audio-real/)');
     notChecked += 2;
