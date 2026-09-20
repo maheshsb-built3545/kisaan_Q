@@ -696,7 +696,7 @@ All test and citizen authentication utilizes standard mock OTPs / dev bypasses (
 | **Mock OTP** | \`123456\` (or dev OTP returned) | Universal development bypass |
 
 ### What Ramesh Kadam's Account Showcases:
-1. **3 Past Completed Procurements**: All 5 checkpoint signatures (Gate, Lab, Scale, Deed, Payout), statutory receipts, weighment cards, and DBT Payout status (\`PAID\`).
+1. **3 Past Completed Procurements**: All 5 checkpoint signatures (Gate, Lab, Scale, Deed, Payout), official procurement receipts, weighment cards, and DBT Payout status (\`PAID\`).
 2. **1 Completed Procurement (Payout Pending)**: Fully weighed & assayed, bill generated, DBT payout pending.
 3. **Exactly ONE Active Confirmed Booking Today**: Scheduled for the next whole-hour slot at Kopargaon (\`KQ-KPG-2026-6285\`). Shows exact queue position #3, OSRM leave-by alert, and 500m AgriPool micro-pooling match with neighbor Sunil Shinde (\`9800100002\`).
 4. **Fast-Track Priority Auction**: Round in \`JOINING\` status with 4 other farmers joined. Joining as Ramesh makes 5/5 and locks/starts the auction!

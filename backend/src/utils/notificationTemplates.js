@@ -81,7 +81,7 @@ const TEMPLATES = {
   procurement_recorded: {
     en: (p) => ({
       title: 'Procurement Slip Issued',
-      body: `Token #${p.tokenNumber || ''} purchase deed registered. Total statutory payable: ₹${p.totalAmount || ''}.`
+      body: `Token #${p.tokenNumber || ''} purchase deed registered. Total MSP payable: ₹${p.totalAmount || ''}.`
     }),
     hi: (p) => ({
       title: 'खरीद पर्ची जारी',
@@ -96,7 +96,7 @@ const TEMPLATES = {
   payout_ready: {
     en: (p) => ({
       title: 'Procurement Complete — Payout Ready',
-      body: `Procurement verified for Token #${p.tokenNumber || ''}. Statutory payable ₹${p.amount || p.totalAmount || ''} queued for Treasury DBT transfer.`
+      body: `Procurement verified for Token #${p.tokenNumber || ''}. Total payable ₹${p.amount || p.totalAmount || ''} queued for Treasury DBT transfer.`
     }),
     hi: (p) => ({
       title: 'खरीद पूर्ण — भुगतान तैयार',
