@@ -12,7 +12,7 @@ const fastTrackConfig = {
   countdownSeconds: Number(process.env.FAST_TRACK_COUNTDOWN_SEC) || 100, // 100s server countdown timer
   officerTimeoutMinutes: Number(process.env.FAST_TRACK_OFFICER_TIMEOUT_MIN) || 10, // 10-minute officer approval timeout
   minQuorum: 5, // 5 participants automatically triggers LIVE status
-  joiningWindowMinutesBeforeSlot: 30
+  joiningWindowMinutesBeforeSlot: Number(process.env.JOIN_OPEN_MIN) || 45
 };
 
 module.exports = fastTrackConfig;

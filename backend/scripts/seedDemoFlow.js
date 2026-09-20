@@ -5,12 +5,14 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const { Farmer, Token, Booking, Waitlist, SlotOffer, FastTrackRound, Complaint, StaffUser } = require('../src/models');
 const authService = require('../src/services/authService');
+const fastTrackConfig = require('../src/config/fastTrackConfig');
 
 const DEMO_PREFIX = 'DEMO_';
 const CENTRE_ID = 'KPG-01';
 const MANDI_NAME = 'APMC Kopargaon';
+const KPG_CENTRE_OBJECT_ID = new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9c0d1');
 
-// Demo Farmers Data
+// Demo Farmers Data (9 Registered Farmers)
 const DEMO_FARMERS = [
   { id: '64b8f0a1c1d2e3f4a5b6d101', phone: '9800000101', name: 'Anand Shinde (Demo Farmer 1)', crop: 'Soybean', qty: 25 },
   { id: '64b8f0a1c1d2e3f4a5b6d102', phone: '9800000102', name: 'Balasaheb Thorat (Demo Farmer 2)', crop: 'Soybean', qty: 30 },
@@ -80,7 +82,6 @@ function formatTimeWithMinutes(hours, minutes) {
 /**
  * Cleanup prior demo records safely.
  * Deletes ONLY records with DEMO_ prefix or matching DEMO farmer phones.
- * FastTrackRound clause by centre+hour is removed.
  */
 async function cleanupDemoRecords() {
   console.log('🧹 [DEMO DATA CLEANUP] Removing prior DEMO records (prefix DEMO_ or demo phones)...');
@@ -99,7 +100,8 @@ async function cleanupDemoRecords() {
     $or: [
       { bookingId: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
       { tokenNumber: { $regex: new RegExp(`^${DEMO_PREFIX}`) } },
-      { farmerPhone: { $in: demoPhones } }
+      { farmerPhone: { $in: demoPhones } },
+      { farmerId: { $in: DEMO_FARMERS.map(f => new mongoose.Types.ObjectId(f.id)) } }
     ]
   });
 
@@ -118,7 +120,6 @@ async function cleanupDemoRecords() {
     ]
   });
 
-  // FastTrackRound: delete ONLY by DEMO_ prefix (never by centre+hour)
   await FastTrackRound.deleteMany({
     roundId: { $regex: new RegExp(`^${DEMO_PREFIX}`) }
   });
@@ -131,7 +132,12 @@ async function cleanupDemoRecords() {
     ]
   });
 
-  await Farmer.deleteMany({ phone: { $in: demoPhones } });
+  await Farmer.deleteMany({
+    $or: [
+      { phone: { $in: demoPhones } },
+      { _id: { $in: DEMO_FARMERS.map(f => new mongoose.Types.ObjectId(f.id)) } }
+    ]
+  });
 
   console.log('✨ [DEMO DATA CLEANUP] Prior DEMO records successfully removed.\n');
 }
@@ -144,7 +150,6 @@ async function seedDemoFlow() {
   const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
   await mongoose.connect(mongoUri);
 
-  // Verification of connected database name (strict: kisanq_aveniq only; print db name only)
   const dbName = mongoose.connection.name;
   console.log(`Connected to database: ${dbName}`);
   if (dbName !== 'kisanq_aveniq') {
@@ -163,12 +168,13 @@ async function seedDemoFlow() {
     process.exit(0);
   }
 
-  // Staff registry is maintained separately; do not touch or reseed staff in demo flow.
-
   const now = new Date();
   const istNow = getISTDateParts(now);
 
-  // Upcoming slot is next hour (30-60 minutes ahead in IST)
+  // Configurable joining window
+  const JOIN_OPEN_MIN = Number(process.env.JOIN_OPEN_MIN) || fastTrackConfig.joiningWindowMinutesBeforeSlot || 45;
+
+  // Upcoming slot is next whole-hour slot (30-60 minutes ahead in IST)
   const slotAheadHour = (istNow.hour + 1) % 24;
   const isNextDay = istNow.hour === 23;
   let slotAheadDateStr = istNow.dateStr;
@@ -178,10 +184,20 @@ async function seedDemoFlow() {
   }
   const slotAheadTimeStr = formatSlotTimeRange(slotAheadHour, 1);
 
+  // Precise slot start date
+  const slotAheadStartDate = new Date(now);
+  slotAheadStartDate.setHours(slotAheadHour, 0, 0, 0);
+  if (isNextDay) slotAheadStartDate.setDate(slotAheadStartDate.getDate() + 1);
+  const slotAheadEndDate = new Date(slotAheadStartDate.getTime() + 60 * 60 * 1000);
+
+  // Minutes until slot start
+  const minutesUntilSlotStart = Math.round((slotAheadStartDate.getTime() - now.getTime()) / 60000);
+
   // 1. Seed Demo Farmers (Registered in citizen directory)
   console.log('1️⃣ Seeding 9 Demo Farmers in Citizen Registry...');
   for (const f of DEMO_FARMERS) {
     await Farmer.create({
+      _id: new mongoose.Types.ObjectId(f.id),
       phone: f.phone,
       name: f.name,
       state: 'Maharashtra',
@@ -202,13 +218,14 @@ async function seedDemoFlow() {
   }
   console.log('   ↳ 9 Demo Farmers registered.\n');
 
-  // 2. Seed 6 Farmers with Confirmed Bookings at Kopargaon (30-40 min ahead)
+  // 2. Seed 6 Farmers with Confirmed Bookings at Kopargaon (next whole-hour slot)
   console.log(`2️⃣ Seeding 6 Confirmed Bookings at Kopargaon for upcoming slot (${slotAheadDateStr}, ${slotAheadTimeStr})...`);
   const seededTokens = [];
   for (let i = 0; i < 6; i++) {
     const f = DEMO_FARMERS[i];
     const tokNum = `${DEMO_PREFIX}TK_KPG_2026_${String(101 + i)}`;
 
+    // Token record
     const tokenDoc = await Token.create({
       tokenNumber: tokNum,
       id: tokNum,
@@ -237,8 +254,22 @@ async function seedDemoFlow() {
       ]
     });
     seededTokens.push(tokenDoc);
+
+    // Booking record
+    await Booking.create({
+      _id: new mongoose.Types.ObjectId(),
+      farmerId: new mongoose.Types.ObjectId(f.id),
+      centreId: KPG_CENTRE_OBJECT_ID,
+      crop: f.crop,
+      quantityBand: f.qty <= 5 ? '0-5q' : f.qty <= 15 ? '5-15q' : '15q+',
+      arrivalWindowStart: slotAheadStartDate,
+      arrivalWindowEnd: slotAheadEndDate,
+      tokenNumber: tokNum,
+      status: 'BOOKED',
+      channel: 'app'
+    });
   }
-  console.log('   ↳ 6 Confirmed Bookings created for Farmers 1 through 6.\n');
+  console.log('   ↳ 6 Confirmed Bookings created for Farmers 1 through 6 in both Token and Booking collections.\n');
 
   // 3. Fast-Track Round in JOINING status (Cap 2/hour, 5 minParticipants)
   console.log('3️⃣ Seeding Fast-Track Round in JOINING status at Kopargaon (cap: 2/hr, JOINING, participants: [])...');
@@ -278,11 +309,10 @@ async function seedDemoFlow() {
     status: 'WAITING',
     joinedAt: new Date()
   });
-  console.log(`   ↳ Farmer 7 waitlisted for 11:00 AM - 01:00 PM full slot at Kopargaon.\n`);
+  console.log(`   ↳ Farmer 7 waitlisted for 11:00 AM - 01:00 PM slot at Kopargaon.\n`);
 
   // 5. One Booking Near No-Show Limit (Farmer 8: 9800000108)
   console.log('5️⃣ Seeding Booking Near No-Show Limit (Farmer 8: 9800000108)...');
-  // Read configurable timer env values
   const warnSec = process.env.SLOT_WARN_SEC ? Number(process.env.SLOT_WARN_SEC) : null;
   const graceSec = process.env.SLOT_GRACE_SEC ? Number(process.env.SLOT_GRACE_SEC) : null;
   const offerSec = process.env.SLOT_OFFER_SEC ? Number(process.env.SLOT_OFFER_SEC) : null;
@@ -291,9 +321,9 @@ async function seedDemoFlow() {
   const graceMs = graceSec !== null ? graceSec * 1000 : (Number(process.env.SLOT_GRACE_MINUTES) || 10) * 60 * 1000;
   const offerMs = offerSec !== null ? offerSec * 1000 : (Number(process.env.SLOT_OFFER_MINUTES) || 10) * 60 * 1000;
 
-  console.log(`   ⏱️ Assumed Timer Config: WARN=${warnMs / 1000}s, GRACE=${graceMs / 1000}s, OFFER=${offerMs / 1000}s`);
+  console.log(`   ⏱️ Timer Values: WARN=${warnMs / 1000}s (${warnMs / 60000}m), GRACE=${graceMs / 1000}s (${graceMs / 60000}m), OFFER=${offerMs / 1000}s (${offerMs / 60000}m)`);
 
-  // Set slot start so grace expiry occurs in ~2 minutes (120s)
+  // Target elapsed: graceMs - 120s (~2 minutes remaining before auto-release)
   const remainingBeforeGraceMs = Math.min(120 * 1000, Math.max(30 * 1000, graceMs * 0.2));
   const targetElapsedMs = Math.max(0, graceMs - remainingBeforeGraceMs);
   const noShowSlotStartDate = new Date(now.getTime() - targetElapsedMs);
@@ -324,7 +354,21 @@ async function seedDemoFlow() {
       { stageIndex: 0, id: 'GATE_CHECKIN', title: 'Gate Check-in', status: 'Pending', timestamp: null }
     ]
   });
-  console.log(`   ↳ Farmer 8 booking (${noShowToken.tokenNumber}) at ${noShowSlotTimeFormatted} has elapsed ~${Math.round(targetElapsedMs / 1000)}s (~${Math.round(remainingBeforeGraceMs / 1000)}s to auto-release).\n`);
+
+  await Booking.create({
+    _id: new mongoose.Types.ObjectId(),
+    farmerId: new mongoose.Types.ObjectId(DEMO_FARMERS[7].id),
+    centreId: KPG_CENTRE_OBJECT_ID,
+    crop: 'Soybean',
+    quantityBand: '15q+',
+    arrivalWindowStart: noShowSlotStartDate,
+    arrivalWindowEnd: new Date(noShowSlotStartDate.getTime() + 60 * 60 * 1000),
+    tokenNumber: `${DEMO_PREFIX}TK_KPG_NOSHOW_08`,
+    status: 'BOOKED',
+    channel: 'app'
+  });
+
+  console.log(`   ↳ Farmer 8 booking (${noShowToken.tokenNumber}) at ${noShowSlotTimeFormatted} has elapsed ~${Math.round(targetElapsedMs / 1000)}s (~${Math.round(remainingBeforeGraceMs / 1000)}s until grace auto-release).\n`);
 
   // 6. One Checked-In Active Token for Grievance / Dispute Testing (Farmer 9: 9800000109)
   console.log('6️⃣ Seeding Active Checked-in Token for Grievance Filing (Farmer 9: 9800000109)...');
@@ -349,7 +393,20 @@ async function seedDemoFlow() {
       { stageIndex: 1, id: 'QUALITY_GRADING', title: 'Quality Grading & Assaying', status: 'In Progress', timestamp: now }
     ]
   });
-  console.log(`   ↳ Farmer 9 token (${activeToken.tokenNumber}) is active at QUALITY_GRADING desk for grievance tests.\n`);
+
+  await Booking.create({
+    _id: new mongoose.Types.ObjectId(),
+    farmerId: new mongoose.Types.ObjectId(DEMO_FARMERS[8].id),
+    centreId: KPG_CENTRE_OBJECT_ID,
+    crop: 'Soybean',
+    quantityBand: '15q+',
+    arrivalWindowStart: new Date(now.getTime() - 30 * 60 * 1000),
+    arrivalWindowEnd: new Date(now.getTime() + 30 * 60 * 1000),
+    tokenNumber: `${DEMO_PREFIX}TK_KPG_ACTIVE_09`,
+    status: 'CHECKED_IN',
+    channel: 'app'
+  });
+  console.log(`   ↳ Farmer 9 token (${activeToken.tokenNumber}) is active at QUALITY_GRADING step for grievance tests.\n`);
 
   // 7. Verify round appears in GET /api/fasttrack/rounds
   console.log('7️⃣ Verifying round visibility in GET /api/fasttrack/rounds...');
@@ -368,9 +425,91 @@ async function seedDemoFlow() {
   }
 
   // ---------------------------------------------------------------------------
-  // Demo Login Credentials & Authentication Guide (Demo Data Only - No Secrets)
+  // DEMO RECORDS COUNT VERIFICATION (PER COLLECTION)
   // ---------------------------------------------------------------------------
   console.log('================================================================================');
+  console.log('📊 DEMO RECORDS COUNT SUMMARY (PER COLLECTION)');
+  console.log('================================================================================');
+  const demoPhones = DEMO_FARMERS.map((f) => f.phone);
+
+  const farmerCount = await Farmer.countDocuments({ phone: { $in: demoPhones } });
+  const tokenCountNextSlot = await Token.countDocuments({
+    tokenNumber: { $regex: new RegExp(`^${DEMO_PREFIX}TK_KPG_2026_`) },
+    status: 'BOOKED'
+  });
+  const tokenNoShow = await Token.countDocuments({
+    tokenNumber: `${DEMO_PREFIX}TK_KPG_NOSHOW_08`,
+    status: 'BOOKED'
+  });
+  const tokenActive = await Token.countDocuments({
+    tokenNumber: `${DEMO_PREFIX}TK_KPG_ACTIVE_09`,
+    status: 'GATE_IN',
+    currentStageIndex: 1
+  });
+  const totalDemoTokens = await Token.countDocuments({
+    $or: [{ tokenNumber: { $regex: new RegExp(`^${DEMO_PREFIX}`) } }, { farmerPhone: { $in: demoPhones } }]
+  });
+
+  const bookingCountNextSlot = await Booking.countDocuments({
+    tokenNumber: { $regex: new RegExp(`^${DEMO_PREFIX}TK_KPG_2026_`) },
+    status: 'BOOKED'
+  });
+  const bookingNoShow = await Booking.countDocuments({
+    tokenNumber: `${DEMO_PREFIX}TK_KPG_NOSHOW_08`,
+    status: 'BOOKED'
+  });
+  const bookingActive = await Booking.countDocuments({
+    tokenNumber: `${DEMO_PREFIX}TK_KPG_ACTIVE_09`,
+    status: 'CHECKED_IN'
+  });
+  const totalDemoBookings = await Booking.countDocuments({
+    tokenNumber: { $regex: new RegExp(`^${DEMO_PREFIX}`) }
+  });
+
+  const roundCount = await FastTrackRound.countDocuments({
+    roundId: { $regex: new RegExp(`^${DEMO_PREFIX}`) },
+    status: 'JOINING'
+  });
+  const waitlistCount = await Waitlist.countDocuments({
+    farmerPhone: DEMO_FARMERS[6].phone,
+    status: 'WAITING'
+  });
+  const slotOfferCount = await SlotOffer.countDocuments({
+    $or: [{ id: { $regex: new RegExp(`^${DEMO_PREFIX}`) } }, { farmerPhone: { $in: demoPhones } }]
+  });
+
+  console.log(`• Farmers collection:              ${farmerCount} / 9 expected`);
+  console.log(`• Bookings (next whole-hour slot): ${bookingCountNextSlot} / 6 expected`);
+  console.log(`• Bookings (no-show Farmer 8):     ${bookingNoShow} / 1 expected`);
+  console.log(`• Bookings (active Farmer 9):      ${bookingActive} / 1 expected`);
+  console.log(`• Total Bookings collection:       ${totalDemoBookings} / 8 expected`);
+  console.log(`• Tokens (next whole-hour slot):   ${tokenCountNextSlot} / 6 expected`);
+  console.log(`• Tokens (no-show Farmer 8):       ${tokenNoShow} / 1 expected`);
+  console.log(`• Tokens (active assaying Farmer 9): ${tokenActive} / 1 expected`);
+  console.log(`• Total Tokens collection:         ${totalDemoTokens} / 8 expected`);
+  console.log(`• FastTrackRounds (JOINING):       ${roundCount} / 1 expected`);
+  console.log(`• Waitlist (Farmer 7):             ${waitlistCount} / 1 expected`);
+  console.log(`• SlotOffers (initial):            ${slotOfferCount} / 0 expected before reallocation cycle`);
+
+  // ---------------------------------------------------------------------------
+  // JOINING WINDOW METRICS & WARNING
+  // ---------------------------------------------------------------------------
+  console.log('\n================================================================================');
+  console.log('⏱️ JOINING WINDOW CONFIGURATION & STATUS');
+  console.log('================================================================================');
+  console.log(`• JOIN_OPEN_MIN config:       ${JOIN_OPEN_MIN} minutes`);
+  console.log(`• Next slot start time:       ${slotAheadDateStr} ${slotAheadTimeStr}`);
+  console.log(`• Actual minutes until slot:  ${minutesUntilSlotStart} minutes`);
+  if (minutesUntilSlotStart > JOIN_OPEN_MIN) {
+    console.warn(`⚠️ WARNING: The joining window is currently CLOSED (${minutesUntilSlotStart}m until slot > ${JOIN_OPEN_MIN}m window). Farmers can only join within ${JOIN_OPEN_MIN} minutes of slot start.`);
+  } else {
+    console.log(`✅ Joining window is OPEN (${minutesUntilSlotStart}m until slot <= ${JOIN_OPEN_MIN}m window). Fast-track bids/joins allowed.`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Demo Login Credentials & Authentication Guide (Demo Data Only - No Secrets)
+  // ---------------------------------------------------------------------------
+  console.log('\n================================================================================');
   console.log('📋 DEMO LOGIN CREDENTIALS & AUTHENTICATION GUIDE (NO SECRETS)');
   console.log('================================================================================');
   console.log(`
