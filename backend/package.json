@@ -21,7 +21,13 @@
     "test:health": "node tests/test_health_signals.js",
     "test:step1": "node tests/test_b4_step1_seed.js",
     "test:dedup": "node tests/test_slot_offer_dedup.js",
-    "test:all": "node tests/test_all_prd.js"
+    "test:isolation": "node tests/test_notification_isolation.js",
+    "test:planning": "node tests/test_planning.js",
+    "test:redirect": "node tests/test_redirect.js",
+    "test:all": "node tests/test_all_prd.js",
+    "showcase:seed": "node scripts/seedShowcase.js",
+    "showcase:clean": "node scripts/seedShowcase.js --clean",
+    "showcase:live": "node scripts/seedShowcase.js --live"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

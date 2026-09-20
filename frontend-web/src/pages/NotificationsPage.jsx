@@ -366,7 +366,7 @@ export default function NotificationsPage() {
 
         {/* Event Category Filter Pills */}
         <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          {EVENT_CATEGORIES.map((cat) => {
+          {EVENT_CATEGORIES_ACTIVE.map((cat) => {
             const Icon = cat.icon;
             const isSelected = selectedCategory === cat.id;
             return (

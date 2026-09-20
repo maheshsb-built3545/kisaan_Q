@@ -21,6 +21,7 @@ dist-ssr
 *.local
 fcm-service-account.json
 google-services.json
+SHOWCASE_LOGINS.md
 .expo
 dist
 build

@@ -5,6 +5,7 @@ const authRoutes = require('./auth.routes');
 const bookingRoutes = require('./booking.routes');
 const queueRoutes = require('./queue.routes');
 const centreRoutes = require('./centre.routes');
+const centreLoadRoutes = require('./centreLoad.routes');
 const procurementRoutes = require('./procurement.routes');
 const exceptionRoutes = require('./exception.routes');
 const notificationRoutes = require('./notification.routes');
@@ -17,6 +18,7 @@ const fastTrackRoutes = require('./fastTrack.routes');
 const voiceBookingRoutes = require('./voiceBooking.routes');
 const planningRoutes = require('./planning.routes');
 const waitlistRoutes = require('./waitlist.routes');
+const redirectRoutes = require('./redirect.routes');
 
 const complaintRoutes = require('./complaint.routes');
 
@@ -35,9 +37,11 @@ router.use('/planning', planningRoutes);
 router.use('/waitlist', waitlistRoutes);
 router.use('/slots', waitlistRoutes);
 router.use('/complaints', complaintRoutes);
+router.use('/offers', redirectRoutes);
 
 router.use('/queue', queueRoutes);
 router.use('/centres', centreRoutes);
+router.use('/centres', centreLoadRoutes);
 router.use('/prices', cropPriceRoutes);
 router.use('/crop-prices', cropPriceRoutes);
 router.use('/procurement', procurementRoutes);

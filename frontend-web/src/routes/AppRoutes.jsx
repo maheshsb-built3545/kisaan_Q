@@ -19,6 +19,7 @@ import StaffDesk from '../pages/StaffDesk';
 import SupervisorExceptions from '../pages/SupervisorExceptions';
 import AdminDashboard from '../pages/AdminDashboard';
 import NotificationsPage from '../pages/NotificationsPage';
+import OfficerPortal from '../pages/OfficerPortal';
 
 export const AppRoutes = () => {
   const location = useLocation();
@@ -309,6 +310,27 @@ export const AppRoutes = () => {
           <PageErrorBoundary title="Admin Analytics Dashboard" resetKey={location.pathname}>
             <AdminDashboard />
           </PageErrorBoundary>
+        }
+      />
+
+      <Route
+        path="/planning"
+        element={
+          <RequireRole allowedRoles={['resource_officer', 'supervisor', 'district_admin']}>
+            <PageErrorBoundary title="Resource Planning Officer Portal" resetKey={location.pathname}>
+              <OfficerPortal />
+            </PageErrorBoundary>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/staff/planning"
+        element={
+          <RequireRole allowedRoles={['resource_officer', 'supervisor', 'district_admin']}>
+            <PageErrorBoundary title="Resource Planning Officer Portal" resetKey={location.pathname}>
+              <OfficerPortal />
+            </PageErrorBoundary>
+          </RequireRole>
         }
       />
 

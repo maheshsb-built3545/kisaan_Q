@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const { Farmer, Token, Booking, Waitlist, SlotOffer, FastTrackRound, Complaint, StaffUser } = require('../src/models');
 const authService = require('../src/services/authService');
 const fastTrackConfig = require('../src/config/fastTrackConfig');
+const { seedPlanningDemo, cleanPlanningDemo } = require('./seedPlanningDemo');
 
 const DEMO_PREFIX = 'DEMO_';
 const CENTRE_ID = 'KPG-01';
@@ -138,6 +139,8 @@ async function cleanupDemoRecords() {
       { _id: { $in: DEMO_FARMERS.map(f => new mongoose.Types.ObjectId(f.id)) } }
     ]
   });
+
+  await cleanPlanningDemo();
 
   console.log('✨ [DEMO DATA CLEANUP] Prior DEMO records successfully removed.\n');
 }
@@ -563,6 +566,8 @@ async function seedDemoFlow() {
      Slot automatically released and offered to Waitlisted Farmer 7 (9800000107).
   4. Cleanup: Run 'node scripts/seedDemoFlow.js --clean' to safely delete all demo records.
 `);
+
+  await seedPlanningDemo();
 
   if (require.main === module) {
     await mongoose.disconnect();

@@ -28,7 +28,10 @@ const suites = [
   { name: 'Fix Batch 4 Step 5: Voice Booking JWT Authentication Guard (test:voice-auth)', file: 'tests/test_voice_auth.js' },
   { name: 'Fix Batch 4 Step 6: Frontend Dual Client Session Auth Isolation (test:frontend-client)', file: '../frontend-web/tests/test_client_session_auth.js' },
   { name: 'B8: Operational Timings & Rolling Median Telemetry Engine (test:timings)', file: 'tests/test_timings_switch.js' },
-  { name: 'B8/B10: Real Health Signals & Graceful Degraded Mode (test:health)', file: 'tests/test_health_signals.js' }
+  { name: 'B8/B10: Real Health Signals & Graceful Degraded Mode (test:health)', file: 'tests/test_health_signals.js' },
+  { name: 'Step 1: Notification & Recipient-Type Isolation Suite (test:isolation)', file: 'tests/test_notification_isolation.js' },
+  { name: 'B7: Resource Planning Officer Portal Suite (test:planning)', file: 'tests/test_planning.js' },
+  { name: 'B9: Multi-Mandi Redirect & Trilingual Broadcast Suite (test:redirect)', file: 'tests/test_redirect.js' }
 ];
 
 async function runSuite(suite) {
