@@ -8,7 +8,7 @@ const authService = require('../services/authService');
 const notificationService = require('../services/notificationService');
 const fastTrackAuctionService = require('../services/fastTrackAuctionService');
 const logger = require('../utils/logger');
-const { optionalAuthenticate } = require('../middleware/auth.middleware');
+const { optionalAuthenticate, authenticate } = require('../middleware/auth.middleware');
 
 const { TOKEN_STATUS, normalizeStatus } = require('../utils/statusEnums');
 const {
@@ -1152,12 +1152,25 @@ router.get('/my-tokens', async (req, res) => {
 
 /**
  * @route   GET /api/tokens/farmer/:phone
- * @desc    Fetch all tokens associated with a given farmer phone number
- * @access  Public
+ * @desc    Fetch all tokens for the authenticated farmer (phone from JWT).
+ *          Staff of the same centre may also read (role !== 'farmer').
+ *          Farmer A cannot read Farmer B's tokens.
+ * @access  Private (farmer JWT or staff JWT of same centre)
  */
-router.get('/farmer/:phone', async (req, res) => {
+router.get('/farmer/:phone', authenticate, async (req, res) => {
   try {
     const { phone } = req.params;
+    const callerPhone = req.user.phone;
+    const callerRole = req.user.role;
+
+    // Enforce: farmer may only read their own data
+    const isFarmer = !callerRole || callerRole === 'farmer';
+    if (isFarmer && callerPhone !== phone) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: you can only view your own tokens.'
+      });
+    }
 
     if (mongoose.connection.readyState === 1) {
       const tokens = await Token.find({
@@ -1219,6 +1232,7 @@ router.get('/farmer/:phone', async (req, res) => {
     });
   }
 });
+
 
 /**
  * @route   GET /api/tokens/:tokenNumber
@@ -1819,12 +1833,23 @@ function validateSequentialPipeline(token, incomingStageIdx) {
 
 /**
  * @route   GET /api/tokens/farmer/:phone/dues
- * @desc    Fetch active farmer pending cancellation dues and history
- * @access  Public
+ * @desc    Fetch authenticated farmer's pending dues and cancellation history.
+ *          Farmer A cannot read Farmer B's dues.
+ * @access  Private (farmer JWT matching :phone, or staff with non-farmer role)
  */
-router.get('/farmer/:phone/dues', async (req, res) => {
+router.get('/farmer/:phone/dues', authenticate, async (req, res) => {
   try {
     const { phone } = req.params;
+    const callerPhone = req.user.phone;
+    const callerRole = req.user.role;
+
+    const isFarmer = !callerRole || callerRole === 'farmer';
+    if (isFarmer && callerPhone !== phone) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: you can only view your own dues.'
+      });
+    }
 
     if (mongoose.connection.readyState === 1) {
       const farmer = await Farmer.findOne({ phone });
@@ -1861,6 +1886,7 @@ router.get('/farmer/:phone/dues', async (req, res) => {
     });
   }
 });
+
 
 /**
  * @route   GET /api/tokens/:tokenNumber/cancellation-preview

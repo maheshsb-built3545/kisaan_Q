@@ -513,12 +513,16 @@ export async function getTokensAsync(phone = '9876543210') {
     }
 
     // 2. Fallback to /tokens/farmer/:phone if /my-tokens failed or no token
+    // Now requires JWT — read from isolated farmer storage key.
     if (!res || !res.ok) {
-      res = await fetch(`${API_BASE}/tokens/farmer/${encodeURIComponent(phone)}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(2500)
-      }).catch(() => null);
+      const farmerToken = localStorage.getItem('kisanq_farmer_token') || token;
+      if (farmerToken) {
+        res = await fetch(`${API_BASE}/tokens/farmer/${encodeURIComponent(phone)}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${farmerToken}` },
+          signal: AbortSignal.timeout(2500)
+        }).catch(() => null);
+      }
     }
 
     if (res && res.ok) {
@@ -646,9 +650,12 @@ export async function updateTokenStageAsync(tokenId, stageId, stageUpdates) {
  */
 export async function getFarmerProfileDuesApi(phone = '9876543210') {
   try {
+    const farmerToken = localStorage.getItem('kisanq_farmer_token') || localStorage.getItem('kq_token');
     const res = await fetch(`${API_BASE}/tokens/farmer/${encodeURIComponent(phone)}/dues`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: farmerToken
+        ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${farmerToken}` }
+        : { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(2500)
     });
     if (res.ok) {
