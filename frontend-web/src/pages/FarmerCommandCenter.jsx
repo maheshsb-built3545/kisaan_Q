@@ -9,11 +9,10 @@ import FarmerFastTrackAuctionCard from '../components/farmer/FarmerFastTrackAuct
 import FarmerGrievanceModal from '../components/farmer/FarmerGrievanceModal';
 import { pricesApi, fastTrackApi, apiClient, BASE_URL } from '../api';
 import {
-
   MapPin, Clock, Zap, TrendingUp, TrendingDown, Minus,
   Ticket, CheckCircle2, Circle, Loader2, Printer,
   ChevronRight, X, ArrowRight, Building2, Leaf, Scale,
-  FileText, Banknote, ShieldCheck, RefreshCw, LogOut,
+  FileText, Banknote, ShieldCheck, ShieldAlert, RefreshCw, LogOut,
   LayoutDashboard, AlertTriangle, Star, Navigation, Package,
   QrCode, Sparkles, Users, Activity, BadgeCheck, Receipt,
   ScanLine, Database, Server, Radio, Bell, CheckCircle,
@@ -1032,6 +1031,7 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
   const [isSubmittingFastTrack, setIsSubmittingFastTrack] = useState(false);
   const [fastTrackError, setFastTrackError] = useState('');
   const [fastTrackSuccessMsg, setFastTrackSuccessMsg] = useState('');
+  const [showGrievanceModal, setShowGrievanceModal] = useState(false);
 
   const tokenNumber = token?.tokenNumber || token?.id || 'KQ-TOKEN';
   const mandiName = token?.mandiName || 'APMC Kopargaon';
@@ -2804,7 +2804,7 @@ export default function FarmerCommandCenter() {
             </div>
 
             {/* ── B4: Waitlist & Reallocated Slot Offers ── */}
-            <FarmerWaitlistOffersCard phone={farmerPhone} onOfferAccepted={() => { fetchTokens(); }} />
+            <FarmerWaitlistOffersCard phone={farmerPhone} onOfferAccepted={() => { refreshTokens(); }} />
 
             {/* Skeleton Loader during fetch */}
             {isLoadingTokens ? (
