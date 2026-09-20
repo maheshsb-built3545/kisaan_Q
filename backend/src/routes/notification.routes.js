@@ -23,11 +23,41 @@ router.patch(
   notificationController.markAsRead
 );
 
+// Aliases for single-notification mark as read
+router.put(
+  '/:id/read',
+  authenticate,
+  notificationController.markAsRead
+);
+router.post(
+  '/:id/read',
+  authenticate,
+  notificationController.markAsRead
+);
+
+/**
+ * @route   POST /api/notifications/read-all
+ * @desc    Mark all user notifications as read (PRD standard)
+ * @access  Authenticated
+ */
 router.post(
   '/read-all',
   authenticate,
   notificationController.markAllAsRead
 );
+
+// Documented Aliases for mark-all-as-read (PUT, PATCH)
+router.put(
+  '/read-all',
+  authenticate,
+  notificationController.markAllAsRead
+);
+router.patch(
+  '/read-all',
+  authenticate,
+  notificationController.markAllAsRead
+);
+
 
 // 2. Administrative & Budget Oversight
 router.get(

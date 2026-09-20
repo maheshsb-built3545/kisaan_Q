@@ -786,9 +786,18 @@ const fastTrackAuctionService = {
 
     for (const round of liveExpiredRounds) {
       if (round.currentLeader) {
+        const nextExpires = new Date(now.getTime() + fastTrackConfig.officerTimeoutMinutes * 60 * 1000);
+        await FastTrackRound.updateOne(
+          { _id: round._id },
+          {
+            $set: {
+              status: 'AWAITING_APPROVAL',
+              officerDecisionExpiresAt: nextExpires
+            }
+          }
+        );
         round.status = 'AWAITING_APPROVAL';
-        round.officerDecisionExpiresAt = new Date(now.getTime() + fastTrackConfig.officerTimeoutMinutes * 60 * 1000);
-        await round.save();
+        round.officerDecisionExpiresAt = nextExpires;
         results.liveExpired++;
 
         await recordAudit({ id: 'SYSTEM', role: 'system' }, 'FAST_TRACK_AWAITING_APPROVAL', round.roundId, {
@@ -811,8 +820,11 @@ const fastTrackAuctionService = {
           });
         } catch (e) {}
       } else {
+        await FastTrackRound.updateOne(
+          { _id: round._id },
+          { $set: { status: 'CLOSED_NO_BIDS' } }
+        );
         round.status = 'CLOSED_NO_BIDS';
-        await round.save();
         results.liveExpired++;
 
         await recordAudit({ id: 'SYSTEM', role: 'system' }, 'FAST_TRACK_CLOSED_NO_BIDS', round.roundId, {}, round.centreId);
@@ -828,7 +840,7 @@ const fastTrackAuctionService = {
 
     for (const round of timedOutRounds) {
       const timedOutLeader = round.currentLeader;
-      const remaining = round.candidateQueue.filter(
+      const remaining = (round.candidateQueue || []).filter(
         (c) => c.phone !== timedOutLeader?.phone && c.tokenNumber !== timedOutLeader?.tokenNumber
       );
 
@@ -837,16 +849,36 @@ const fastTrackAuctionService = {
       }, round.centreId);
 
       if (remaining.length > 0) {
-        round.currentLeader = remaining[0];
+        const nextLeader = remaining[0];
+        const nextExpires = new Date(now.getTime() + fastTrackConfig.officerTimeoutMinutes * 60 * 1000);
+        await FastTrackRound.updateOne(
+          { _id: round._id },
+          {
+            $set: {
+              currentLeader: nextLeader,
+              candidateQueue: remaining,
+              officerDecisionExpiresAt: nextExpires
+            }
+          }
+        );
+        round.currentLeader = nextLeader;
         round.candidateQueue = remaining;
-        round.officerDecisionExpiresAt = new Date(now.getTime() + fastTrackConfig.officerTimeoutMinutes * 60 * 1000);
-        await round.save();
+        round.officerDecisionExpiresAt = nextExpires;
         results.officerTimedOut++;
       } else {
+        await FastTrackRound.updateOne(
+          { _id: round._id },
+          {
+            $set: {
+              status: 'CLOSED_NO_BIDS',
+              currentLeader: null,
+              candidateQueue: []
+            }
+          }
+        );
         round.status = 'CLOSED_NO_BIDS';
         round.currentLeader = null;
         round.candidateQueue = [];
-        await round.save();
         results.officerTimedOut++;
       }
       emitSocket(options.io, round.centreId, 'fasttrack:round', round);

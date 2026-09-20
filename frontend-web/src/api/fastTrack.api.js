@@ -36,10 +36,19 @@ export const fastTrackApi = {
     return res.data;
   },
 
-  // Legacy read (farmer can poll status)
+  // Legacy / Compatibility Aliases:
   getPendingRequests: async (params = {}) => {
     const res = await farmerClient.get('/fasttrack/rounds', { params: { ...params, status: 'AWAITING_APPROVAL' } });
     return res.data;
+  },
+
+  getFastTrackStatus: async (tokenNumber, params = {}) => {
+    const res = await farmerClient.get('/fasttrack/rounds', { params: { centreId: params.mandiId } });
+    return res.data;
+  },
+
+  requestFastTrack: async (tokenNumber, data = {}) => {
+    return { success: true, message: 'Please join the active Fast-Track auction round.' };
   },
 };
 
@@ -58,6 +67,11 @@ export const staffFastTrackApi = {
     return res.data;
   },
 
+  getRoundBids: async (id) => {
+    const res = await staffClient.get(`/fasttrack/rounds/${id}/bids`);
+    return res.data;
+  },
+
   officerStartDecision: async (id, data) => {
     const res = await staffClient.post(`/fasttrack/rounds/${id}/start-decision`, data);
     return res.data;
@@ -67,4 +81,28 @@ export const staffFastTrackApi = {
     const res = await staffClient.post(`/fasttrack/rounds/${id}/decision`, data);
     return res.data;
   },
+
+  // Legacy / Compatibility Aliases (maps to PRD decision route with staffClient):
+  getPendingRequests: async (params = {}) => {
+    const res = await staffClient.get('/fasttrack/rounds', { params: { ...params, status: 'AWAITING_APPROVAL' } });
+    return res.data;
+  },
+
+  approveRequest: async (roundId, officerId) => {
+    const res = await staffClient.post(`/fasttrack/rounds/${roundId}/decision`, {
+      approved: true,
+      officerId
+    });
+    return res.data;
+  },
+
+  rejectRequest: async (roundId, officerId, reason) => {
+    const res = await staffClient.post(`/fasttrack/rounds/${roundId}/decision`, {
+      approved: false,
+      reason,
+      officerId
+    });
+    return res.data;
+  },
 };
+

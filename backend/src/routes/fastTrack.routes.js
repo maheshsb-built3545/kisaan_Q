@@ -66,4 +66,57 @@ router.post('/rounds/:id/start-decision', authenticateToken, scopeToCentre, fast
  */
 router.post('/rounds/:id/decision', authenticateToken, scopeToCentre, fastTrackBiddingController.officerDecision);
 
+// ============================================================================
+// DOCUMENTED ALIASES (Backward Compatibility)
+// ============================================================================
+
+/**
+ * @route   POST /api/fasttrack/rounds/:id/bid
+ * @desc    Alias for POST /api/fasttrack/rounds/:id/bids (singular alias)
+ */
+router.post('/rounds/:id/bid', authenticateToken, fastTrackBiddingController.placeBid);
+
+/**
+ * @route   PATCH /api/fasttrack/rounds/:id/approve
+ * @desc    Legacy alias for POST /api/fasttrack/rounds/:id/decision (approved: true)
+ */
+router.patch('/rounds/:id/approve', authenticateToken, scopeToCentre, (req, res) => {
+  req.body = { ...req.body, approved: true };
+  return fastTrackBiddingController.officerDecision(req, res);
+});
+
+/**
+ * @route   PATCH /api/fasttrack/rounds/:id/decline
+ * @desc    Legacy alias for POST /api/fasttrack/rounds/:id/decision (approved: false)
+ */
+router.patch('/rounds/:id/decline', authenticateToken, scopeToCentre, (req, res) => {
+  req.body = { ...req.body, approved: false };
+  return fastTrackBiddingController.officerDecision(req, res);
+});
+
+/**
+ * @route   POST /api/fasttrack/:id/approve
+ * @desc    Legacy alias for POST /api/fasttrack/rounds/:id/decision (approved: true)
+ */
+router.post('/:id/approve', authenticateToken, scopeToCentre, (req, res) => {
+  req.body = { ...req.body, approved: true };
+  return fastTrackBiddingController.officerDecision(req, res);
+});
+
+/**
+ * @route   POST /api/fasttrack/:id/reject
+ * @desc    Legacy alias for POST /api/fasttrack/rounds/:id/decision (approved: false)
+ */
+router.post('/:id/reject', authenticateToken, scopeToCentre, (req, res) => {
+  req.body = { ...req.body, approved: false };
+  return fastTrackBiddingController.officerDecision(req, res);
+});
+
+/**
+ * @route   GET /api/fasttrack
+ * @desc    Alias for GET /api/fasttrack/rounds
+ */
+router.get('/', optionalAuthenticate, fastTrackBiddingController.getRounds);
+
 module.exports = router;
+

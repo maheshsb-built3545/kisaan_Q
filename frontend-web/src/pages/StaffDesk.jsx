@@ -18,7 +18,7 @@ import {
   DeskPrerequisiteBanner,
   ExceptionReasonModal
 } from '../components/staff';
-import { pricesApi, fastTrackApi } from '../api';
+import { pricesApi, staffFastTrackApi as fastTrackApi } from '../api';
 import {
   MANDIS, STAGE_DEFINITIONS, getTokens,
   updateTokenStageAsync, checkBackendHealth,
