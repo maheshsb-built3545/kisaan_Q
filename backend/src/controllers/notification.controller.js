@@ -14,11 +14,15 @@ const notificationController = {
         return errorResponse(res, 'Authentication identity missing', 401);
       }
 
+      // Derive recipientType from JWT role — strict isolation: farmer never sees staff and vice versa
+      const recipientType = (!req.user?.role || req.user.role === 'farmer') ? 'farmer' : 'staff';
+
       const unreadOnly = req.query.unread === 'true' || req.query.unread === true;
       const limit = Number(req.query.limit) || 20;
 
       const notifications = await notificationService.getUserNotifications({
         recipientId,
+        recipientType,
         unreadOnly,
         limit
       });
@@ -39,7 +43,9 @@ const notificationController = {
         return errorResponse(res, 'Authentication identity missing', 401);
       }
 
-      const count = await notificationService.getUnreadCount(recipientId);
+      const recipientType = (!req.user?.role || req.user.role === 'farmer') ? 'farmer' : 'staff';
+
+      const count = await notificationService.getUnreadCount(recipientId, recipientType);
       return successResponse(res, { unreadCount: count }, 'Unread count retrieved');
     } catch (error) {
       return errorResponse(res, error.message, 500);
@@ -57,7 +63,9 @@ const notificationController = {
         return errorResponse(res, 'Authentication identity missing', 401);
       }
 
-      const notification = await notificationService.markAsRead(id, recipientId);
+      const recipientType = (!req.user?.role || req.user.role === 'farmer') ? 'farmer' : 'staff';
+
+      const notification = await notificationService.markAsRead(id, recipientId, recipientType);
       if (!notification) {
         return errorResponse(res, 'Notification not found or access denied', 404);
       }
@@ -78,7 +86,9 @@ const notificationController = {
         return errorResponse(res, 'Authentication identity missing', 401);
       }
 
-      const result = await notificationService.markAllAsRead(recipientId);
+      const recipientType = (!req.user?.role || req.user.role === 'farmer') ? 'farmer' : 'staff';
+
+      const result = await notificationService.markAllAsRead(recipientId, recipientType);
       return successResponse(res, result, 'All notifications marked as read');
     } catch (error) {
       return errorResponse(res, error.message, 400);

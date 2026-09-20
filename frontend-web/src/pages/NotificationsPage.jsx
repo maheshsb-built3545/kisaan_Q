@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -20,15 +20,17 @@ import {
   Microscope,
   Calendar,
   X,
-  ExternalLink
+  ExternalLink,
+  ClipboardList,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsApi } from '../api/notifications.api';
 import { staffNotificationsApi } from '../api/staffNotifications.api';
-import { joinUserRoom, joinStaffRole, onNotificationNew } from '../services/socketService';
+import { joinUserRoom, joinStaffRole, leaveUserRoom, onNotificationNew } from '../services/socketService';
 import GovHeader from '../components/common/GovHeader';
 
-const EVENT_CATEGORIES = [
+const FARMER_EVENT_CATEGORIES = [
   { id: 'all', label: 'All Events', icon: Bell },
   { id: 'booking', label: 'Bookings & Slots', icon: Calendar, events: ['booking_confirmed', 'booking_cancelled', 'slot_warning', 'slot_released', 'slot_gone', 'waitlist_offer'] },
   { id: 'checkpoints', label: 'Yard Checkpoints', icon: Truck, events: ['gate_checkin', 'turn_near', 'leave_by_alert'] },
@@ -37,8 +39,22 @@ const EVENT_CATEGORIES = [
   { id: 'procurement', label: 'Procurement Deed', icon: FileText, events: ['procurement_recorded'] },
   { id: 'payout', label: 'DBT Payouts', icon: CreditCard, events: ['payout_ready', 'payout_paid', 'payout_settled'] },
   { id: 'exceptions', label: 'Exceptions & Flags', icon: ShieldAlert, events: ['exception_raised', 'complaint_received', 'complaint_resolved'] },
-  { id: 'fast_track', label: 'Fast-Track Priority', icon: Sparkles, events: ['fast_track_won', 'fast_track_approved', 'fast_track_declined'] }
+  { id: 'fast_track', label: 'Fast-Track Priority', icon: Sparkles, events: ['fast_track_won', 'fast_track_approved', 'fast_track_declined'] },
+  { id: 'redirect', label: 'Redirect Offers', icon: Radio, events: ['redirect_offer', 'redirect_accepted', 'redirect_declined', 'redirect_expired'] }
 ];
+
+const STAFF_EVENT_CATEGORIES = [
+  { id: 'all', label: 'All Events', icon: Bell },
+  { id: 'approvals', label: 'Approvals & Decisions', icon: CheckCircle2, events: ['fast_track_approved', 'fast_track_declined', 'request_allowed', 'request_declined', 'request_escalated'] },
+  { id: 'alerts', label: 'Alerts & Exceptions', icon: ShieldAlert, events: ['exception_raised', 'day_turned_red', 'quota_exceeded', 'deadline_approaching'] },
+  { id: 'requests', label: 'Resource Requests', icon: ClipboardList, events: ['plan_request_received', 'borrow_request_received', 'request_expired'] },
+  { id: 'broadcast', label: 'Broadcasts', icon: Radio, events: ['broadcast'] },
+  { id: 'redirect', label: 'Redirect Operations', icon: Users, events: ['redirect_offer_sent', 'redirect_accepted', 'redirect_declined'] },
+  { id: 'fast_track', label: 'Fast-Track', icon: Sparkles, events: ['fast_track_won', 'fast_track_approved', 'fast_track_declined'] }
+];
+
+// Legacy alias kept for backward compatibility
+const EVENT_CATEGORIES = FARMER_EVENT_CATEGORIES;
 
 export default function NotificationsPage() {
   const { farmerUser, staffUser, user } = useAuth();
@@ -59,6 +75,7 @@ export default function NotificationsPage() {
   const activeUser = isStaffArea ? (staffUser || user) : (farmerUser || user);
   const api = isStaffArea ? staffNotificationsApi : notificationsApi;
   const area = isStaffArea ? 'staff' : 'farmer';
+  const EVENT_CATEGORIES_ACTIVE = isStaffArea ? STAFF_EVENT_CATEGORIES : FARMER_EVENT_CATEGORIES;
 
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -68,6 +85,10 @@ export default function NotificationsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [lang, setLang] = useState(() => localStorage.getItem('kisanq_lang') || 'en');
+
+  // Track previous area+userId so we can leave old socket rooms and clear stale state
+  const prevAreaRef = useRef(null);
+  const prevUserIdRef = useRef(null);
 
   const userId = activeUser?.id || activeUser?._id || activeUser?.phone || 'anonymous';
   const userRole = activeUser?.role;
@@ -100,6 +121,21 @@ export default function NotificationsPage() {
   }, [activeUser, api]);
 
   useEffect(() => {
+    // Synchronously clear stale data when switching area or user BEFORE the async fetch
+    const prevArea = prevAreaRef.current;
+    const prevUserId = prevUserIdRef.current;
+    if (prevArea !== null && (prevArea !== area || prevUserId !== userId)) {
+      // Leave old socket room so we stop receiving old push notifications
+      if (prevUserId && prevUserId !== 'anonymous') {
+        leaveUserRoom(prevUserId, prevArea);
+      }
+      // Clear stale list immediately — don't show old area's notifications during fetch
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+    prevAreaRef.current = area;
+    prevUserIdRef.current = userId;
+
     loadNotifications();
 
     if (userId && userId !== 'anonymous') {
@@ -113,9 +149,15 @@ export default function NotificationsPage() {
       const incoming = data.notification || data;
       setNotifications((prev) => [incoming, ...prev]);
       setUnreadCount((prev) => prev + 1);
-    });
+    }, area);
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      // Leave rooms on unmount
+      if (userId && userId !== 'anonymous') {
+        leaveUserRoom(userId, area);
+      }
+    };
   }, [loadNotifications, userId, userRole, userCentreId, area]);
 
   // Mark single notification as read
@@ -155,7 +197,7 @@ export default function NotificationsPage() {
 
       // 2. Category filter
       if (selectedCategory !== 'all') {
-        const catObj = EVENT_CATEGORIES.find((c) => c.id === selectedCategory);
+        const catObj = EVENT_CATEGORIES_ACTIVE.find((c) => c.id === selectedCategory);
         if (catObj?.events && !catObj.events.includes(notif.event)) {
           return false;
         }

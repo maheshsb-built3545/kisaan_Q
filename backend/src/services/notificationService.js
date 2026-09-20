@@ -317,10 +317,14 @@ const notificationService = {
   /**
    * Fetch paginated notifications for a user (farmer or staff)
    */
-  getUserNotifications: async ({ recipientId, unreadOnly = false, limit = 20 }) => {
+  getUserNotifications: async ({ recipientId, recipientType, unreadOnly = false, limit = 20 }) => {
     const lim = Math.min(100, Math.max(1, Number(limit) || 20));
     const recArray = Array.isArray(recipientId) ? recipientId.map(String) : [recipientId.toString()];
     const query = { recipientId: { $in: recArray } };
+    // Strict type isolation: farmer never reads staff notifications and vice versa
+    if (recipientType) {
+      query.recipientType = recipientType;
+    }
     if (unreadOnly) {
       query.read = false;
     }
@@ -334,34 +338,42 @@ const notificationService = {
 
     // In-memory fallback
     return inMemoryNotifications
-      .filter((n) => recArray.includes(n.recipientId) && (!unreadOnly || !n.read))
+      .filter((n) => recArray.includes(n.recipientId) &&
+        (!recipientType || n.recipientType === recipientType) &&
+        (!unreadOnly || !n.read))
       .slice(0, lim);
   },
 
   /**
    * Get unread notification count for user
    */
-  getUnreadCount: async (recipientId) => {
+  getUnreadCount: async (recipientId, recipientType) => {
     const recArray = Array.isArray(recipientId) ? recipientId.map(String) : [recipientId.toString()];
+    const query = { recipientId: { $in: recArray }, read: false };
+    if (recipientType) {
+      query.recipientType = recipientType;
+    }
     if (mongoose.connection.readyState === 1) {
-      return await Notification.countDocuments({
-        recipientId: { $in: recArray },
-        read: false
-      });
+      return await Notification.countDocuments(query);
     }
     return inMemoryNotifications.filter(
-      (n) => recArray.includes(n.recipientId) && !n.read
+      (n) => recArray.includes(n.recipientId) &&
+        (!recipientType || n.recipientType === recipientType) &&
+        !n.read
     ).length;
   },
 
   /**
    * Mark a single notification as read
    */
-  markAsRead: async (notificationId, recipientId) => {
+  markAsRead: async (notificationId, recipientId, recipientType) => {
     const filter = { _id: notificationId };
     if (recipientId) {
       const recArray = Array.isArray(recipientId) ? recipientId.map(String) : [recipientId.toString()];
       filter.recipientId = { $in: recArray };
+    }
+    if (recipientType) {
+      filter.recipientType = recipientType;
     }
 
     if (mongoose.connection.readyState === 1) {
@@ -377,7 +389,9 @@ const notificationService = {
     }
 
     const n = inMemoryNotifications.find(
-      (item) => item._id?.toString() === notificationId.toString() && (!recipientId || (Array.isArray(recipientId) ? recipientId.map(String).includes(item.recipientId) : item.recipientId === recipientId.toString()))
+      (item) => item._id?.toString() === notificationId.toString() &&
+        (!recipientId || (Array.isArray(recipientId) ? recipientId.map(String).includes(item.recipientId) : item.recipientId === recipientId.toString())) &&
+        (!recipientType || item.recipientType === recipientType)
     );
     if (n) {
       n.read = true;
@@ -390,11 +404,15 @@ const notificationService = {
   /**
    * Mark all notifications as read for a user
    */
-  markAllAsRead: async (recipientId) => {
+  markAllAsRead: async (recipientId, recipientType) => {
     const recArray = Array.isArray(recipientId) ? recipientId.map(String) : [recipientId.toString()];
+    const filter = { recipientId: { $in: recArray }, read: false };
+    if (recipientType) {
+      filter.recipientType = recipientType;
+    }
     if (mongoose.connection.readyState === 1) {
       const result = await Notification.updateMany(
-        { recipientId: { $in: recArray }, read: false },
+        filter,
         { read: true, readAt: new Date(), 'channels.inApp.status': 'read' }
       );
       return { count: result.modifiedCount };
@@ -402,7 +420,9 @@ const notificationService = {
 
     let modified = 0;
     inMemoryNotifications.forEach((n) => {
-      if (recArray.includes(n.recipientId) && !n.read) {
+      if (recArray.includes(n.recipientId) &&
+        (!recipientType || n.recipientType === recipientType) &&
+        !n.read) {
         n.read = true;
         n.readAt = new Date();
         if (n.channels?.inApp) n.channels.inApp.status = 'read';

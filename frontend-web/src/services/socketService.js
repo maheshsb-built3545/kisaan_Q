@@ -307,6 +307,19 @@ export function joinUserRoom(userId, area = 'farmer') {
 }
 
 /**
+ * Leave Personal User Notification Room.
+ * Called on area-switch or logout to prevent cross-user push delivery.
+ * area = 'farmer' (default) | 'staff'
+ */
+export function leaveUserRoom(userId, area = 'farmer') {
+  if (!userId) return;
+  const s = sockets[area]; // Use existing socket only — don't create if absent
+  if (s && s.connected) {
+    s.emit('leave_user', userId);
+  }
+}
+
+/**
  * Join Staff Role & Centre Notification Room — uses staff socket
  */
 export function joinStaffRole(role, centreId) {
