@@ -68,7 +68,7 @@ export const StaffHeader = ({ activeDesk, currentCentreName }) => {
     supervisor: 'Mandi Supervisor',
     district_admin: 'District Collector Admin',
     auditor: 'APMC Auditor',
-    farmer: 'Farmer (Demo Admin)',
+    farmer: 'Farmer Citizen',
   };
 
   return (

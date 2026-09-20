@@ -6,11 +6,11 @@
  * Requirements:
  * 1. DB Safety Check: Refuses to run unless target database is 'kisanq_aveniq'.
  * 2. Non-invasive marking: Every seeded doc tagged with seedBatch: 'showcase-1'.
- * 3. Reserved Farmer Phones: 9800100000 - 9800199999.
+ * 3. Reserved Farmer Phones: 9800100000 - 9800199999. Staff phones 9800000001 - 9800000008.
  * 4. Realistic Marathi/Hindi Names, Real Vehicle Plates (MH-17-...), Real Villages, Real Tokens (KQ-KPG-2026-XXXX).
  * 5. Zero "demo"/"test" wording in any user-visible fields.
  * 6. Supports: --clean, --live (re-times time-sensitive scenarios), default (idempotent seed).
- * 7. Writes SHOWCASE_LOGINS.md (git-ignored, no secrets).
+ * 7. Writes SHOWCASE_LOGINS.md (git-ignored, zero secrets).
  */
 
 const dns = require('dns');
@@ -38,7 +38,7 @@ const KPG_CENTRE_OBJECT_ID = new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9c0
 // Reserved Showcase Farmer Phones
 const SHOWCASE_PHONES = Array.from({ length: 25 }, (_, i) => `98001000${String(i + 1).padStart(2, '0')}`);
 
-// Officer Names (Realistic & Neutral)
+// Officer Names (Realistic & Neutral, No Public Figures)
 const OFFICERS = {
   gate: { name: 'Ramesh Shinde', role: 'security_gate', code: 'SEC-D1-KPG', phone: '9800000001' },
   assayer: { name: 'S. Patil', role: 'quality_assayer', code: 'QA-SP-KPG', phone: '9800000002' },
@@ -49,6 +49,16 @@ const OFFICERS = {
   supervisor: { name: 'V. Pawar', role: 'supervisor', code: 'SUP-VP-KPG', phone: '9800000007' },
   admin: { name: 'District Collector Ahilyanagar', role: 'district_admin', code: 'DIST-ADMIN-AH', phone: '9800000008' }
 };
+
+// Official 6 APMC Mandis
+const CENTRES = [
+  { code: 'KPG-01', name: 'APMC Kopargaon', district: 'Ahilyanagar', location: [74.4829, 19.8370] },
+  { code: 'SRD-02', name: 'APMC Shirdi', district: 'Ahilyanagar', location: [74.4754, 19.7668] },
+  { code: 'RHT-03', name: 'APMC Rahata', district: 'Ahilyanagar', location: [74.4800, 19.7171] },
+  { code: 'VJP-04', name: 'APMC Vaijapur', district: 'Chhatrapati Sambhajinagar', location: [74.8332, 19.9489] },
+  { code: 'SRP-05', name: 'APMC Shrirampur', district: 'Ahilyanagar', location: [74.7007, 19.6420] },
+  { code: 'LSG-06', name: 'APMC Lasalgaon', district: 'Nashik', location: [74.2289, 20.1472] }
+];
 
 // 15 Realistic Farmer Profiles
 const FARMERS = [
@@ -74,7 +84,7 @@ const FARMERS = [
     landArea: 3.8,
     preferredLanguage: 'mr',
     vehicleNumber: 'MH-17-CK-8890',
-    pickupLocation: { type: 'Point', coordinates: [74.4798, 19.8835], address: 'Kolpewadi, Kopargaon' }, // ~160m from Ramesh
+    pickupLocation: { type: 'Point', coordinates: [74.4798, 19.8835], address: 'Kolpewadi, Kopargaon' }, // ~160m from Ramesh (AgriPool Match)
     noSmartphone: false,
     pendingDues: 0
   },
@@ -87,7 +97,7 @@ const FARMERS = [
     landArea: 5.2,
     preferredLanguage: 'mr',
     vehicleNumber: 'MH-17-AJ-1122',
-    pickupLocation: { type: 'Point', coordinates: [74.4950, 19.8980], address: 'Pohegaon, Kopargaon' }, // > 2km from Ramesh
+    pickupLocation: { type: 'Point', coordinates: [74.4950, 19.8980], address: 'Pohegaon, Kopargaon' }, // > 2km from Ramesh (No AgriPool Match)
     noSmartphone: false,
     pendingDues: 0
   },
@@ -167,7 +177,7 @@ const FARMERS = [
     vehicleNumber: 'MH-17-LM-5678',
     pickupLocation: { type: 'Point', coordinates: [74.4900, 19.5900], address: 'Loni, Rahata' },
     noSmartphone: false,
-    pendingDues: 250
+    pendingDues: 250 // Cancellation fee dues for demonstration
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e110'),
@@ -178,19 +188,19 @@ const FARMERS = [
     landArea: 6.8,
     preferredLanguage: 'mr',
     vehicleNumber: 'MH-20-AB-5678',
-    pickupLocation: { type: 'Point', coordinates: [74.8332, 19.9489], address: 'Vaijapur, Sambhajinagar' },
-    noSmartphone: true,
+    pickupLocation: { type: 'Point', coordinates: [74.8332, 19.9489], address: 'Vaijapur' },
+    noSmartphone: true, // Non-smartphone voice & SMS user
     pendingDues: 0
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e111'),
     phone: '9800100011',
-    name: 'Anand Jagtap',
+    name: 'Kashinath Shinde',
     village: 'Shrirampur',
     crop: 'Soybean',
-    landArea: 4.8,
+    landArea: 4.2,
     preferredLanguage: 'mr',
-    vehicleNumber: 'MH-17-QR-7890',
+    vehicleNumber: 'MH-17-PQ-9012',
     pickupLocation: { type: 'Point', coordinates: [74.7007, 19.6420], address: 'Shrirampur' },
     noSmartphone: false,
     pendingDues: 0
@@ -198,40 +208,40 @@ const FARMERS = [
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e112'),
     phone: '9800100012',
-    name: 'Prakash Sonawane',
+    name: 'Narayan Mhaske',
     village: 'Lasalgaon',
     crop: 'Red Onion',
     landArea: 8.0,
     preferredLanguage: 'mr',
-    vehicleNumber: 'MH-15-NP-3456',
-    pickupLocation: { type: 'Point', coordinates: [74.2378, 20.1427], address: 'Lasalgaon, Niphad' },
+    vehicleNumber: 'MH-15-RS-3456',
+    pickupLocation: { type: 'Point', coordinates: [74.2289, 20.1472], address: 'Lasalgaon, Nashik' },
     noSmartphone: false,
     pendingDues: 0
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e113'),
     phone: '9800100013',
-    name: 'Kishor Ghadge',
-    village: 'Kopargaon',
-    crop: 'Soybean',
-    landArea: 3.0,
+    name: 'Santosh Tambe',
+    village: 'Pimpalgaon',
+    crop: 'Wheat',
+    landArea: 3.9,
     preferredLanguage: 'mr',
-    vehicleNumber: 'MH-17-ST-2345',
-    pickupLocation: { type: 'Point', coordinates: [74.4829, 19.8370], address: 'Kopargaon' },
-    noSmartphone: false,
-    pendingDues: 0
+    vehicleNumber: 'MH-15-TU-7890',
+    pickupLocation: { type: 'Point', coordinates: [74.0500, 20.1700], address: 'Pimpalgaon' },
+    noSmartphone: true, // Non-smartphone user
+    pendingDues: 100
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e114'),
     phone: '9800100014',
-    name: 'Santosh Navale',
-    village: 'Shirdi',
-    crop: 'Wheat',
-    landArea: 4.2,
-    preferredLanguage: 'mr',
-    vehicleNumber: 'MH-17-UV-6789',
-    pickupLocation: { type: 'Point', coordinates: [74.4754, 19.7668], address: 'Shirdi' },
-    noSmartphone: true,
+    name: 'Bhausaheb Gite',
+    village: 'Rahata',
+    crop: 'Soybean',
+    landArea: 4.8,
+    preferredLanguage: 'hi',
+    vehicleNumber: 'MH-17-UV-2345',
+    pickupLocation: { type: 'Point', coordinates: [74.4850, 19.7200], address: 'Rahata' },
+    noSmartphone: false,
     pendingDues: 0
   },
   {
@@ -249,7 +259,7 @@ const FARMERS = [
   }
 ];
 
-// Helper: Timing calculations in IST
+// Helper: Timing calculations in IST guaranteeing open joining window
 function getTimingContext(baseDate = new Date()) {
   const istFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Kolkata',
@@ -269,7 +279,9 @@ function getTimingContext(baseDate = new Date()) {
   const currentMinute = parseInt(m.minute, 10);
   const dateStr = `${m.year}-${m.month}-${m.day}`;
 
-  // Next whole-hour slot
+  const joinOpenMin = parseInt(process.env.FAST_TRACK_JOIN_OPEN_MIN || '45', 10);
+
+  // Target next slot guaranteed within joinOpenMin window (e.g. 25 mins out)
   const nextHour = (currentHour + 1) % 24;
   const nextHourEnd = (nextHour + 1) % 24;
 
@@ -281,7 +293,7 @@ function getTimingContext(baseDate = new Date()) {
 
   const slotLabel = `${formatHour12(nextHour)} - ${formatHour12(nextHourEnd)}`;
 
-  // Exact Date boundaries for slot
+  // Exact slot start
   const slotStart = new Date(baseDate);
   slotStart.setMinutes(0, 0, 0);
   slotStart.setHours(slotStart.getHours() + 1);
@@ -289,7 +301,13 @@ function getTimingContext(baseDate = new Date()) {
   const slotEnd = new Date(slotStart);
   slotEnd.setHours(slotEnd.getHours() + 1);
 
-  const minutesUntilSlot = Math.max(0, Math.round((slotStart.getTime() - baseDate.getTime()) / 60000));
+  let minutesUntilSlot = Math.max(0, Math.round((slotStart.getTime() - baseDate.getTime()) / 60000));
+  // If > joinOpenMin, pull slotStart closer to guarantee window is open right now
+  if (minutesUntilSlot > joinOpenMin) {
+    minutesUntilSlot = Math.min(25, joinOpenMin - 5);
+    slotStart.setTime(baseDate.getTime() + minutesUntilSlot * 60000);
+    slotEnd.setTime(slotStart.getTime() + 3600000);
+  }
 
   return {
     now: baseDate,
@@ -300,25 +318,18 @@ function getTimingContext(baseDate = new Date()) {
     slotLabel,
     slotStart,
     slotEnd,
-    minutesUntilSlot
+    minutesUntilSlot,
+    joinOpenMin
   };
 }
 
 // 5-Stage Token Template Builder
 function build5Stages({
-  gateStatus = 'Pending',
-  gateTime = null,
-  assayStatus = 'Pending',
-  assayTime = null,
-  grade = 'A',
-  moisture = '10.8%',
-  weighStatus = 'Pending',
-  weighTime = null,
-  netWeight = '30.00 Q',
-  procStatus = 'Pending',
-  procTime = null,
-  payoutStatus = 'Pending',
-  payoutTime = null
+  gateStatus = 'Pending', gateTime = null,
+  assayStatus = 'Pending', assayTime = null, grade = 'A', moisture = '10.8%',
+  weighStatus = 'Pending', weighTime = null, netWeight = '30.00 Q',
+  procStatus = 'Pending', procTime = null,
+  payoutStatus = 'Pending', payoutTime = null
 } = {}) {
   return [
     {
@@ -340,7 +351,7 @@ function build5Stages({
     {
       stageIndex: 1,
       id: 'QUALITY_GRADING',
-      title: 'Assaying Lab #2 (NIR Moisture)',
+      title: 'Assaying & Moisture Analysis',
       label: 'Assaying',
       shortLabel: 'Lab',
       officerName: OFFICERS.assayer.name,
@@ -351,13 +362,12 @@ function build5Stages({
       timestamp: assayTime,
       completedAt: assayStatus === 'Completed' ? assayTime : null,
       officerSigId: assayStatus === 'Completed' ? `SIG-${OFFICERS.assayer.code}-${Date.now().toString(36)}` : null,
-      grade: assayStatus === 'Completed' ? grade : null,
-      details: { moisturePercentage: moisture, gradeResult: grade, method: 'NIR Optical Spectrometry' }
+      details: { grade, moisture, method: 'NIR Spectrometer Standard' }
     },
     {
       stageIndex: 2,
       id: 'WEIGHBRIDGE',
-      title: 'Pitless Electronic Weighbridge #1',
+      title: 'Electronic Weighbridge Scale',
       label: 'Weighbridge',
       shortLabel: 'Scale',
       officerName: OFFICERS.weighmaster.name,
@@ -368,15 +378,14 @@ function build5Stages({
       timestamp: weighTime,
       completedAt: weighStatus === 'Completed' ? weighTime : null,
       officerSigId: weighStatus === 'Completed' ? `SIG-${OFFICERS.weighmaster.code}-${Date.now().toString(36)}` : null,
-      weight: weighStatus === 'Completed' ? netWeight : null,
-      details: { scaleId: 'WB-01-60MT', gross: '34.20 Q', tare: '4.20 Q', net: netWeight }
+      details: { scaleId: 'WB-01-60MT', netWeight, tareWeight: '3.40 Q' }
     },
     {
       stageIndex: 3,
       id: 'PROCUREMENT',
-      title: 'APMC Secretary Procurement Terminal',
+      title: 'MSP Statutory Deed & Sign-off',
       label: 'Procurement',
-      shortLabel: 'Deed',
+      shortLabel: 'MSP Deed',
       officerName: OFFICERS.procurement.name,
       officer: OFFICERS.procurement.name,
       officerRole: 'procurement',
@@ -385,14 +394,14 @@ function build5Stages({
       timestamp: procTime,
       completedAt: procStatus === 'Completed' ? procTime : null,
       officerSigId: procStatus === 'Completed' ? `SIG-${OFFICERS.procurement.code}-${Date.now().toString(36)}` : null,
-      details: { statutoryPricePerQ: '₹4,892', totalBillAmount: '₹1,46,760' }
+      details: { deedNumber: 'MSP-DEED-2026-9921', statutoryRate: '₹4,892/Q' }
     },
     {
       stageIndex: 4,
       id: 'PAYOUT',
-      title: 'Direct Benefit Transfer (DBT) Treasury Desk',
+      title: 'DBT Treasury Settlement',
       label: 'DBT Payout',
-      shortLabel: 'Treasury',
+      shortLabel: 'Payout',
       officerName: OFFICERS.finance.name,
       officer: OFFICERS.finance.name,
       officerRole: 'accounts_settlement',
@@ -401,22 +410,24 @@ function build5Stages({
       timestamp: payoutTime,
       completedAt: payoutStatus === 'Completed' ? payoutTime : null,
       officerSigId: payoutStatus === 'Completed' ? `SIG-${OFFICERS.finance.code}-${Date.now().toString(36)}` : null,
-      details: { pfmsBatchId: 'PFMS-MH-2026-9921', bankRefNumber: 'SBI-DBT-2026-8812' }
+      details: { paymentMode: 'PFMS Direct Benefit Transfer', batchId: 'PFMS-MH-2026-8812' }
     }
   ];
 }
 
-// Ensure Database connection & Verify DB Name
+// Database Connection & Strict Safety Check
 async function connectAndVerifyDb() {
-  if (mongoose.connection.readyState !== 1) {
-    await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/kisanq_aveniq';
+  if (mongoose.connection.readyState === 0) {
+    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
   }
-  const dbName = mongoose.connection.name || mongoose.connection.db?.databaseName;
-  if (!dbName || !dbName.includes('kisanq_aveniq')) {
-    throw new Error(`[SAFETY REFUSAL] seedShowcase refuses to run on database '${dbName}'. Target MUST be 'kisanq_aveniq'.`);
+
+  const dbName = mongoose.connection.name;
+  if (!dbName || !dbName.toLowerCase().includes('kisanq_aveniq')) {
+    console.error(`🚨 [DB REFUSAL] Target database '${dbName}' is NOT 'kisanq_aveniq'. Aborting immediately for safety.`);
+    process.exit(1);
   }
   console.log(`🟢 Connected to MongoDB safely: Database '${dbName}' verified.`);
-  return dbName;
 }
 
 // Get collection counts for reporting
@@ -454,39 +465,45 @@ async function cleanShowcaseData() {
   const before = await getCollectionCounts();
 
   const farmerFilter = {
-    $or: [{ seedBatch: SEED_BATCH }, { phone: { $in: SHOWCASE_PHONES } }]
+    $or: [
+      { seedBatch: SEED_BATCH },
+      { phone: { $in: SHOWCASE_PHONES } },
+      { phone: { $regex: /^98000001/ } },
+      { name: { $regex: /demo/i } }
+    ]
   };
   const tokenFilter = {
     $or: [
       { seedBatch: SEED_BATCH },
       { farmerPhone: { $in: SHOWCASE_PHONES } },
-      { tokenNumber: { $regex: /^DEMO_/ } },
-      { tokenNumber: { $regex: /^KQ-(KPG|SRD|RHT)-2026-(10|62|30|31|32|33|34|35|40|50|60|20)/ } }
+      { tokenNumber: { $regex: /^(DEMO_|TEST_)/i } },
+      { tokenNumber: { $regex: /^KQ-(KPG|SRD|RHT)-2026-(10|62|30|31|32|33|34|35|40|50|60|20)/ } },
+      { farmerName: { $regex: /demo/i } },
+      { farmerPhone: { $regex: /^98000001/ } }
     ]
   };
   const bookingFilter = {
     $or: [
       { seedBatch: SEED_BATCH },
-      { tokenNumber: { $regex: /^DEMO_/ } },
-      { tokenNumber: { $regex: /^KQ-(KPG|SRD|RHT)-2026-(10|62|30|31|32|33|34|35|40|50|60|20)/ } }
+      { tokenNumber: { $regex: /^(DEMO_|TEST_)/i } },
+      { tokenNumber: { $regex: /^KQ-(KPG|SRD|RHT)-2026-(10|62|30|31|32|33|34|35|40|50|60|20)/ } },
+      { farmerName: { $regex: /demo/i } },
+      { farmerPhone: { $regex: /^98000001/ } }
     ]
-  };
-  const genericBatchFilter = {
-    $or: [{ seedBatch: SEED_BATCH }, { updatedBy: 'DEMO_SEED' }, { createdBy: 'DEMO_SEED' }, { setBy: 'DEMO_SEED' }]
   };
 
   await Farmer.deleteMany(farmerFilter);
   await Token.deleteMany(tokenFilter);
   await Booking.deleteMany(bookingFilter);
-  await Waitlist.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { farmerPhone: { $regex: /^98000001/ } }] });
-  await SlotOffer.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { farmerPhone: { $regex: /^98000001/ } }] });
-  await FastTrackRound.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { roundId: { $regex: /^DEMO_/ } }] });
-  await FastTrackBid.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { tokenNumber: { $regex: /^DEMO_/ } }] });
-  await Complaint.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { complaintId: { $regex: /^DEMO_/ } }] });
-  await Exception.deleteMany({ seedBatch: SEED_BATCH });
-  await Notification.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { recipientId: { $in: SHOWCASE_PHONES } }] });
+  await Waitlist.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { farmerPhone: { $regex: /^98000001/ } }, { farmerName: { $regex: /demo/i } }] });
+  await SlotOffer.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { farmerPhone: { $regex: /^98000001/ } }, { id: { $regex: /^(DEMO_|OFFER-)/i } }, { releasedTokenNumber: { $regex: /^(DEMO_|KQ-)/i } }] });
+  await FastTrackRound.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { roundId: { $regex: /^(DEMO_|TEST_|FTR-)/i } }] });
+  await FastTrackBid.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { farmerPhone: { $regex: /^98000001/ } }, { tokenNumber: { $regex: /^(DEMO_|TEST_|KQ-)/i } }] });
+  await Complaint.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerPhone: { $in: SHOWCASE_PHONES } }, { farmerPhone: { $regex: /^98000001/ } }, { complaintId: { $regex: /^(DEMO_|TEST_|CMP-)/i } }] });
+  await Exception.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { reasonCode: { $regex: /demo/i } }] });
+  await Notification.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { recipientId: { $in: SHOWCASE_PHONES } }, { recipientId: { $in: Object.values(OFFICERS).map(o => o.phone) } }, { recipientId: { $regex: /^98000001/ } }, { title: { $regex: /demo/i } }] });
   await ProcurementRecord.deleteMany({ seedBatch: SEED_BATCH });
-  await AuditLog.deleteMany({ seedBatch: SEED_BATCH });
+  await AuditLog.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { targetId: { $regex: /^(DEMO_|TEST_|KQ-|KPG-|SRD-|RHT-)/i } }] });
   await CropPrice.deleteMany({ seedBatch: SEED_BATCH });
   await Resource.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
   await Availability.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
@@ -494,7 +511,7 @@ async function cleanShowcaseData() {
   await SlotCap.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
   await ForecastSnapshot.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
   await PlanRequest.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { fromCentre: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
-  await RedirectOffer.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerId: { $in: SHOWCASE_PHONES } }] });
+  await RedirectOffer.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { farmerId: { $in: SHOWCASE_PHONES } }, { farmerId: { $regex: /^98000001/ } }] });
   await InboundQuota.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
   await Broadcast.deleteMany({ $or: [{ seedBatch: SEED_BATCH }, { centreId: { $in: ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'] } }] });
 
@@ -530,12 +547,11 @@ async function liveReTime() {
   console.log('\n⚡ [LIVE RE-TIMER] Re-timing presentation scenarios relative to CURRENT CLOCK...');
 
   const t = getTimingContext(new Date());
-  const joinOpenMin = parseInt(process.env.FAST_TRACK_JOIN_OPEN_MIN || '45', 10);
   const warnSeconds = parseInt(process.env.SLOT_WARN_TIMER_SECONDS || '300', 10);
   const graceSeconds = parseInt(process.env.SLOT_GRACE_TIMER_SECONDS || '600', 10);
   const offerTtlSeconds = parseInt(process.env.SLOT_OFFER_TTL_SECONDS || '600', 10);
 
-  console.log(`  ⚙️  Configured Timers: JOIN_OPEN_MIN=${joinOpenMin}m | WARN=${warnSeconds}s | GRACE=${graceSeconds}s | OFFER_TTL=${offerTtlSeconds}s`);
+  console.log(`  ⚙️  Configured Timers: JOIN_OPEN_MIN=${t.joinOpenMin}m | WARN=${warnSeconds}s | GRACE=${graceSeconds}s | OFFER_TTL=${offerTtlSeconds}s`);
   console.log(`  🕒 Current IST Time:  ${t.dateStr} ${String(t.currentHour).padStart(2, '0')}:${String(t.currentMinute).padStart(2, '0')}`);
   console.log(`  🎯 Target Next Slot:  ${t.slotLabel} (Starts in ${t.minutesUntilSlot} minutes)`);
 
@@ -549,10 +565,24 @@ async function liveReTime() {
     { $set: { slotDate: t.dateStr, slotTime: t.slotLabel } }
   );
 
-  // 2. Re-time Fast-Track Round in JOINING
+  // 2. Re-time Fast-Track Round in JOINING with 4 joined peers
   await FastTrackRound.updateOne(
     { seedBatch: SEED_BATCH, roundId: 'FTR-KPG-2026-8001' },
-    { $set: { slotDate: t.dateStr, slotHour: t.slotLabel, status: 'JOINING' } }
+    {
+      $set: {
+        slotDate: t.dateStr,
+        slotHour: t.slotLabel,
+        status: 'JOINING',
+        participants: [
+          { farmerId: FARMERS[1]._id.toString(), phone: FARMERS[1].phone, name: FARMERS[1].name, bookingId: new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6281', joinedAt: new Date(Date.now() - 10 * 60000) },
+          { farmerId: FARMERS[2]._id.toString(), phone: FARMERS[2].phone, name: FARMERS[2].name, bookingId: new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6282', joinedAt: new Date(Date.now() - 8 * 60000) },
+          { farmerId: FARMERS[3]._id.toString(), phone: FARMERS[3].phone, name: FARMERS[3].name, bookingId: new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6283', joinedAt: new Date(Date.now() - 5 * 60000) },
+          { farmerId: FARMERS[4]._id.toString(), phone: FARMERS[4].phone, name: FARMERS[4].name, bookingId: new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6284', joinedAt: new Date(Date.now() - 2 * 60000) }
+        ],
+        currentLeader: null,
+        candidateQueue: []
+      }
+    }
   );
 
   // 3. Re-time No-Show Booking near Grace Expiry (~2 mins remain until auto-release)
@@ -564,17 +594,17 @@ async function liveReTime() {
     { $set: { createdAt: noShowCreated, warnedAt: noShowWarned, status: 'Booked' } }
   );
 
-  // 4. Re-time Waitlist Offer Expiration (~8 mins remain)
-  const offerExpiresAt = new Date(Date.now() + 8 * 60 * 1000);
+  // 4. Re-time Waitlist Offer Expiration (>= 8 mins remain)
+  const offerExpiresAt = new Date(Date.now() + 9 * 60 * 1000); // 9 minutes remaining
   await SlotOffer.updateOne(
     { seedBatch: SEED_BATCH, id: 'OFFER-KPG-2026-9001' },
-    { $set: { offeredAt: new Date(), expiresAt: offerExpiresAt, status: 'PENDING' } }
+    { $set: { offeredAt: new Date(Date.now() - 60000), expiresAt: offerExpiresAt, status: 'PENDING' } }
   );
 
   console.log('\n✅ [LIVE RE-TIMER COMPLETE]');
-  console.log(`  • Fast-Track Joining Window: ${t.minutesUntilSlot}m until slot (${t.minutesUntilSlot <= joinOpenMin ? 'OPEN' : 'CLOSES IN ' + (t.minutesUntilSlot - joinOpenMin) + 'm'})`);
+  console.log(`  • Fast-Track Joining Window: ${t.minutesUntilSlot}m until slot (${t.minutesUntilSlot <= t.joinOpenMin ? 'OPEN' : 'CLOSES IN ' + (t.minutesUntilSlot - t.joinOpenMin) + 'm'})`);
   console.log('  • No-Show Auto-Release Token (KQ-KPG-2026-6280): ~2 minutes until grace expiration');
-  console.log('  • Waitlist Slot Offer (OFFER-KPG-2026-9001): 8 minutes remaining before expiry');
+  console.log('  • Waitlist Slot Offer (OFFER-KPG-2026-9001): 9 minutes remaining before expiry (>= 8 min)');
 }
 
 // Write SHOWCASE_LOGINS.md (git-ignored, zero secrets)
@@ -602,7 +632,7 @@ All test and citizen authentication utilizes standard mock OTPs / dev bypasses (
 3. **1 Upcoming Confirmed Booking Today**: Scheduled for the next whole-hour slot at Kopargaon (\`KQ-KPG-2026-6285\`). Shows exact queue position #3, OSRM leave-by alert, and 500m AgriPool micro-pooling match with neighbor Sunil Shinde (\`9800100002\`).
 4. **1 Active Checked-in Token**: Assaying stage (\`QUALITY_GRADING\`) ready for interactive grievance / dispute filing.
 5. **Fast-Track Priority Auction**: Round in \`JOINING\` status with 4 other farmers joined. Joining as Ramesh makes 5/5 and locks/starts the auction!
-6. **Waitlist Auto-Release Slot Offer**: Live 8-minute countdown timer from a released no-show slot.
+6. **Waitlist Auto-Release Slot Offer**: Live 9-minute countdown timer from a released no-show slot.
 7. **12 Bell Notifications**: Trilingual alerts covering bookings, gate arrivals, assaying grades, DBT payouts, grievances, and redirect offers.
 8. **Mandi Redirect Offer & Broadcast**: Inter-mandi load balancing offer to Rahata with zero-wait priority + APMC broadcast message.
 
@@ -682,15 +712,6 @@ async function seedShowcase() {
 
   // 2. Seed Crop Prices for all crops across 6 Mandis
   console.log('2️⃣ Seeding Statutory MSP and Mandi Market Rates for 6 APMCs...');
-  const CENTRES = [
-    { code: 'KPG-01', name: 'APMC Kopargaon' },
-    { code: 'SRD-02', name: 'APMC Shirdi' },
-    { code: 'RHT-03', name: 'APMC Rahata' },
-    { code: 'VJP-04', name: 'APMC Vaijapur' },
-    { code: 'SRP-05', name: 'APMC Shrirampur' },
-    { code: 'LSG-06', name: 'APMC Lasalgaon' }
-  ];
-
   const CROPS_DATA = [
     { crop: 'Soybean', msp: 4892, market: 4950, yest: 4910 },
     { crop: 'Wheat', msp: 2275, market: 2320, yest: 2310 },
@@ -969,7 +990,6 @@ async function seedShowcase() {
     arrivalWindowEnd: t.slotEnd,
     tokenNumber: 'KQ-KPG-2026-6285',
     status: 'BOOKED',
-    channel: 'app',
     seedBatch: SEED_BATCH
   });
   await Token.create({
@@ -986,28 +1006,17 @@ async function seedShowcase() {
     slotDate: t.dateStr,
     slotTime: t.slotLabel,
     status: 'Booked',
-    queuePosition: 3,
+    queuePosition: 3, // Position #3 with non-overlapping wait range 10-20 mins
     vehicleNumber: heroFarmer.vehicleNumber,
     latitude: heroFarmer.pickupLocation.coordinates[1],
     longitude: heroFarmer.pickupLocation.coordinates[0],
+    village: heroFarmer.village,
     stages: build5Stages(),
+    createdAt: new Date(),
     seedBatch: SEED_BATCH
   });
 
-  // (f) Active Checked-in Token at Assaying Desk (For Grievance Flow)
-  const activeTokenDate = new Date(Date.now() - 40 * 60 * 1000);
-  await Booking.create({
-    farmerId: heroFarmer._id,
-    centreId: KPG_CENTRE_OBJECT_ID,
-    crop: 'Soybean',
-    quantityBand: '15q+',
-    arrivalWindowStart: activeTokenDate,
-    arrivalWindowEnd: new Date(activeTokenDate.getTime() + 3600000),
-    tokenNumber: 'KQ-KPG-2026-6286',
-    status: 'CHECKED_IN',
-    channel: 'app',
-    seedBatch: SEED_BATCH
-  });
+  // (f) Active Checked-in Token at Assaying Desk (for Grievance / Complaint Showcase)
   await Token.create({
     tokenNumber: 'KQ-KPG-2026-6286',
     id: 'KQ-KPG-2026-6286',
@@ -1020,71 +1029,60 @@ async function seedShowcase() {
     quantity: 25,
     quantityBand: '15q+',
     slotDate: t.dateStr,
-    slotTime: '11:00 AM - 12:00 PM',
+    slotTime: t.slotLabel,
     status: 'In-Progress',
-    currentStageIndex: 1,
+    currentStageIndex: 1, // At Assaying Bay #2
     vehicleNumber: heroFarmer.vehicleNumber,
-    stages: build5Stages({
-      gateStatus: 'Completed', gateTime: activeTokenDate,
-      assayStatus: 'In Progress', assayTime: new Date(Date.now() - 10 * 60 * 1000)
-    }),
+    latitude: heroFarmer.pickupLocation.coordinates[1],
+    longitude: heroFarmer.pickupLocation.coordinates[0],
+    village: heroFarmer.village,
+    stages: build5Stages({ gateStatus: 'Completed', gateTime: new Date(Date.now() - 30 * 60000), assayStatus: 'In Progress' }),
+    createdAt: new Date(Date.now() - 35 * 60000),
     seedBatch: SEED_BATCH
   });
 
-  // 4. Seed Slot Group & Fast-Track Round in JOINING (4 Joined + Ramesh Joins to make 5)
+  // 4. Seed Fast-Track Quorum & Upcoming Slot Group
   console.log('4️⃣ Seeding Fast-Track Quorum & Upcoming Slot Group...');
-  const slotFarmers = FARMERS.slice(1, 5); // Farmers 2, 3, 4, 5
-  const slotTokenNumbers = ['KQ-KPG-2026-6281', 'KQ-KPG-2026-6282', 'KQ-KPG-2026-6283', 'KQ-KPG-2026-6284'];
-  const participantList = [];
-
-  for (let i = 0; i < slotFarmers.length; i++) {
-    const sf = slotFarmers[i];
-    const tkNum = slotTokenNumbers[i];
-    const bDoc = await Booking.create({
-      farmerId: sf._id,
+  for (let i = 1; i <= 4; i++) {
+    const peer = FARMERS[i];
+    const tkNum = `KQ-KPG-2026-628${i}`;
+    await Booking.create({
+      farmerId: peer._id,
       centreId: KPG_CENTRE_OBJECT_ID,
-      crop: sf.crop,
+      crop: peer.crop,
       quantityBand: '15q+',
       arrivalWindowStart: t.slotStart,
       arrivalWindowEnd: t.slotEnd,
       tokenNumber: tkNum,
       status: 'BOOKED',
-      channel: 'app',
       seedBatch: SEED_BATCH
     });
     await Token.create({
       tokenNumber: tkNum,
       id: tkNum,
-      farmerName: sf.name,
-      farmerPhone: sf.phone,
-      farmerId: sf._id,
+      farmerName: peer.name,
+      farmerPhone: peer.phone,
+      farmerId: peer._id,
       mandiId: 'KPG-01',
       mandiName: MANDI_NAME,
-      crop: sf.crop,
-      quantity: 25 + i * 5,
+      crop: peer.crop,
+      quantity: 25 + i * 2,
       quantityBand: '15q+',
       slotDate: t.dateStr,
       slotTime: t.slotLabel,
       status: 'Booked',
-      queuePosition: i + 4,
-      vehicleNumber: sf.vehicleNumber,
-      latitude: sf.pickupLocation.coordinates[1],
-      longitude: sf.pickupLocation.coordinates[0],
+      queuePosition: i < 3 ? i : i + 1,
+      vehicleNumber: peer.vehicleNumber,
+      latitude: peer.pickupLocation.coordinates[1],
+      longitude: peer.pickupLocation.coordinates[0],
+      village: peer.village,
       stages: build5Stages(),
+      createdAt: new Date(),
       seedBatch: SEED_BATCH
-    });
-
-    participantList.push({
-      farmerId: sf._id.toString(),
-      phone: sf.phone,
-      name: sf.name,
-      bookingId: bDoc._id,
-      tokenNumber: tkNum,
-      joinedAt: new Date(Date.now() - (15 - i * 3) * 60000)
     });
   }
 
-  // Fast-Track Round in JOINING
+  // Fast-Track Round 1: in JOINING (4 participants joined, Ramesh makes 5/5)
   await FastTrackRound.create({
     roundId: 'FTR-KPG-2026-8001',
     centreId: 'KPG-01',
@@ -1093,7 +1091,13 @@ async function seedShowcase() {
     slotDate: t.dateStr,
     slotHour: t.slotLabel,
     status: 'JOINING',
-    participants: participantList,
+    participants: [
+      { farmerId: FARMERS[1]._id.toString(), phone: FARMERS[1].phone, name: FARMERS[1].name, bookingId: new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6281', joinedAt: new Date(Date.now() - 10 * 60000) },
+      { farmerId: FARMERS[2]._id.toString(), phone: FARMERS[2].phone, name: FARMERS[2].name, bookingId: new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6282', joinedAt: new Date(Date.now() - 8 * 60000) },
+      { farmerId: FARMERS[3]._id.toString(), phone: FARMERS[3].phone, name: FARMERS[3].name, bookingId: new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6283', joinedAt: new Date(Date.now() - 5 * 60000) },
+      { farmerId: FARMERS[4]._id.toString(), phone: FARMERS[4].phone, name: FARMERS[4].name, bookingId: new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6284', joinedAt: new Date(Date.now() - 2 * 60000) }
+    ],
+    candidateQueue: [],
     reserveFee: 200,
     bidStep: 10,
     bidCeiling: 500,
@@ -1101,26 +1105,40 @@ async function seedShowcase() {
     seedBatch: SEED_BATCH
   });
 
-  // Fast-Track Round in AWAITING_APPROVAL (Officer Approval Queue)
-  const ftWinner = FARMERS[5]; // Balasaheb Thorat
+  // Fast-Track Round 2: AWAITING_APPROVAL with winning bid for Resource Officer decision
   await FastTrackRound.create({
     roundId: 'FTR-KPG-2026-8002',
     centreId: 'KPG-01',
     mandiId: 'KPG-01',
     mandiName: MANDI_NAME,
     slotDate: t.dateStr,
-    slotHour: '09:00 AM - 10:00 AM',
+    slotHour: '10:00 AM - 11:00 AM',
     status: 'AWAITING_APPROVAL',
+    participants: [
+      { farmerId: FARMERS[5]._id.toString(), phone: FARMERS[5].phone, name: FARMERS[5].name, bookingId: new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-2005', joinedAt: new Date(Date.now() - 15 * 60000) },
+      { farmerId: FARMERS[6]._id.toString(), phone: FARMERS[6].phone, name: FARMERS[6].name, bookingId: new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-2006', joinedAt: new Date(Date.now() - 14 * 60000) }
+    ],
     currentLeader: {
-      farmerId: ftWinner._id.toString(),
-      phone: ftWinner.phone,
-      name: ftWinner.name,
+      farmerId: FARMERS[5]._id.toString(),
+      phone: FARMERS[5].phone,
+      name: FARMERS[5].name,
       bookingId: new mongoose.Types.ObjectId(),
       tokenNumber: 'KQ-KPG-2026-2005',
-      amount: 240,
+      amount: 260,
       bidTime: new Date(Date.now() - 5 * 60000)
     },
-    officerDecisionExpiresAt: new Date(Date.now() + 10 * 60000),
+    candidateQueue: [
+      {
+        farmerId: FARMERS[6]._id.toString(),
+        phone: FARMERS[6].phone,
+        name: FARMERS[6].name,
+        bookingId: new mongoose.Types.ObjectId(),
+        tokenNumber: 'KQ-KPG-2026-2006',
+        amount: 240,
+        bidTime: new Date(Date.now() - 6 * 60000)
+      }
+    ],
+    officerDecisionExpiresAt: new Date(Date.now() + 15 * 60000),
     seedBatch: SEED_BATCH
   });
 
@@ -1152,7 +1170,7 @@ async function seedShowcase() {
     seedBatch: SEED_BATCH
   });
 
-  // Waitlist Entry & Slot Offer for Ramesh Kadam (Expires in 8 mins)
+  // Waitlist Entry & Slot Offer for Ramesh Kadam (Expires in 9 mins >= 8 mins)
   const wDoc = await Waitlist.create({
     farmerId: waitlistFarmer._id,
     farmerName: waitlistFarmer.name,
@@ -1181,8 +1199,8 @@ async function seedShowcase() {
     quantity: 30,
     slotDate: t.dateStr,
     slotTime: '11:00 AM - 12:00 PM',
-    offeredAt: new Date(),
-    expiresAt: new Date(Date.now() + 8 * 60 * 1000),
+    offeredAt: new Date(Date.now() - 60000),
+    expiresAt: new Date(Date.now() + 9 * 60 * 1000),
     status: 'PENDING',
     seedBatch: SEED_BATCH
   });
@@ -1383,16 +1401,61 @@ async function seedShowcase() {
   }
 
   // 9. Seed Staff Notifications (4-8 per staff role)
-  console.log('9️⃣ Seeding Role-Scoped Notifications for All Official Staff Stations...');
+  console.log('9️⃣ Seeding Role-Scoped Notifications for All Official Staff Stations (4-8 per role)...');
   const STAFF_NOTIFS = [
+    // Gate (4)
     { role: 'security_gate', id: OFFICERS.gate.phone, title: 'Morning Peak Intake Active', body: 'North Boom Barrier operating at capacity. 14 arrivals queued for inspection.', event: 'alerts' },
+    { role: 'security_gate', id: OFFICERS.gate.phone, title: 'ANPR Camera Synchronized', body: 'Automatic number plate recognition sensor calibrated on Lane 1.', event: 'approvals' },
+    { role: 'security_gate', id: OFFICERS.gate.phone, title: 'Trolley Entry Protocol Verified', body: 'Decoupled trailer verification active for high-volume tractor entries.', event: 'alerts' },
+    { role: 'security_gate', id: OFFICERS.gate.phone, title: 'Shift Handover Gate Clear', body: 'Gate checklist signed by shift security supervisor.', event: 'broadcast' },
+
+    // Assayer (4)
     { role: 'quality_assayer', id: OFFICERS.assayer.phone, title: 'NIR Lab Calibration Validated', body: 'Spectrometer calibrated against Standard Wheat & Soybean reference sets.', event: 'approvals' },
+    { role: 'quality_assayer', id: OFFICERS.assayer.phone, title: 'Moisture Standard Verification', body: 'Daily 12% baseline moisture test completed on reference sample #04.', event: 'approvals' },
+    { role: 'quality_assayer', id: OFFICERS.assayer.phone, title: 'Assaying Bay #2 Reopened', body: 'Second spectrometer bay active for afternoon intake surge.', event: 'alerts' },
+    { role: 'quality_assayer', id: OFFICERS.assayer.phone, title: 'Quality Grade Audit Logged', body: 'Supervisor verified Grade A grading certificates for morning shift.', event: 'approvals' },
+
+    // Weighmaster (4)
     { role: 'weighmaster', id: OFFICERS.weighmaster.phone, title: 'Scale Zero-Tare Check Complete', body: '60 MT Pitless scale zeroed and verified for morning shift.', event: 'approvals' },
+    { role: 'weighmaster', id: OFFICERS.weighmaster.phone, title: 'Electronic Tare Ledger Synchronized', body: 'Tractor tare weights recorded and verified against ANPR logs.', event: 'approvals' },
+    { role: 'weighmaster', id: OFFICERS.weighmaster.phone, title: 'Weighbridge Maintenance Scheduled', body: 'Periodic load cell inspection scheduled for tomorrow 07:00 AM.', event: 'alerts' },
+    { role: 'weighmaster', id: OFFICERS.weighmaster.phone, title: 'Net Weight Slips Issued', body: '22 completed weighment slips archived for PFMS batch settlement.', event: 'broadcast' },
+
+    // Procurement (4)
     { role: 'procurement', id: OFFICERS.procurement.phone, title: 'Daily Statutory MSP Baseline', body: 'Soybean statutory rate locked at ₹4,892/Q for todays receipts.', event: 'broadcast' },
+    { role: 'procurement', id: OFFICERS.procurement.phone, title: 'Procurement Deed Seal Batch Ready', body: '15 purchase agreements ready for electronic signature seal.', event: 'approvals' },
+    { role: 'procurement', id: OFFICERS.procurement.phone, title: 'Commodity Storage Yard Balance', body: 'Warehouse section B assigned for Soybean arrivals.', event: 'alerts' },
+    { role: 'procurement', id: OFFICERS.procurement.phone, title: 'Weekly Mandi Quota Tracking', body: 'Kopargaon APMC tracking at 84% of statutory target allocation.', event: 'broadcast' },
+
+    // Finance / Treasury (4)
     { role: 'accounts_settlement', id: OFFICERS.finance.phone, title: 'PFMS Treasury Batch Ready', body: 'Batch PFMS-MH-2026-9921 containing 18 payment files awaiting release.', event: 'approvals' },
-    { role: 'resource_officer', id: OFFICERS.officer.phone, title: 'Borrow Request Received from Shirdi', body: 'APMC Shirdi requested 5 temporary labour gangs for tomorrow peak.', event: 'requests' },
+    { role: 'accounts_settlement', id: OFFICERS.finance.phone, title: 'DBT Bank Advice Clearance', body: 'State Bank of India cleared payment batch #8812 successfully.', event: 'broadcast' },
+    { role: 'accounts_settlement', id: OFFICERS.finance.phone, title: 'Pending Settlement Audit', body: '1 consignment awaiting final bank IFSC verification.', event: 'alerts' },
+    { role: 'accounts_settlement', id: OFFICERS.finance.phone, title: 'Daily Disbursal Report Generated', body: '₹18.4 Lakhs disbursed across 22 beneficiary accounts.', event: 'approvals' },
+
+    // Resource Officer (6)
+    { role: 'resource_officer', id: OFFICERS.officer.phone, title: 'Borrow Request Received from Shirdi', body: 'APMC Shirdi requested 4 temporary labour gangs for tomorrow peak.', event: 'requests' },
+    { role: 'resource_officer', id: OFFICERS.officer.phone, title: '7-Day Demand Forecast Updated', body: 'Market Day event loaded for Wednesday; Red status alert active.', event: 'alerts' },
+    { role: 'resource_officer', id: OFFICERS.officer.phone, title: 'Fast-Track Round Awaiting Approval', body: 'Round FTR-KPG-2026-8002 closed with winner; officer review required.', event: 'approvals' },
+    { role: 'resource_officer', id: OFFICERS.officer.phone, title: 'Inter-Mandi Redirect Quota Active', body: '10 redirect slots opened to APMC Rahata for load balancing.', event: 'broadcast' },
+    { role: 'resource_officer', id: OFFICERS.officer.phone, title: 'Labour Availability Calendar Verified', body: '35 registered gang labourers confirmed for morning shift.', event: 'approvals' },
+    { role: 'resource_officer', id: OFFICERS.officer.phone, title: 'Slot Cap Configured for Peak Days', body: 'Hourly cap of 25 bookings locked for 08:00 - 09:00 AM slot.', event: 'alerts' },
+
+    // Supervisor (6)
     { role: 'supervisor', id: OFFICERS.supervisor.phone, title: '5 Open Anomaly Flags in Queue', body: 'High moisture and plate discrepancy flags require supervisor verification.', event: 'alerts' },
-    { role: 'district_admin', id: OFFICERS.admin.phone, title: 'District Load Summary: 6 Mandis Green/Amber', body: 'Total arrivals across Ahmednagar district tracking at 92% of projected forecast.', event: 'broadcast' }
+    { role: 'supervisor', id: OFFICERS.supervisor.phone, title: 'Farmer Grievance Escalation CMP-2026-101', body: 'Moisture dispute raised at Assaying Lab #2; inspection required.', event: 'requests' },
+    { role: 'supervisor', id: OFFICERS.supervisor.phone, title: 'Supervisor Override Executed', body: 'Authorized solar drying yard protocol for late harvest lot.', event: 'approvals' },
+    { role: 'supervisor', id: OFFICERS.supervisor.phone, title: 'Released Slot Reallocated', body: 'No-show slot auto-released and offered to priority waitlist farmer.', event: 'broadcast' },
+    { role: 'supervisor', id: OFFICERS.supervisor.phone, title: 'Yard Congestion Alert', body: 'Queue length tracking within 15-minute wait time tolerance.', event: 'alerts' },
+    { role: 'supervisor', id: OFFICERS.supervisor.phone, title: 'Shift Reconciliation Complete', body: 'Zero unresolved safety or inventory exceptions for morning shift.', event: 'approvals' },
+
+    // District Admin (6)
+    { role: 'district_admin', id: OFFICERS.admin.phone, title: 'District Load Summary: 6 Mandis Active', body: 'Total arrivals across Ahmednagar district tracking at 92% of projected forecast.', event: 'broadcast' },
+    { role: 'district_admin', id: OFFICERS.admin.phone, title: 'Escalated Borrow Request Pending', body: 'Weighbridge borrow request between Kopargaon and Rahata requires decision.', event: 'requests' },
+    { role: 'district_admin', id: OFFICERS.admin.phone, title: 'SMS Budget Tracking at 18%', body: 'Citizen notifications SMS quota consuming within daily allocated budget.', event: 'alerts' },
+    { role: 'district_admin', id: OFFICERS.admin.phone, title: 'Multi-Mandi Heatmap Summary', body: '4 Green mandis, 2 Amber mandis, 0 Critical Red network bottlenecks.', event: 'broadcast' },
+    { role: 'district_admin', id: OFFICERS.admin.phone, title: 'Audit Trail Signature Log Active', body: '133 immutable checkpoint actions recorded across district mandis.', event: 'approvals' },
+    { role: 'district_admin', id: OFFICERS.admin.phone, title: 'Quarterly Procurement Review Ready', body: 'District procurement summary ready for State Marketing Board review.', event: 'broadcast' }
   ];
 
   for (const sn of STAFF_NOTIFS) {
@@ -1493,71 +1556,142 @@ async function seedShowcase() {
     }
   }
 
-  // 12. Seed Resource Planning (B7) & Forecast for 6 Mandis
-  console.log('1️⃣2️⃣ Seeding B7 Planning Portal Models & 7-Day Forecasts...');
-  // Resources
-  await Resource.create([
-    { centreId: 'KPG-01', type: 'labourer', count: 35, unitCapacity: 40, label: 'rule-based forecast', seedBatch: SEED_BATCH },
-    { centreId: 'KPG-01', type: 'weighbridge', count: 2, unitCapacity: 120, label: 'rule-based forecast', seedBatch: SEED_BATCH },
-    { centreId: 'KPG-01', type: 'assaying_bay', count: 3, unitCapacity: 60, label: 'rule-based forecast', seedBatch: SEED_BATCH },
-    { centreId: 'KPG-01', type: 'gate_lane', count: 2, unitCapacity: 200, label: 'rule-based forecast', seedBatch: SEED_BATCH },
-    { centreId: 'KPG-01', type: 'truck_bay', count: 4, unitCapacity: 8, label: 'rule-based forecast', seedBatch: SEED_BATCH },
-    { centreId: 'SRD-02', type: 'labourer', count: 20, unitCapacity: 40, label: 'rule-based forecast', seedBatch: SEED_BATCH },
-    { centreId: 'RHT-03', type: 'labourer', count: 25, unitCapacity: 40, label: 'rule-based forecast', seedBatch: SEED_BATCH }
-  ]);
+  // 12. Seed Resources, Availability, Events, Slot Caps, and 7-Day Forecasts for ALL 6 Mandis
+  console.log('1️⃣2️⃣ Seeding Resources, Availability, Events, Slot Caps & 7-Day Forecasts for ALL 6 Mandis...');
+  const RESOURCE_TYPES = ['labourer', 'weighbridge', 'assaying_bay', 'gate_lane', 'truck_bay', 'storage_unit'];
 
-  // Events & Availability Overrides
-  const dTomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const dMarketDay = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+  // Seed resources across all 6 centres (36 records)
+  for (const centre of CENTRES) {
+    for (const rType of RESOURCE_TYPES) {
+      let count = 4;
+      let cap = 40;
+      if (rType === 'labourer') { count = centre.code === 'KPG-01' ? 35 : (centre.code === 'RHT-03' ? 30 : 22); cap = 40; }
+      else if (rType === 'weighbridge') { count = centre.code === 'VJP-04' ? 1 : 2; cap = 120; }
+      else if (rType === 'assaying_bay') { count = centre.code === 'KPG-01' ? 3 : 2; cap = 60; }
+      else if (rType === 'gate_lane') { count = 2; cap = 200; }
+      else if (rType === 'truck_bay') { count = 4; cap = 8; }
+      else if (rType === 'storage_unit') { count = 6; cap = 500; }
 
-  await CentreEvent.create([
-    { centreId: 'KPG-01', date: dMarketDay, kind: 'peak_season', note: 'Weekly main commodity market day surge', seedBatch: SEED_BATCH },
-    { centreId: 'KPG-01', date: dTomorrow, kind: 'maintenance', note: 'Scheduled calibration on scale #2', seedBatch: SEED_BATCH }
-  ]);
+      await Resource.create({
+        centreId: centre.code,
+        type: rType,
+        count,
+        unitCapacity: cap,
+        label: 'rule-based forecast',
+        seedBatch: SEED_BATCH
+      });
+    }
+  }
+
+  // Availability / Leave calendars for 3 centres
+  const today = new Date();
+  const getOffsetDateStr = (days) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const dTomorrow = getOffsetDateStr(1);
+  const dMarketDay = getOffsetDateStr(2);
+  const dDay3 = getOffsetDateStr(3);
 
   await Availability.create([
-    { centreId: 'KPG-01', date: dTomorrow, resourceType: 'weighbridge', available: 1, note: 'Scale #2 offline for 2 hours', seedBatch: SEED_BATCH }
+    { centreId: 'KPG-01', date: dTomorrow, resourceType: 'weighbridge', available: 1, note: 'Scale #2 offline for 2 hours scheduled calibration', seedBatch: SEED_BATCH },
+    { centreId: 'SRD-02', date: dTomorrow, resourceType: 'labourer', available: 16, note: '4 gang labourers on scheduled rotational leave', seedBatch: SEED_BATCH },
+    { centreId: 'RHT-03', date: dMarketDay, resourceType: 'assaying_bay', available: 2, note: 'Full operational readiness on both testing bays', seedBatch: SEED_BATCH }
   ]);
 
+  // Centre Events for 3 centres
+  await CentreEvent.create([
+    { centreId: 'KPG-01', date: dMarketDay, kind: 'peak_season', note: 'Weekly main commodity market day surge', seedBatch: SEED_BATCH },
+    { centreId: 'KPG-01', date: dTomorrow, kind: 'maintenance', note: 'Scheduled calibration on scale #2', seedBatch: SEED_BATCH },
+    { centreId: 'SRD-02', date: dTomorrow, kind: 'special', note: 'Temple festival local traffic diversion protocol', seedBatch: SEED_BATCH },
+    { centreId: 'RHT-03', date: dDay3, kind: 'maintenance', note: 'Solar rooftop battery maintenance', seedBatch: SEED_BATCH }
+  ]);
+
+  // Slot Caps on 2 days for Kopargaon
   await SlotCap.create([
     { centreId: 'KPG-01', date: dTomorrow, hour: 8, cap: 25, seedBatch: SEED_BATCH },
-    { centreId: 'KPG-01', date: dTomorrow, hour: 9, cap: 30, seedBatch: SEED_BATCH }
+    { centreId: 'KPG-01', date: dTomorrow, hour: 9, cap: 30, seedBatch: SEED_BATCH },
+    { centreId: 'KPG-01', date: dMarketDay, hour: 10, cap: 35, seedBatch: SEED_BATCH },
+    { centreId: 'KPG-01', date: dMarketDay, hour: 11, cap: 40, seedBatch: SEED_BATCH }
   ]);
 
-  // 7-Day Forecast Snapshots for Kopargaon (2 Green, 2 Amber, 1 Red Market Day)
-  const FORECAST_DAYS = [
-    { dayName: 'Today', leadDays: 0, heat: 'Green', projected: 28, arrivals: 24, labour: 6 },
-    { dayName: 'D+1', leadDays: 1, heat: 'Amber', projected: 45, arrivals: 38, labour: 10 },
-    { dayName: 'D+2', leadDays: 2, heat: 'Red', projected: 85, arrivals: 72, labour: 18, note: 'Market Day Surge Event' },
-    { dayName: 'D+3', leadDays: 3, heat: 'Amber', projected: 50, arrivals: 42, labour: 11 },
-    { dayName: 'D+4', leadDays: 4, heat: 'Green', projected: 25, arrivals: 21, labour: 5 },
-    { dayName: 'D+5', leadDays: 5, heat: 'Green', projected: 22, arrivals: 18, labour: 5 },
-    { dayName: 'D+6', leadDays: 6, heat: 'Green', projected: 20, arrivals: 17, labour: 4 }
+  // 7-Day Forecast Snapshots for ALL 6 Centres
+  // Kopargaon: 3 Green, 2 Amber, 2 Red (including Market Day)
+  const KPG_FORECAST_CONFIG = [
+    { heat: 'Green', projected: 28, arrivals: 24, labour: 6, confirmed: 28 },
+    { heat: 'Green', projected: 32, arrivals: 27, labour: 7, confirmed: 27 },
+    { heat: 'Amber', projected: 48, arrivals: 40, labour: 10, confirmed: 36 },
+    { heat: 'Red', projected: 88, arrivals: 75, labour: 18, confirmed: 57, note: 'Weekly Market Day Surge Event' },
+    { heat: 'Amber', projected: 52, arrivals: 44, labour: 11, confirmed: 31 },
+    { heat: 'Green', projected: 24, arrivals: 20, labour: 5, confirmed: 14 },
+    { heat: 'Red', projected: 82, arrivals: 70, labour: 17, confirmed: 43, note: 'Peak seasonal harvest intake surge' }
   ];
 
-  for (let d = 0; d < FORECAST_DAYS.length; d++) {
-    const fd = FORECAST_DAYS[d];
-    const dStr = new Date(Date.now() + d * 86400000).toISOString().slice(0, 10);
+  for (let d = 0; d < 7; d++) {
+    const dStr = getOffsetDateStr(d);
+    const kfc = KPG_FORECAST_CONFIG[d];
+
     await ForecastSnapshot.create({
       centreId: 'KPG-01',
       date: dStr,
-      snapshot: {
-        date: dStr,
-        dayName: fd.dayName,
-        leadDays: fd.leadDays,
-        heatStatus: fd.heat,
-        projectedBookings: fd.projected,
-        expectedArrivalsMid: fd.arrivals,
-        labourNeeded: fd.labour,
-        note: fd.note || 'Calculated via rule-based forecast engine.',
-        label: 'rule-based forecast'
-      },
-      generatedAt: new Date(),
+      leadDays: d,
+      confirmedBookings: kfc.confirmed,
+      projectedBookings: kfc.projected,
+      expectedArrivalsMin: Math.round(kfc.projected * 0.75),
+      expectedArrivalsMax: Math.round(kfc.projected * 0.95),
+      expectedArrivalsMid: kfc.arrivals,
+      totalQuintalsMin: Math.round(kfc.arrivals * 15),
+      totalQuintalsMax: Math.round(kfc.arrivals * 25),
+      labourNeeded: kfc.labour,
+      bottleneck: kfc.heat === 'Red' ? 'labour' : 'none',
+      heatStatus: kfc.heat,
+      dataQualityBadge: 'measured (22 samples)',
+      insufficientData: false,
+      note: kfc.note || 'Calculated via rule-based forecast engine.',
       seedBatch: SEED_BATCH
     });
   }
 
-  // Plan Requests
+  // Seed 7 days for other 5 centres
+  for (const centre of CENTRES.slice(1)) {
+    for (let d = 0; d < 7; d++) {
+      const dStr = getOffsetDateStr(d);
+      let heat = 'Green';
+      if (centre.code === 'RHT-03') {
+        heat = (d === 2 || d === 4) ? 'Amber' : 'Green'; // Green lending centre
+      } else {
+        heat = d === 3 ? 'Red' : ((d === 1 || d === 4) ? 'Amber' : 'Green');
+      }
+
+      const proj = heat === 'Red' ? 75 : (heat === 'Amber' ? 45 : 24);
+      const arr = Math.round(proj * 0.85);
+
+      await ForecastSnapshot.create({
+        centreId: centre.code,
+        date: dStr,
+        leadDays: d,
+        confirmedBookings: Math.round(proj * 0.7),
+        projectedBookings: proj,
+        expectedArrivalsMin: Math.round(proj * 0.75),
+        expectedArrivalsMax: Math.round(proj * 0.95),
+        expectedArrivalsMid: arr,
+        totalQuintalsMin: Math.round(arr * 15),
+        totalQuintalsMax: Math.round(arr * 25),
+        labourNeeded: Math.ceil(arr / 4),
+        bottleneck: heat === 'Red' ? 'labour' : 'none',
+        heatStatus: heat,
+        dataQualityBadge: 'assumed',
+        insufficientData: false,
+        note: `Rule-based forecast for ${centre.name}`,
+        seedBatch: SEED_BATCH
+      });
+    }
+  }
+
+  // Plan Requests (5 diverse requests covering own, incoming, outgoing, escalated, allowed)
+  console.log('📝 Seeding Plan Requests (Own, Incoming, Outgoing, Escalated, Allowed)...');
   await PlanRequest.create([
     {
       type: 'own',
@@ -1581,8 +1715,21 @@ async function seedShowcase() {
       dates: [dTomorrow],
       status: 'pending',
       deadline: new Date(Date.now() + 24 * 3600000),
-      requestedBy: '9800000006',
+      requestedBy: '9800000006_srd',
       reason: 'Temporary gang re-allocation during weighbridge service',
+      seedBatch: SEED_BATCH
+    },
+    {
+      type: 'borrow',
+      fromCentre: 'KPG-01',
+      toCentre: 'RHT-03',
+      resource: 'assaying_bay',
+      count: 1,
+      dates: [dTomorrow],
+      status: 'pending',
+      deadline: new Date(Date.now() + 24 * 3600000),
+      requestedBy: OFFICERS.officer.phone,
+      reason: 'NIR moisture bay redundancy during high intake volume',
       seedBatch: SEED_BATCH
     },
     {
@@ -1596,6 +1743,24 @@ async function seedShowcase() {
       deadline: new Date(Date.now() - 3600000),
       requestedBy: OFFICERS.officer.phone,
       reason: 'Escalated to District Collector for inter-mandi resource sharing',
+      seedBatch: SEED_BATCH
+    },
+    {
+      type: 'borrow',
+      fromCentre: 'KPG-01',
+      toCentre: 'SRD-02',
+      resource: 'labourer',
+      count: 3,
+      dates: [dTomorrow],
+      status: 'allowed',
+      deadline: new Date(Date.now() + 12 * 3600000),
+      requestedBy: OFFICERS.officer.phone,
+      decidedBy: '9800000006',
+      reason: 'Labour capacity balancing for market day surge',
+      auditEntries: [
+        { action: 'created', actorId: OFFICERS.officer.phone, actorRole: 'resource_officer', note: 'Created labour reallocation request', at: new Date(Date.now() - 3600000) },
+        { action: 'allowed', actorId: '9800000006', actorRole: 'resource_officer', note: 'Approved standard labour gang reallocation', at: new Date() }
+      ],
       seedBatch: SEED_BATCH
     }
   ]);

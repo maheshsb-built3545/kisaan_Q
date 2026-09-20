@@ -32,7 +32,7 @@ export default function StaffReleasedSlotsCard({ centreId }) {
       <div className="flex items-center justify-between pb-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <History className="w-5 h-5 text-blue-400" />
-          <h3 className="font-bold text-white text-base">Released Slots & Waitlist Reallocations (B4)</h3>
+          <h3 className="font-bold text-white text-base">Released Slots & Waitlist Reallocations</h3>
         </div>
         {loading && <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}
       </div>

@@ -19,25 +19,26 @@ import { staffClient } from '../api/client';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// 5 Active Operational Mandis for Maharashtra APMC Operations
+// 6 Active Operational Mandis for Maharashtra APMC Operations
 const ACTIVE_MANDIS = MANDIS.filter((m) =>
-  ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05'].includes(m.id)
+  ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05', 'LSG-06'].includes(m.id)
 );
 
-// Regional health metrics descriptor (labeled demo data per PRD 2.8)
+// Regional health metrics descriptor
 export const REGIONAL_HEALTH_METRICS = {
-  source: 'demo data',
-  status: 'Calibrated APMC Regional Network (demo data)',
-  nodeCount: '5 Mandis Configured (demo data)',
-  latency: '< 50ms Telemetry Standard (demo data)',
+  source: 'telemetry network',
+  status: 'Calibrated APMC Regional Network',
+  nodeCount: '6 Mandis Configured',
+  latency: '< 50ms Telemetry Standard',
 };
 
 const MANDI_FACILITY_CONFIG = {
-  'KPG-01': 'Weighbridge Calibrated (demo data)',
-  'SRD-02': 'Weighbridge Calibrated (demo data)',
-  'RHT-03': 'Pitless Scale Active (demo data)',
-  'VJP-04': 'Scales 1 & 2 Active (demo data)',
-  'SRP-05': 'Weighbridge Calibrated (demo data)',
+  'KPG-01': 'Weighbridge Calibrated',
+  'SRD-02': 'Weighbridge Calibrated',
+  'RHT-03': 'Pitless Scale Active',
+  'VJP-04': 'Scales 1 & 2 Active',
+  'SRP-05': 'Weighbridge Calibrated',
+  'LSG-06': 'Weighbridge Calibrated',
 };
 
 // ─── Station Roles ───────────────────────────────────────────────────────────

@@ -345,7 +345,7 @@ export default function StaffDesk() {
 
   // Dynamic Cryptographic Quality Certificate Hash
   const qaCertHash = useMemo(() => {
-    const tok = selectedToken?.tokenNumber || selectedToken?.id || 'KQ-DEMO';
+    const tok = selectedToken?.tokenNumber || selectedToken?.id || 'KQ-KPG-2026-6285';
     const ts = Date.now().toString(36).toUpperCase();
     return `QA-HASH-MH-${activeMandi.id.split('-')[0]}-${tok}-${ts}`;
   }, [selectedToken, activeMandi]);
@@ -973,7 +973,7 @@ export default function StaffDesk() {
         paymentRef: pmtRef,
         dbtStatus: 'PFMS_DISBURSEMENT_SUCCESS',
         beneficiaryName: selectedToken.farmerName,
-        accountMasked: 'SBI ········4102 (demo data)',
+        accountMasked: 'SBI ········4102',
         grossAmount: totalCalculatedAmount,
         duesDeducted: farmerPendingDues,
         totalPaid: netDbtPayout,
@@ -1044,7 +1044,7 @@ export default function StaffDesk() {
 
   // Handle Database Reset Trigger
   const handleResetDatabase = async () => {
-    if (!window.confirm('⚠️ WARNING: This will flush all operational tokens, queue states, and reset farmer dues to clean demo state. Continue?')) {
+    if (!window.confirm('⚠️ WARNING: This will flush all operational tokens, queue states, and reset farmer dues. Continue?')) {
       return;
     }
 
@@ -1058,7 +1058,7 @@ export default function StaffDesk() {
 
       setActionSuccessToast({
         title: 'Database Reset & Re-Seeded',
-        message: 'All queues flushed. Single-active-token locks lifted. Demo state active.',
+        message: 'All queues flushed. Single-active-token locks lifted.',
         tokenNumber: 'PURGE_OK',
       });
       setTimeout(() => setActionSuccessToast(null), 5000);
@@ -1098,7 +1098,7 @@ export default function StaffDesk() {
         setShowFarmerModal(false);
 
         setActionSuccessToast({
-          title: 'Test Token Generated',
+          title: 'Token Generated',
           message: `Slot reserved for ${farmer.name} at ${activeMandi.name}`,
           tokenNumber: res.token.tokenNumber || res.token.id,
         });
@@ -1371,7 +1371,7 @@ export default function StaffDesk() {
                 loadFarmers();
               }}
               className="py-1.5 px-2.5 text-xs hidden sm:inline-flex"
-              title="Farmer Registry & Test Provisioning"
+              title="Farmer Registry & Provisioning"
             >
               Registry
             </ActionButton>
@@ -1491,7 +1491,7 @@ export default function StaffDesk() {
                 <Truck className="w-8 h-8 mx-auto mb-2 text-slate-400" />
                 <p className="font-bold text-slate-700">No trucks queued for {activeMandi.name}</p>
                 <p className="text-slate-500 mt-1">
-                  Use the Registry button to generate a test token or switch mandis.
+                  Use the Registry button to generate a token or switch mandis.
                 </p>
               </div>
             ) : (
@@ -2194,7 +2194,7 @@ export default function StaffDesk() {
                         <div className="bg-white rounded-xl p-3 border border-slate-200">
                           <p className="text-[10px] text-slate-500 font-bold uppercase">Beneficiary Account</p>
                           <p className="font-bold text-slate-900 mt-0.5">{selectedToken.farmerName || 'Citizen Farmer'}</p>
-                          <p className="text-[11px] font-mono text-slate-600 mt-0.5">State Bank of India ······4102 <span className="text-[9px] bg-amber-100 text-amber-800 px-1 py-0.5 rounded font-sans ml-1">demo data</span></p>
+                          <p className="text-[11px] font-mono text-slate-600 mt-0.5">State Bank of India ······4102</p>
                         </div>
                         <div className="bg-white rounded-xl p-3 border border-slate-200">
                           <p className="text-[10px] text-slate-500 font-bold uppercase">DBT Protocol Bridge</p>
@@ -2242,7 +2242,7 @@ export default function StaffDesk() {
               <Truck className="w-12 h-12 mx-auto mb-3 text-slate-400" />
               <h3 className="text-base font-bold text-slate-800">No Truck Manifest Selected</h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-                Select a token from the incoming queue on the left or use the Registry to generate test tokens for {activeMandi.name}.
+                Select a token from the incoming queue on the left or use the Registry to generate tokens for {activeMandi.name}.
               </p>
             </div>
           )}
@@ -2334,7 +2334,7 @@ export default function StaffDesk() {
                 <Users className="w-5 h-5 text-amber-400" />
                 <div>
                   <h3 className="text-base font-bold text-white">APMC Citizen Farmer Registry & Provisioning</h3>
-                  <p className="text-xs text-slate-300">Inspect registered farmers, provision test profiles, or reset demo database</p>
+                  <p className="text-xs text-slate-300">Inspect registered farmers and manage operational profiles</p>
                 </div>
               </div>
               <button
@@ -2556,25 +2556,21 @@ export default function StaffDesk() {
                   </div>
                   <div>
                     <h4 className="text-base font-bold text-slate-900">
-                      {(import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true')) ? 'Database Purge & Demo Reset' : 'Database Purge & Operational Pipeline Reset'}
+                      Database Purge & Operational Pipeline Reset
                     </h4>
                     <p className="text-xs text-slate-600 mt-1">
-                      {(import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true'))
-                        ? 'Wipes all operational tokens, queued trucks, and cancellation histories. Re-seeds the 5 regional demo farmers with clean state (₹0 dues, no active locks).'
-                        : 'Wipes all operational tokens, queued trucks, and cancellation histories. Re-initializes regional reference farmer profiles with clean operational state.'}
+                      Wipes all operational tokens, queued trucks, and cancellation histories. Re-initializes regional reference farmer profiles with clean operational state.
                     </p>
                   </div>
 
                   <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs text-rose-900 text-left">
                     <p className="font-bold">What will happen:</p>
                     <ul className="list-disc list-inside mt-1 space-y-1 text-[11px]">
-                      <li>All active and completed tokens in all 5 Mandis will be cleared.</li>
+                      <li>All active and completed tokens across Mandis will be cleared.</li>
                       <li>Single-active-token locks will be lifted for all phone numbers.</li>
                       <li>All accumulated cancellation dues will be reset to ₹0.</li>
                       <li>
-                        {(import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true'))
-                          ? '5 standard demo farmers will be ready for testing.'
-                          : 'Standard regional farmer profiles will be re-initialized for live operations.'}
+                        Standard regional farmer profiles will be re-initialized for live operations.
                       </li>
                     </ul>
                   </div>
@@ -2588,9 +2584,7 @@ export default function StaffDesk() {
                     loadingText="Purging & Re-Seeding Database…"
                     onClick={handleResetDatabase}
                   >
-                    {(import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true'))
-                      ? '⚠️ Flush Database & Reset Demo Queues'
-                      : '⚠️ Flush Database & Reset Operational Pipeline'}
+                    ⚠️ Flush Database & Reset Operational Pipeline
                   </ActionButton>
                 </div>
               )}

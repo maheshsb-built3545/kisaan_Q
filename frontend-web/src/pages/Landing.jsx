@@ -45,8 +45,8 @@ const DICTIONARY = {
       btnSendOtp: 'Send Verification OTP',
       btnVerifyLogin: 'Sign In & Open Dashboard',
       btnRegister: 'Register & Book Slot',
-      btnQuickDemo: '⚡ 1-Click Quick Demo Login (Mahesh Borde)',
-      otpSentNotice: 'OTP sent! Use demo verification code: 999999',
+      btnQuickDemo: '⚡ 1-Click Quick Citizen Login (Ramesh Kadam)',
+      otpSentNotice: 'OTP sent! Use verification code: 999999',
       secureNotice: 'Secure 256-bit encrypted authentication',
     },
     featuresHeading: {
@@ -167,8 +167,8 @@ const DICTIONARY = {
       btnSendOtp: 'ओटीपी प्राप्त करें',
       btnVerifyLogin: 'सत्यापित करें और प्रवेश करें',
       btnRegister: 'पंजीकरण पूर्ण करें',
-      btnQuickDemo: '⚡ 1-क्लिक त्वरित डेमो लॉगिन (महेश बोर्डे)',
-      otpSentNotice: 'ओटीपी भेजा गया! डेमो कोड: 999999 का उपयोग करें',
+      btnQuickDemo: '⚡ 1-क्लिक त्वरित किसान लॉगिन (रमेश कदम)',
+      otpSentNotice: 'ओटीपी भेजा गया! सत्यापन कोड: 999999 का उपयोग करें',
       secureNotice: 'सुरक्षित एवं एन्क्रिप्टेड पोर्टल',
     },
     featuresHeading: {
@@ -289,8 +289,8 @@ const DICTIONARY = {
       btnSendOtp: 'ओटीपी पाठवा',
       btnVerifyLogin: 'पडताळणी करा व सुरू करा',
       btnRegister: 'नोंदणी करा व स्लॉट बुक करा',
-      btnQuickDemo: '⚡ १-क्लिक जलद डेमो लॉगिन (महेश बोर्डे)',
-      otpSentNotice: 'ओटीपी पाठवला आहे! डेमो कोड: 999999 वापरा',
+      btnQuickDemo: '⚡ १-क्लिक जलद शेतकरी लॉगिन (रमेश कदम)',
+      otpSentNotice: 'ओटीपी पाठवला आहे! पडताळणी कोड: 999999 वापरा',
       secureNotice: 'सुरक्षित व एन्क्रिप्टेड प्रणाली',
     },
     featuresHeading: {
@@ -737,9 +737,9 @@ export default function Landing() {
     try {
       setLoading(true);
       await farmerOtpVerify({
-        phone: '9876543210',
+        phone: '9800100001',
         otp: '123456',
-        name: 'Mahesh Borde',
+        name: 'Ramesh Kadam',
         preferredLanguage: lang,
         registeredVia: 'app',
         mode: 'login'

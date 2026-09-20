@@ -22,7 +22,7 @@ export default function OTPVerify() {
   const [canResend, setCanResend] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [devOtpNotice, setDevOtpNotice] = useState(() => (isDemoMode ? 'Demo Master OTP: 123456' : ''));
+  const [devOtpNotice, setDevOtpNotice] = useState(() => (isDemoMode ? 'Verification OTP: 123456' : ''));
 
   const inputRefs = useRef([]);
 
@@ -127,7 +127,7 @@ export default function OTPVerify() {
       });
       const newDevOtp = res?.data?.otp || res?.otp;
       if (newDevOtp) {
-        setDevOtpNotice(`New Demo OTP: ${newDevOtp}`);
+        setDevOtpNotice(`New Verification OTP: ${newDevOtp}`);
         setOtp(newDevOtp.split(''));
       }
       setTimer(30);

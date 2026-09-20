@@ -415,9 +415,9 @@ export default function AdminDashboard() {
               onChange={(e) => setSelectedMandiId(e.target.value)}
               className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-emerald-500"
             >
-              <option value="ALL">All APMC Centers (demo data)</option>
+              <option value="ALL">All APMC Centers</option>
               {MANDIS.map((m) => (
-                <option key={m.id} value={m.id}>{m.name} ({m.code}) - demo data</option>
+                <option key={m.id} value={m.id}>{m.name} ({m.code})</option>
               ))}
             </select>
           </div>

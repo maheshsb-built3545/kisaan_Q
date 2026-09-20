@@ -94,7 +94,7 @@ export default function FarmerFastTrackAuctionCard({ token, onRoundUpdated }) {
       <div className="flex items-center justify-between pb-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <Zap className="w-5 h-5 text-amber-400" />
-          <h3 className="font-semibold text-white">Fast-Track Gate Priority (B5)</h3>
+          <h3 className="font-semibold text-white">Fast-Track Gate Priority</h3>
         </div>
         <span className="text-[11px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
           rule-based auction with human approval

@@ -17,7 +17,7 @@ function signToken(payload) {
 }
 
 async function apiRequest(method, endpoint, body = null, token = null) {
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = { 'Content-Type': 'application/json', Connection: 'close' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   
   const options = {
@@ -132,10 +132,12 @@ async function runSessionTests() {
   console.log(`STRICT SESSION REJECTION TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('=============================================\n');
 
-  if (failed > 0) process.exit(1);
+  await new Promise(r => setTimeout(r, 100));
+  process.exit(failed > 0 ? 1 : 0);
 }
 
-runSessionTests().catch(err => {
+runSessionTests().catch(async err => {
   console.error('Unhandled test error:', err);
+  await new Promise(r => setTimeout(r, 100));
   process.exit(1);
 });

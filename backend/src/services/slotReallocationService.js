@@ -269,8 +269,8 @@ async function offerNextWaitlistCandidate(centreId, slotDate, releasedTokenNumbe
   const timings = getTimingConfig(options);
   const now = options.simulatedNow ? new Date(options.simulatedNow) : new Date();
 
-  // 1. Find next waiting candidate in Waitlist
-  const candidate = await Waitlist.findOne({
+  // 1. Find next waiting candidate in Waitlist who does not have an active offer
+  const candidates = await Waitlist.find({
     centreId,
     status: 'WAITING'
   }).sort({ priority: -1, joinedAt: 1 });
@@ -278,40 +278,59 @@ async function offerNextWaitlistCandidate(centreId, slotDate, releasedTokenNumbe
   let offerTarget = null;
   let waitlistId = null;
 
-  if (candidate) {
-    waitlistId = candidate._id;
-    offerTarget = {
+  for (const candidate of candidates) {
+    const existingActiveForFarmer = await SlotOffer.findOne({
       farmerPhone: candidate.farmerPhone,
-      farmerName: candidate.farmerName,
-      centreId: candidate.centreId,
-      mandiId: candidate.mandiId,
-      mandiName: candidate.mandiName,
-      crop: candidate.crop,
-      quantity: candidate.quantity,
-      slotDate: slotDate || candidate.requestedSlotDate,
-      slotTime: candidate.requestedSlotTime || '08:00 AM - 11:00 AM'
-    };
-  } else if (slotDate) {
-    // 2. Fallback: Later-slot confirmed bookings on same day
-    const laterToken = await Token.findOne({
+      status: 'PENDING',
+      expiresAt: { $gt: now }
+    });
+    if (!existingActiveForFarmer) {
+      waitlistId = candidate._id;
+      offerTarget = {
+        farmerPhone: candidate.farmerPhone,
+        farmerName: candidate.farmerName,
+        centreId: candidate.centreId,
+        mandiId: candidate.mandiId,
+        mandiName: candidate.mandiName,
+        crop: candidate.crop,
+        quantity: candidate.quantity,
+        slotDate: slotDate || candidate.requestedSlotDate,
+        slotTime: candidate.requestedSlotTime || '08:00 AM - 11:00 AM'
+      };
+      break;
+    }
+  }
+
+  // 2. Fallback: Later-slot confirmed bookings on same day
+  if (!offerTarget && slotDate) {
+    const laterTokens = await Token.find({
       mandiId: centreId,
       slotDate,
       status: { $in: ['BOOKED', 'Booked'] },
       currentStageIndex: 0
     }).sort({ slotTime: 1, createdAt: 1 });
 
-    if (laterToken) {
-      offerTarget = {
-        farmerPhone: laterToken.farmerPhone || laterToken.phone,
-        farmerName: laterToken.farmerName,
-        centreId: laterToken.mandiId,
-        mandiId: laterToken.mandiId,
-        mandiName: laterToken.mandiName,
-        crop: laterToken.crop,
-        quantity: laterToken.quantity,
-        slotDate: laterToken.slotDate,
-        slotTime: laterToken.slotTime
-      };
+    for (const laterToken of laterTokens) {
+      const phone = laterToken.farmerPhone || laterToken.phone;
+      const existingActiveForFarmer = await SlotOffer.findOne({
+        farmerPhone: phone,
+        status: 'PENDING',
+        expiresAt: { $gt: now }
+      });
+      if (!existingActiveForFarmer) {
+        offerTarget = {
+          farmerPhone: phone,
+          farmerName: laterToken.farmerName,
+          centreId: laterToken.mandiId,
+          mandiId: laterToken.mandiId,
+          mandiName: laterToken.mandiName,
+          crop: laterToken.crop,
+          quantity: laterToken.quantity,
+          slotDate: laterToken.slotDate,
+          slotTime: laterToken.slotTime
+        };
+        break;
+      }
     }
   }
 
@@ -362,9 +381,8 @@ async function offerNextWaitlistCandidate(centreId, slotDate, releasedTokenNumbe
     status: 'PENDING'
   });
 
-  if (candidate) {
-    candidate.status = 'OFFERED';
-    await candidate.save();
+  if (waitlistId) {
+    await Waitlist.findByIdAndUpdate(waitlistId, { status: 'OFFERED' });
   }
 
   logger.info(`[SlotRelease] Created slot offer ${offer._id} for farmer ${offerTarget.farmerPhone} (Expires in ${Math.round(timings.offerMs / 1000)}s)`);

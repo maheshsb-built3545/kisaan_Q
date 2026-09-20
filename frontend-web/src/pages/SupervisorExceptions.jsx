@@ -300,10 +300,10 @@ export default function SupervisorExceptions() {
           </div>
         </div>
 
-        {/* ── B5: Officer Approvals Inbox ── */}
+        {/* ── Officer Approvals Inbox ── */}
         <StaffOfficerApprovalsCard centreId={user?.assignedMandi || 'KPG-01'} userRole={user?.role} />
 
-        {/* ── B4: Released Slots & Waitlist Reallocations ── */}
+        {/* ── Released Slots & Waitlist Reallocations ── */}
         <StaffReleasedSlotsCard centreId={user?.assignedMandi || 'KPG-01'} />
 
         {/* Filter Controls Bar (Source & Status) */}

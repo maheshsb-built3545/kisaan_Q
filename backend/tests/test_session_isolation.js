@@ -275,9 +275,7 @@ async function runTests() {
   console.log(`📊 SESSION ISOLATION TEST RESULTS: ${passed} PASSED | ${failed} FAILED`);
   console.log('='.repeat(70));
 
-  if (failed > 0) {
-    process.exit(1);
-  }
+  process.exit(failed > 0 ? 1 : 0);
 }
 
 runTests().catch((err) => {

@@ -63,7 +63,7 @@ for (const model of Object.values(module.exports)) {
   if (model?.schema && !model.schema.paths.seedBatch) {
     try {
       model.schema.add({
-        seedBatch: { type: String, default: null, index: true }
+        seedBatch: { type: String, default: null, index: true, select: false }
       });
     } catch (_) {}
   }

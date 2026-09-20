@@ -82,7 +82,7 @@ export default function StaffOfficerApprovalsCard({ centreId, userRole }) {
       <div className="flex items-center justify-between pb-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <Zap className="w-5 h-5 text-amber-400" />
-          <h3 className="font-bold text-white text-base">Resource Planning Officer — Fast-Track Approvals Inbox (B5)</h3>
+          <h3 className="font-bold text-white text-base">Resource Planning Officer — Fast-Track Approvals Inbox</h3>
         </div>
         <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded border border-slate-700">
           Centre: <strong className="text-amber-400">{centreId}</strong>

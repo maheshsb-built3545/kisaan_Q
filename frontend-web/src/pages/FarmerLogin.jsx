@@ -203,29 +203,29 @@ export default function FarmerLogin() {
             </Button>
           </form>
 
-          {/* Quick Demo Fill Buttons (Gated for Judge Demos) */}
+          {/* Quick Pilot Fill Buttons */}
           {(import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true')) && (
             <div className="mt-6 pt-4 border-t border-slate-900">
               <div className="text-[11px] font-medium text-slate-400 mb-2 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-emerald-400" />
-                <span>Quick Demo Farmers:</span>
+                <span>Quick Pilot Accounts:</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => quickFill('9876543210', 'Ramesh Patil', '123456')}
+                  onClick={() => quickFill('9800100001', 'Ramesh Kadam', '123456')}
                   className="text-left p-2 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 text-xs transition-colors"
                 >
-                  <div className="font-semibold text-slate-200">Ramesh Patil</div>
-                  <div className="text-[10px] text-slate-500">9876543210 (Nashik)</div>
+                  <div className="font-semibold text-slate-200">Ramesh Kadam</div>
+                  <div className="text-[10px] text-slate-500">9800100001 (Kopargaon)</div>
                 </button>
                 <button
                   type="button"
-                  onClick={() => quickFill('9823012345', 'Suresh Jadhav', '123456')}
+                  onClick={() => quickFill('9800100002', 'Sunil Shinde', '123456')}
                   className="text-left p-2 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 text-xs transition-colors"
                 >
-                  <div className="font-semibold text-slate-200">Suresh Jadhav</div>
-                  <div className="text-[10px] text-slate-500">9823012345 (Lasalgaon)</div>
+                  <div className="font-semibold text-slate-200">Sunil Shinde</div>
+                  <div className="text-[10px] text-slate-500">9800100002 (Kolpewadi)</div>
                 </button>
               </div>
             </div>

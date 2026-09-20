@@ -1309,11 +1309,11 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
         </div>
       )}
 
-      {/* ─── B2 Exact Integer Position & Non-Overlapping Wait Range ─── */}
+      {/* ─── Exact Integer Position & Non-Overlapping Wait Range ─── */}
       {!isCancelled && !isCompleted && (
         <div className="mb-4 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-3 flex items-center justify-between text-xs">
           <div>
-            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Live Mandi Queue (B2)</span>
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Live Mandi Queue</span>
             <span className="font-extrabold text-slate-900 text-sm">
               Position {queuePos} {token?.stages?.[0]?.status === 'Completed' ? '(Gate Checked In)' : '(not checked in)'}
             </span>
@@ -1327,7 +1327,7 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
         </div>
       )}
 
-      {/* ─── Fast-Track Auction Section (B5 PRD 2.5) ─── */}
+      {/* ─── Fast-Track Auction Section ─── */}
       {!isCancelled && !isCompleted && !isGateInDone && (
         <FarmerFastTrackAuctionCard token={token} />
       )}
@@ -1357,13 +1357,13 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
 
-        {/* B6: Report Problem / Dispute */}
+        {/* Report Problem / Dispute */}
         {!isCancelled && !isCompleted && (
           <button
             type="button"
             onClick={() => setShowGrievanceModal(true)}
             className="py-2.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all"
-            title="Report Problem / Dispute at Desk (B6)"
+            title="Report Problem / Dispute at Desk"
           >
             <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
             <span>Dispute</span>

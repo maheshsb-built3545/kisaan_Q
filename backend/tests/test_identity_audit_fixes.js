@@ -173,15 +173,21 @@ async function runIdentityTests() {
 
   // Clean up
   await Token.deleteOne({ tokenNumber: testTokenNumber });
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+  }
 
   console.log('\n=============================================');
   console.log(`IDENTITY AUDIT TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('=============================================\n');
 
-  if (failed > 0) process.exit(1);
+  process.exit(failed > 0 ? 1 : 0);
 }
 
-runIdentityTests().catch(err => {
+runIdentityTests().catch(async err => {
   console.error('Unhandled test failure:', err);
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+  }
   process.exit(1);
 });
