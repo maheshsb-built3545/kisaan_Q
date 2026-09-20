@@ -88,6 +88,7 @@ async function runSlotReleaseTests() {
     console.log('\n--- Section 2: Clean and Initialize Test Records ---');
     if (mongoose.connection.readyState === 1) {
       await Token.deleteMany({ tokenNumber: { $regex: new RegExp(`^${TEST_PREFIX}`) } });
+      await Token.updateMany({ status: 'BOOKED' }, { status: 'CANCELLED' });
       await Waitlist.deleteMany({ farmerPhone: { $in: [phoneA, phoneB, phoneC] } });
       await SlotOffer.deleteMany({ farmerPhone: { $in: [phoneA, phoneB, phoneC] } });
 

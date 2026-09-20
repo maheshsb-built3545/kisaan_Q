@@ -173,7 +173,7 @@ const queueService = {
               'turn_near',
               {
                 tokenNumber: tokenNum,
-                position: ahead === 0 ? '1' : String(ahead),
+                position: String(exactPos),
                 bookingId: id,
                 mandiId: centreId?.toString()
               },

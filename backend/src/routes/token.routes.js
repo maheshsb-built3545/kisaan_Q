@@ -8,8 +8,6 @@ const authService = require('../services/authService');
 const notificationService = require('../services/notificationService');
 const logger = require('../utils/logger');
 const { optionalAuthenticate } = require('../middleware/auth.middleware');
-const fastTrackController = require('../controllers/fastTrack.controller');
-
 
 const { TOKEN_STATUS, normalizeStatus } = require('../utils/statusEnums');
 const {
@@ -2393,9 +2391,6 @@ router.get('/:tokenNumber/agripool-matches', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to search AgriPool matches', error: error.message });
   }
 });
-
-router.post('/:tokenNumber/fasttrack-request', optionalAuthenticate, fastTrackController.createRequest);
-router.get('/:tokenNumber/fasttrack-status', optionalAuthenticate, fastTrackController.getTokenStatus);
 
 router.createTokenReservation = createTokenReservation;
 
