@@ -103,6 +103,7 @@ async function processSlotReallocationCycle(options = {}) {
       expiresAt: { $lte: now }
     });
 
+    const reofferQueue = new Map();
     for (const offer of expiredOffers) {
       offer.status = 'EXPIRED';
       await offer.save();
@@ -126,8 +127,17 @@ async function processSlotReallocationCycle(options = {}) {
         logger.warn(`[SlotRelease] AuditLog error: ${e.message}`);
       }
 
-      // Offer to next waiting farmer
-      const nextOffer = await offerNextWaitlistCandidate(offer.centreId, offer.slotDate, offer.releasedTokenNumber, options);
+      if (offer.releasedTokenNumber && !reofferQueue.has(offer.releasedTokenNumber)) {
+        reofferQueue.set(offer.releasedTokenNumber, {
+          centreId: offer.centreId,
+          slotDate: offer.slotDate
+        });
+      }
+    }
+
+    // Offer to next waiting candidate strictly once per released slot
+    for (const [releasedTokenNumber, item] of reofferQueue.entries()) {
+      const nextOffer = await offerNextWaitlistCandidate(item.centreId, item.slotDate, releasedTokenNumber, options);
       if (nextOffer) results.offersCreated++;
     }
 
@@ -301,7 +311,31 @@ async function offerNextWaitlistCandidate(centreId, slotDate, releasedTokenNumbe
     return null;
   }
 
-  const expiresAt = new Date(Date.now() + timings.offerMs);
+  // Deduplication Guard: Enforce strictly ONE active unexpired offer per released slot
+  if (releasedTokenNumber) {
+    const existingActiveForSlot = await SlotOffer.findOne({
+      releasedTokenNumber,
+      status: 'PENDING',
+      expiresAt: { $gt: now }
+    });
+    if (existingActiveForSlot) {
+      logger.info(`[SlotRelease] Active offer already exists for released slot ${releasedTokenNumber} (Offer ID: ${existingActiveForSlot._id}). Skipping duplicate.`);
+      return null;
+    }
+  }
+
+  // Deduplication Guard: Enforce strictly ONE active offer per candidate farmer
+  const existingActiveForFarmer = await SlotOffer.findOne({
+    farmerPhone: offerTarget.farmerPhone,
+    status: 'PENDING',
+    expiresAt: { $gt: now }
+  });
+  if (existingActiveForFarmer) {
+    logger.info(`[SlotRelease] Active offer already exists for farmer ${offerTarget.farmerPhone}. Skipping duplicate.`);
+    return null;
+  }
+
+  const expiresAt = new Date(now.getTime() + timings.offerMs);
 
   const offer = await SlotOffer.create({
     waitlistId,
