@@ -3,7 +3,7 @@ const router = express.Router();
 const slotReallocationService = require('../services/slotReallocationService');
 const Waitlist = require('../models/Waitlist');
 const SlotOffer = require('../models/SlotOffer');
-const { authenticateToken, optionalAuthenticate } = require('../middleware/auth.middleware');
+const { authenticateToken, optionalAuthenticate, scopeToCentre } = require('../middleware/auth.middleware');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
 
 /**
@@ -77,6 +77,25 @@ router.get('/my', optionalAuthenticate, async (req, res) => {
     }).sort({ createdAt: -1 });
 
     return successResponse(res, { waitlist: waitlistEntries, offers: pendingOffers }, 'Retrieved waitlist data', 200);
+  } catch (err) {
+    return errorResponse(res, err.message, 500);
+  }
+});
+
+/**
+ * @route   GET /api/waitlist/centre/:centreId
+ * @desc    Fetch waitlist entries for a specific centre (Staff scoped)
+ * @access  Staff / Supervisor / Admin
+ */
+router.get('/centre/:centreId', authenticateToken, scopeToCentre, async (req, res) => {
+  try {
+    const { centreId } = req.params;
+    const waitlist = await Waitlist.find({
+      centreId,
+      status: { $in: ['WAITING', 'OFFERED'] }
+    }).sort({ priority: -1, joinedAt: 1 });
+
+    return successResponse(res, { waitlist, count: waitlist.length }, `Waitlist retrieved for centre ${centreId}`, 200);
   } catch (err) {
     return errorResponse(res, err.message, 500);
   }

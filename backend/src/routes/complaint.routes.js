@@ -18,6 +18,13 @@ router.post('/', optionalAuthenticate, complaintController.createComplaint);
 router.get('/my', optionalAuthenticate, complaintController.getMyComplaints);
 
 /**
+ * @route   GET /api/complaints/all
+ * @desc    District-wide list of complaints (District Admin / Admin)
+ * @access  District Admin / Admin / Staff
+ */
+router.get('/all', optionalAuthenticate, complaintController.getComplaints);
+
+/**
  * @route   GET /api/complaints
  * @desc    List complaints (Supervisor filtered to centre, Admin/Officers read-only)
  * @access  Staff / Supervisor / Admin / Officer

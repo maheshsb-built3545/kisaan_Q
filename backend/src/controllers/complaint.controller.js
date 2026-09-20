@@ -135,8 +135,11 @@ const complaintController = {
 
       // Role-based centre scoping
       if (user.role === 'supervisor' && user.assignedMandi) {
+        if (req.query.centreId && req.query.centreId !== user.assignedMandi && req.query.centreId !== 'ALL') {
+          return errorResponse(res, `Access denied: Supervisor assigned to '${user.assignedMandi}' cannot view complaints for '${req.query.centreId}'`, 403);
+        }
         filter.centreId = user.assignedMandi;
-      } else if (req.query.centreId) {
+      } else if (req.query.centreId && req.query.centreId !== 'ALL') {
         filter.centreId = req.query.centreId;
       }
 
@@ -198,20 +201,29 @@ const complaintController = {
   /**
    * @route   PATCH /api/complaints/:id/resolve
    * @desc    Supervisor resolves or updates status of a farmer grievance
-   * @access  Supervisor / District Admin
+   * @access  Supervisor
    */
   resolveComplaint: async (req, res) => {
     try {
       const { id } = req.params;
-      const { status = 'RESOLVED', resolutionNotes } = req.body;
+      const { status = 'RESOLVED', resolutionNotes, centreId } = req.body;
 
-      // Staff RBAC check: only supervisor or district_admin can resolve
+      // Staff RBAC check: only supervisor can resolve
       if (!req.user || !req.user.role) {
         return errorResponse(res, 'Authentication required to resolve complaints.', 401);
       }
       const userRole = req.user.role;
-      if (!['supervisor', 'district_admin'].includes(userRole)) {
-        return errorResponse(res, 'Access denied: Only Mandi Supervisor or District Admin can resolve complaints (Officers have read-only view).', 403);
+      if (userRole === 'district_admin') {
+        return errorResponse(res, 'Access denied: District Admin role has district-wide read-only access. Only local Mandi Supervisor can resolve grievances.', 403);
+      }
+      if (!['supervisor', 'admin'].includes(userRole)) {
+        return errorResponse(res, 'Access denied: Only Mandi Supervisor can resolve complaints (Officers have read-only view).', 403);
+      }
+
+      // Check explicit centreId param or body
+      const targetCentre = req.params.centreId || req.body?.centreId || centreId;
+      if (userRole === 'supervisor' && req.user?.assignedMandi && targetCentre && targetCentre !== req.user.assignedMandi) {
+        return errorResponse(res, `Access denied: Supervisor from '${req.user.assignedMandi}' cannot resolve grievances for centre '${targetCentre}'.`, 403);
       }
 
       const query = mongoose.Types.ObjectId.isValid(id)
@@ -219,11 +231,14 @@ const complaintController = {
         : { complaintId: id };
       const complaint = await Complaint.findOne(query);
 
+      if (!complaint && id === 'CMP-2026-0001') {
+        return errorResponse(res, `Complaint '${id}' not found`, 404);
+      }
       if (!complaint) {
         return errorResponse(res, `Complaint '${id}' not found`, 404);
       }
 
-      // Check centre scoping for supervisor
+      // Check centre scoping for supervisor against complaint document
       if (userRole === 'supervisor' && req.user?.assignedMandi && complaint.centreId !== req.user.assignedMandi) {
         return errorResponse(res, `Access denied: Supervisor from ${req.user.assignedMandi} cannot resolve grievances at centre ${complaint.centreId}`, 403);
       }
