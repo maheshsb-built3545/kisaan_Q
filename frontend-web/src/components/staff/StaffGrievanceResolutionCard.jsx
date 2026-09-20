@@ -30,13 +30,17 @@ export default function StaffGrievanceResolutionCard({ centreId, userRole }) {
     return () => clearInterval(interval);
   }, [centreId]);
 
-  const handleResolve = async (id) => {
+  const handleResolve = async (id, status = 'RESOLVED') => {
+    if (!notes.trim()) {
+      setMsg({ type: 'error', text: 'Resolution reason / notes is mandatory to resolve or close a grievance.' });
+      return;
+    }
+
     try {
       setActionLoading(true);
       const res = await complaintsApi.resolveComplaint(id, {
-        status: 'RESOLVED',
-        resolutionNotes: notes.trim() || 'Dispute addressed and resolved by Mandi Supervisor',
-        centreId
+        status,
+        resolutionNotes: notes.trim()
       });
       if (res?.success) {
         setMsg({ type: 'success', text: `Grievance ${id} resolved successfully.` });

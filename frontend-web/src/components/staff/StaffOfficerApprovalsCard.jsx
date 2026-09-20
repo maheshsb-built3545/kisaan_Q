@@ -37,8 +37,7 @@ export default function StaffOfficerApprovalsCard({ centreId, userRole }) {
     try {
       setActionLoading(true);
       const res = await fastTrackApi.officerStartDecision(roundId, {
-        approved,
-        centreId
+        approved
       });
       if (res?.success) {
         setMsg({ type: 'success', text: `Start request ${approved ? 'approved' : 'declined'} successfully.` });
@@ -61,8 +60,7 @@ export default function StaffOfficerApprovalsCard({ centreId, userRole }) {
       setActionLoading(true);
       const res = await fastTrackApi.officerDecision(roundId, {
         approved,
-        declineReason: approved ? null : declineReason.trim(),
-        centreId
+        declineReason: approved ? null : declineReason.trim()
       });
       if (res?.success) {
         setMsg({ type: 'success', text: `Auction winner ${approved ? 'approved' : 'declined'}.` });

@@ -33,7 +33,7 @@ const complaintController = {
    */
   createComplaint: async (req, res) => {
     try {
-      const { tokenNumber, checkpoint, category, description, phone, farmerPhone, farmerName } = req.body;
+      const { tokenNumber, checkpoint, category, description } = req.body;
 
       if (!tokenNumber) {
         return errorResponse(res, 'Token number is required to file a complaint', 400);
@@ -41,6 +41,13 @@ const complaintController = {
       if (!description || typeof description !== 'string' || description.trim().length < 5) {
         return errorResponse(res, 'Detailed complaint description is required (min 5 characters)', 400);
       }
+
+      // Farmer identity derived strictly from authenticated session
+      if (!req.user || !req.user.phone) {
+        return errorResponse(res, 'Authentication required: Valid citizen farmer session required to file grievances.', 401);
+      }
+      const callerPhone = req.user.phone;
+      const callerName = req.user.name || 'Citizen Farmer';
 
       // 1. Locate Token and validate
       const token = await Token.findOne({
@@ -52,26 +59,34 @@ const complaintController = {
       }
 
       // 2. Validate Active Window (Gate -> Payout)
-      // Must not be cancelled
       if (token.status === 'CANCELLED' || token.status === 'Cancelled') {
         return errorResponse(res, 'Cannot file complaint on a cancelled token booking.', 400);
       }
 
-      // 3. Verify Farmer Ownership (if caller is authenticated or phone provided)
-      const effectivePhone = req.user?.phone || phone || farmerPhone;
-      if (effectivePhone && token.farmerPhone && effectivePhone !== token.farmerPhone && token.phone && effectivePhone !== token.phone) {
-        // Only allow if staff raising on farmer behalf
-        const isStaff = req.user && ['supervisor', 'district_admin', 'resource_officer', 'staff'].includes(req.user.role);
-        if (!isStaff) {
-          return errorResponse(res, 'You are not authorized to file a complaint for another farmer\'s token.', 403);
-        }
+      // 3. Verify Farmer Ownership
+      const tokenPhone = token.farmerPhone || token.phone;
+      const isStaff = ['supervisor', 'district_admin', 'resource_officer', 'staff', 'admin'].includes(req.user.role);
+      if (!isStaff && tokenPhone && tokenPhone !== callerPhone) {
+        return errorResponse(res, 'Forbidden: You can only file a grievance for your own confirmed token booking.', 403);
       }
 
-      const effectiveFarmerName = farmerName || req.user?.name || token.farmerName || 'Farmer';
-      const effectiveFarmerPhone = effectivePhone || token.farmerPhone || token.phone || '9876543210';
       const canonicalCheckpoint = normalizeCheckpoint(checkpoint || (token.stages?.[token.currentStageIndex || 0]?.id));
 
-      // 4. Generate unique Complaint ID
+      // 4. Rule: Exactly 1 open complaint per checkpoint per token
+      const existingOpen = await Complaint.findOne({
+        tokenNumber: token.tokenNumber,
+        checkpoint: canonicalCheckpoint,
+        status: { $in: ['PENDING', 'IN_INVESTIGATION', 'OPEN', 'INVESTIGATING'] }
+      });
+      if (existingOpen) {
+        return errorResponse(
+          res,
+          `An active grievance (${existingOpen.complaintId}) already exists for this token at checkpoint '${canonicalCheckpoint}'. Only 1 active complaint per checkpoint per token is permitted.`,
+          400
+        );
+      }
+
+      // 5. Generate unique Complaint ID
       const year = new Date().getFullYear();
       const randDigits = String(Math.floor(1000 + Math.random() * 8999));
       const complaintId = `CMP-${year}-${randDigits}`;
@@ -80,26 +95,26 @@ const complaintController = {
         complaintId,
         tokenNumber: token.tokenNumber,
         tokenId: token._id,
-        farmerId: req.user?.id || token.farmerId || null,
-        farmerName: effectiveFarmerName,
-        farmerPhone: effectiveFarmerPhone,
+        farmerId: req.user.id || token.farmerId || null,
+        farmerName: isStaff ? (token.farmerName || callerName) : callerName,
+        farmerPhone: isStaff ? (tokenPhone || callerPhone) : callerPhone,
         centreId: token.mandiId || 'KPG-01',
         mandiId: token.mandiId || 'KPG-01',
         mandiName: token.mandiName || 'APMC Mandi',
         checkpoint: canonicalCheckpoint,
-        category: category || 'QUALITY_DISPUTE',
+        category: category || 'ASSAYING_DISPUTE',
         description: description.trim(),
-        status: 'OPEN',
-        source: req.user?.role && req.user.role !== 'farmer' ? 'staff' : 'farmer',
+        status: 'PENDING',
+        source: isStaff ? 'staff' : 'farmer',
         assignedTo: 'Mandi Supervisor'
       });
 
       logger.info(`[Complaints] Created complaint ${complaintId} for token ${token.tokenNumber} at centre ${token.mandiId}`);
 
-      // 5. Notify Mandi Supervisor
+      // 6. Notify Mandi Supervisor
       try {
         await notificationService.notify({
-          recipientPhone: '9800000008', // Default supervisor desk hotline
+          recipientPhone: '9800000008',
           recipientName: 'Mandi Supervisor',
           recipientRole: 'supervisor',
           templateKey: 'COMPLAINT_RECEIVED',
@@ -108,7 +123,7 @@ const complaintController = {
             complaintId,
             tokenNumber: token.tokenNumber,
             checkpoint: canonicalCheckpoint,
-            farmerName: effectiveFarmerName,
+            farmerName: callerName,
             mandiName: token.mandiName
           }
         });
@@ -125,7 +140,7 @@ const complaintController = {
 
   /**
    * @route   GET /api/complaints
-   * @desc    List complaints (Supervisor filtered to centre, Admin/Officer read-only)
+   * @desc    List complaints (Supervisor filtered to centre, Admin/Officers read-only)
    * @access  Staff / Supervisor / Admin / Officer
    */
   getComplaints: async (req, res) => {
@@ -148,6 +163,7 @@ const complaintController = {
       if (req.query.checkpoint) filter.checkpoint = normalizeCheckpoint(req.query.checkpoint);
       if (req.query.category) filter.category = req.query.category;
       if (req.query.tokenNumber) filter.tokenNumber = req.query.tokenNumber;
+      if (req.query.source) filter.source = req.query.source;
 
       const complaints = await Complaint.find(filter).sort({ createdAt: -1 });
 
@@ -159,14 +175,14 @@ const complaintController = {
 
   /**
    * @route   GET /api/complaints/my
-   * @desc    Farmer views all grievances filed by their phone number
-   * @access  Farmer / Public with phone
+   * @desc    Farmer views all grievances filed by their authenticated session
+   * @access  Farmer (Authenticated via JWT only)
    */
   getMyComplaints: async (req, res) => {
     try {
-      const phone = req.user?.phone || req.query.phone;
+      const phone = req.user?.phone;
       if (!phone) {
-        return errorResponse(res, 'Farmer phone is required to view grievance history', 400);
+        return errorResponse(res, 'Authentication required: Valid farmer session required to view grievance history', 401);
       }
 
       const complaints = await Complaint.find({ farmerPhone: phone }).sort({ createdAt: -1 });
@@ -220,6 +236,11 @@ const complaintController = {
         return errorResponse(res, 'Access denied: Only Mandi Supervisor can resolve complaints (Officers have read-only view).', 403);
       }
 
+      // Mandatory resolution notes / reason
+      if (!resolutionNotes || typeof resolutionNotes !== 'string' || !resolutionNotes.trim()) {
+        return errorResponse(res, 'Resolution reason / notes is mandatory when resolving or declining a grievance.', 400);
+      }
+
       // Check explicit centreId param or body
       const targetCentre = req.params.centreId || req.body?.centreId || centreId;
       if (userRole === 'supervisor' && req.user?.assignedMandi && targetCentre && targetCentre !== req.user.assignedMandi) {
@@ -231,9 +252,6 @@ const complaintController = {
         : { complaintId: id };
       const complaint = await Complaint.findOne(query);
 
-      if (!complaint && id === 'CMP-2026-0001') {
-        return errorResponse(res, `Complaint '${id}' not found`, 404);
-      }
       if (!complaint) {
         return errorResponse(res, `Complaint '${id}' not found`, 404);
       }
@@ -244,7 +262,7 @@ const complaintController = {
       }
 
       complaint.status = status;
-      complaint.resolutionNotes = resolutionNotes || 'Issue addressed and resolved by Mandi Supervisor';
+      complaint.resolutionNotes = resolutionNotes.trim();
       complaint.resolvedBy = req.user?.name || req.user?.role || 'Supervisor Desk';
       complaint.resolvedAt = new Date();
 

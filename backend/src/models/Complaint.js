@@ -66,12 +66,14 @@ const complaintSchema = new mongoose.Schema(
     category: {
       type: String,
       enum: [
+        'ASSAYING_DISPUTE', 'WEIGHMENT_VARIANCE', 'PAYOUT_DELAY', 'OFFICER_CONDUCT',
+        'FACILITY_ISSUE', 'OTHER',
         'QUALITY_DISPUTE', 'WEIGHT_DISCREPANCY', 'DELAY', 'STAFF_BEHAVIOUR',
-        'PAYMENT_ISSUE', 'CORRUPTION_ALLEGATION', 'OTHER',
+        'PAYMENT_ISSUE', 'CORRUPTION_ALLEGATION',
         'quality_dispute', 'partial_accept', 'rejected', 'document_mismatch',
         'delay', 'other'
       ],
-      default: 'QUALITY_DISPUTE'
+      default: 'ASSAYING_DISPUTE'
     },
     description: {
       type: String,
@@ -80,8 +82,8 @@ const complaintSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['OPEN', 'INVESTIGATING', 'RESOLVED', 'REJECTED'],
-      default: 'OPEN',
+      enum: ['PENDING', 'IN_INVESTIGATION', 'RESOLVED', 'REJECTED', 'OPEN', 'INVESTIGATING'],
+      default: 'PENDING',
       index: true
     },
     source: {

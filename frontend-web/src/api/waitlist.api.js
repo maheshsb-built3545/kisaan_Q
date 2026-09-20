@@ -6,8 +6,8 @@ export const waitlistApi = {
     return res.data;
   },
 
-  getMyWaitlist: async (phone = null) => {
-    const res = await apiClient.get('/waitlist/my', { params: phone ? { phone } : {} });
+  getMyWaitlist: async () => {
+    const res = await apiClient.get('/waitlist/my');
     return res.data;
   },
 
@@ -21,13 +21,15 @@ export const waitlistApi = {
     return res.data;
   },
 
-  acceptOffer: async (offerId, phone = null) => {
-    const res = await apiClient.post(`/waitlist/offers/${offerId}/accept`, { phone });
+  acceptOffer: async (offerId) => {
+    const res = await apiClient.post(`/waitlist/offers/${offerId}/accept`);
     return res.data;
   },
 
-  declineOffer: async (offerId, phone = null) => {
-    const res = await apiClient.post(`/waitlist/offers/${offerId}/decline`, { phone });
+  declineOffer: async (offerId) => {
+    const res = await apiClient.post(`/waitlist/offers/${offerId}/decline`);
     return res.data;
   }
 };
+
+export default waitlistApi;

@@ -59,14 +59,14 @@ router.post('/join', optionalAuthenticate, async (req, res) => {
 
 /**
  * @route   GET /api/waitlist/my
- * @desc    Fetch active waitlist entries and pending offers for caller
- * @access  Public / Farmer
+ * @desc    Fetch active waitlist entries and pending offers for authenticated farmer
+ * @access  Farmer (Authenticated via JWT only)
  */
-router.get('/my', optionalAuthenticate, async (req, res) => {
+router.get('/my', authenticateToken, async (req, res) => {
   try {
-    const phone = req.query.phone || req.user?.phone;
+    const phone = req.user?.phone;
     if (!phone) {
-      return errorResponse(res, 'Phone query parameter or Authorization token required', 400);
+      return errorResponse(res, 'Authentication required: Valid farmer session token required.', 401);
     }
 
     const waitlistEntries = await Waitlist.find({ farmerPhone: phone }).sort({ createdAt: -1 });
@@ -89,7 +89,7 @@ router.get('/my', optionalAuthenticate, async (req, res) => {
  */
 router.get('/centre/:centreId', authenticateToken, scopeToCentre, async (req, res) => {
   try {
-    const { centreId } = req.params;
+    const centreId = req.scopedCentreId || req.params.centreId;
     const waitlist = await Waitlist.find({
       centreId,
       status: { $in: ['WAITING', 'OFFERED'] }
@@ -103,13 +103,18 @@ router.get('/centre/:centreId', authenticateToken, scopeToCentre, async (req, re
 
 /**
  * @route   GET /api/waitlist/offers
- * @desc    List offers (filterable by phone or centre)
+ * @desc    List offers (scoped to authenticated officer centre, district_admin reads all)
+ * @access  Staff / Supervisor / District Admin
  */
-router.get('/offers', optionalAuthenticate, async (req, res) => {
+router.get('/offers', authenticateToken, scopeToCentre, async (req, res) => {
   try {
     const filter = {};
-    if (req.query.phone) filter.farmerPhone = req.query.phone;
-    if (req.query.centreId) filter.centreId = req.query.centreId;
+    if (req.user.role !== 'district_admin' && req.user.role !== 'admin') {
+      filter.centreId = req.scopedCentreId;
+    } else if (req.query.centreId && req.query.centreId !== 'ALL') {
+      filter.centreId = req.query.centreId;
+    }
+
     if (req.query.status) filter.status = req.query.status;
 
     const offers = await SlotOffer.find(filter).sort({ createdAt: -1 });
@@ -121,12 +126,16 @@ router.get('/offers', optionalAuthenticate, async (req, res) => {
 
 /**
  * @route   POST /api/waitlist/offers/:id/accept
- * @desc    Atomic acceptance of slot offer
+ * @desc    Atomic acceptance of slot offer (Identity from JWT only)
+ * @access  Farmer (Authenticated via JWT only)
  */
-router.post('/offers/:id/accept', optionalAuthenticate, async (req, res) => {
+router.post('/offers/:id/accept', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const phone = req.body.phone || req.body.farmerPhone || req.user?.phone || null;
+    const phone = req.user?.phone;
+    if (!phone) {
+      return errorResponse(res, 'Authentication required: Valid farmer session token required.', 401);
+    }
 
     const result = await slotReallocationService.acceptSlotOffer(id, phone, req.body);
     if (!result.success) {
@@ -141,12 +150,16 @@ router.post('/offers/:id/accept', optionalAuthenticate, async (req, res) => {
 
 /**
  * @route   POST /api/waitlist/offers/:id/decline
- * @desc    Decline slot offer and trigger next reallocation
+ * @desc    Decline slot offer and trigger next reallocation (Identity from JWT only)
+ * @access  Farmer (Authenticated via JWT only)
  */
-router.post('/offers/:id/decline', optionalAuthenticate, async (req, res) => {
+router.post('/offers/:id/decline', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const phone = req.body.phone || req.body.farmerPhone || req.user?.phone || null;
+    const phone = req.user?.phone;
+    if (!phone) {
+      return errorResponse(res, 'Authentication required: Valid farmer session token required.', 401);
+    }
 
     const result = await slotReallocationService.declineSlotOffer(id, phone, req.body);
     if (!result.success) {

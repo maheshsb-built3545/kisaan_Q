@@ -3,8 +3,8 @@ import { AlertTriangle, X, Loader2, CheckCircle2, ShieldAlert } from 'lucide-rea
 import { complaintsApi } from '../../api';
 
 export default function FarmerGrievanceModal({ token, isOpen, onClose, onGrievanceFiled }) {
-  const [checkpoint, setCheckpoint] = useState('GATE_CHECKIN');
-  const [category, setCategory] = useState('QUALITY_DISPUTE');
+  const [checkpoint, setCheckpoint] = useState('QUALITY_GRADING');
+  const [category, setCategory] = useState('ASSAYING_DISPUTE');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -26,9 +26,7 @@ export default function FarmerGrievanceModal({ token, isOpen, onClose, onGrievan
         tokenNumber: token.tokenNumber,
         checkpoint,
         category,
-        description: description.trim(),
-        phone: token.farmerPhone || token.phone,
-        farmerName: token.farmerName
+        description: description.trim()
       });
 
       if (res?.success) {
@@ -84,11 +82,11 @@ export default function FarmerGrievanceModal({ token, isOpen, onClose, onGrievan
                 onChange={(e) => setCheckpoint(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
               >
-                <option value="GATE_CHECKIN">Gate Check-in & Security Desk</option>
-                <option value="QUALITY_GRADING">Quality Assaying & Moisture Grading</option>
-                <option value="WEIGHBRIDGE">Digital Weighbridge Station</option>
-                <option value="PROCUREMENT">Procurement Deed & Sale Agreement</option>
-                <option value="PAYOUT">DBT & Accounts Settlement Desk</option>
+                <option value="GATE_CHECKIN">Desk 1: Gate Check-in & Security</option>
+                <option value="QUALITY_GRADING">Desk 2: Quality Assaying & Moisture Grading</option>
+                <option value="WEIGHBRIDGE">Desk 3: Digital Weighbridge Station</option>
+                <option value="PROCUREMENT">Desk 4: Procurement Deed & Sale Agreement</option>
+                <option value="PAYOUT">Desk 5: DBT & Accounts Settlement</option>
               </select>
             </div>
 
@@ -99,11 +97,12 @@ export default function FarmerGrievanceModal({ token, isOpen, onClose, onGrievan
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
               >
-                <option value="QUALITY_DISPUTE">Quality Grading / Moisture Deduction Dispute</option>
-                <option value="WEIGHT_DISPUTE">Weighbridge Scale Discrepancy</option>
-                <option value="EXCESS_WAIT">Unreasonable Queue Delay / Desk Congestion</option>
-                <option value="STAFF_CONDUCT">Staff Conduct / Improper Guidance</option>
-                <option value="PAYOUT_DELAY">Payment / Settlement Inquiry</option>
+                <option value="ASSAYING_DISPUTE">Assaying & Moisture Grading Dispute</option>
+                <option value="WEIGHMENT_VARIANCE">Weighbridge Scale Discrepancy</option>
+                <option value="PAYOUT_DELAY">Payment / DBT Settlement Delay</option>
+                <option value="OFFICER_CONDUCT">Officer Conduct / Improper Protocol</option>
+                <option value="FACILITY_ISSUE">Unloading & Mandi Facility Issue</option>
+                <option value="OTHER">Other Grievance</option>
               </select>
             </div>
 

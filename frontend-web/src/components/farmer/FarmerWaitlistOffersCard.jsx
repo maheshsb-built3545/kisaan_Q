@@ -9,10 +9,9 @@ export default function FarmerWaitlistOffersCard({ phone, onOfferAccepted }) {
   const [msg, setMsg] = useState(null);
 
   const fetchWaitlistData = async () => {
-    if (!phone) return;
     try {
       setLoading(true);
-      const res = await waitlistApi.getMyWaitlist(phone);
+      const res = await waitlistApi.getMyWaitlist();
       if (res?.success) {
         setData(res.data);
       }
@@ -32,7 +31,7 @@ export default function FarmerWaitlistOffersCard({ phone, onOfferAccepted }) {
   const handleAccept = async (offerId) => {
     try {
       setActionLoading((prev) => ({ ...prev, [offerId]: 'accept' }));
-      const res = await waitlistApi.acceptOffer(offerId, phone);
+      const res = await waitlistApi.acceptOffer(offerId);
       if (res?.success) {
         setMsg({ type: 'success', text: `Offer accepted! Confirmed Token: ${res.data?.token?.tokenNumber}` });
         fetchWaitlistData();
@@ -48,7 +47,7 @@ export default function FarmerWaitlistOffersCard({ phone, onOfferAccepted }) {
   const handleDecline = async (offerId) => {
     try {
       setActionLoading((prev) => ({ ...prev, [offerId]: 'decline' }));
-      const res = await waitlistApi.declineOffer(offerId, phone);
+      const res = await waitlistApi.declineOffer(offerId);
       if (res?.success) {
         setMsg({ type: 'info', text: 'Offer declined. Passed to next candidate.' });
         fetchWaitlistData();

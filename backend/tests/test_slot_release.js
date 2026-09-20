@@ -3,10 +3,12 @@ try { require('dns').setServers(['8.8.8.8', '1.1.1.1']); } catch (e) {}
 
 const http = require('http');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const { Token, Waitlist, SlotOffer } = require('../src/models');
 const slotReallocationService = require('../src/services/slotReallocationService');
 
 const PORT = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || 'kisanq_jwt_super_secret_key_change_in_production';
 const TEST_PREFIX = 'TEST_B4_';
 
 function makeRequest(path, method = 'GET', body = null, token = null) {
@@ -181,9 +183,12 @@ async function runSlotReleaseTests() {
     // Section 5: Atomic Offer Acceptance & Token Issuance
     // -----------------------------------------------------------------------
     console.log('\n--- Section 5: Atomic Offer Acceptance Endpoint ---');
+    const tokenB = jwt.sign({ id: '64b8f0a1c1d2e3f4a5b6c042', phone: phoneB, name: 'Kisan B', role: 'farmer' }, JWT_SECRET);
+    const tokenC = jwt.sign({ id: '64b8f0a1c1d2e3f4a5b6c043', phone: phoneC, name: 'Kisan C', role: 'farmer' }, JWT_SECRET);
+
     const acceptRes = await makeRequest(`/api/slots/offers/${offerB._id}/accept`, 'POST', {
       phone: phoneB
-    });
+    }, tokenB);
 
     assert(acceptRes.status === 200, 'POST /api/slots/offers/:id/accept returned 200 OK');
     assert(acceptRes.body?.data?.token?.status === 'BOOKED', 'Accepted offer generated new BOOKED token');
@@ -197,7 +202,7 @@ async function runSlotReleaseTests() {
     // Double accept prevention (race condition test)
     const doubleAcceptRes = await makeRequest(`/api/slots/offers/${offerB._id}/accept`, 'POST', {
       phone: phoneB
-    });
+    }, tokenB);
     assert(doubleAcceptRes.status === 400, 'Double claim / second accept attempt cleanly rejected with 400');
 
     // -----------------------------------------------------------------------
@@ -239,7 +244,7 @@ async function runSlotReleaseTests() {
 
     const declineRes = await makeRequest(`/api/slots/offers/${offerC._id}/decline`, 'POST', {
       phone: phoneC
-    });
+    }, tokenC);
     assert(declineRes.status === 200, 'POST /api/slots/offers/:id/decline returned 200 OK');
 
     const updatedOfferC = await SlotOffer.findById(offerC._id);
