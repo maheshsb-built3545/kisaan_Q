@@ -19,7 +19,7 @@ const cropPriceSchema = new mongoose.Schema(
     },
     mspPrice: {
       type: Number,
-      required: [true, 'Statutory MSP price is required'],
+      default: null,
       min: [0, 'MSP price must be positive']
     },
     marketPriceToday: {
