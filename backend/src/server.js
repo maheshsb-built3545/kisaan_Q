@@ -127,9 +127,11 @@ process.on('uncaughtException', (err) => {
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, '0.0.0.0', () => {
-  logger.info(`[Server] KisanQ backend running on port ${PORT} (0.0.0.0)`);
-  logger.info(`[Server] Health check: http://localhost:${PORT}/api/health`);
-});
+if (require.main === module) {
+  server.listen(PORT, '0.0.0.0', () => {
+    logger.info(`[Server] KisanQ backend running on port ${PORT} (0.0.0.0)`);
+    logger.info(`[Server] Health check: http://localhost:${PORT}/api/health`);
+  });
+}
 
 module.exports = { app, server, io };

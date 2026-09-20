@@ -295,10 +295,10 @@ async function runTestSuite() {
 
     // 8. turn_near: Idempotency across multiple queue recomputes
     console.log('\n--- Section B (cont.): turn_near Idempotency Across Recomputes ---');
-    const testCentre = await Centre.findOne() || { _id: new mongoose.Types.ObjectId() };
+    const testQueueCentreId = new mongoose.Types.ObjectId();
     const queueBooking = await Booking.create({
       farmerId: testFarmerA._id,
-      centreId: testCentre._id,
+      centreId: testQueueCentreId,
       crop: 'Wheat',
       quantityBand: '5-15q',
       arrivalWindowStart: new Date(),
@@ -309,7 +309,7 @@ async function runTestSuite() {
 
     // Run computePositionMap 5 times
     for (let i = 1; i <= 5; i++) {
-      await queueService.computePositionMap(testCentre._id.toString());
+      await queueService.computePositionMap(testQueueCentreId.toString());
     }
 
     const turnNearCount = await Notification.countDocuments({
@@ -530,9 +530,10 @@ async function runTestSuite() {
     console.log('\n--- Section E: Legacy Endpoint Security ---');
 
     // Create a booking for Farmer A
+    const myCentre = await Centre.findOne() || { _id: new mongoose.Types.ObjectId() };
     const myBooking = await Booking.create({
       farmerId: testFarmerA._id,
-      centreId: testCentre._id,
+      centreId: myCentre._id,
       crop: 'Soybean',
       quantityBand: '5-15q',
       arrivalWindowStart: new Date(),

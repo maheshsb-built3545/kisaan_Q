@@ -98,10 +98,14 @@ async function processSlotReallocationCycle(options = {}) {
 
   try {
     // ── Phase 1: Expose & Process Expired Offers ──────────────────────────────
-    const expiredOffers = await SlotOffer.find({
+    const expiredQuery = {
       status: 'PENDING',
       expiresAt: { $lte: now }
-    });
+    };
+    if (options.isBackgroundJob) {
+      expiredQuery.releasedTokenNumber = { $not: /^TEST_/ };
+    }
+    const expiredOffers = await SlotOffer.find(expiredQuery);
 
     const reofferQueue = new Map();
     for (const offer of expiredOffers) {
@@ -142,10 +146,14 @@ async function processSlotReallocationCycle(options = {}) {
     }
 
     // ── Phase 2: Inspect Active BOOKED Tokens for Warning & Grace Expiry ─────
-    const activeTokens = await Token.find({
+    const activeQuery = {
       status: { $in: ['BOOKED', 'Booked'] },
       currentStageIndex: 0
-    });
+    };
+    if (options.isBackgroundJob) {
+      activeQuery.tokenNumber = { $not: /^TEST_/ };
+    }
+    const activeTokens = await Token.find(activeQuery);
 
     for (const token of activeTokens) {
       // If gate check-in already completed, skip
@@ -590,7 +598,7 @@ function startReallocationJob(intervalMs = 60000) {
   if (intervalHandle) return;
   intervalHandle = setInterval(async () => {
     try {
-      await processSlotReallocationCycle();
+      await processSlotReallocationCycle({ isBackgroundJob: true });
     } catch (e) {
       logger.warn(`[SlotRelease Job] Background iteration error: ${e.message}`);
     }

@@ -293,7 +293,7 @@ export default function LiveQueueScreen({ route, navigation }) {
 
             <View style={styles.laneItem}>
               <Text style={styles.laneName}>Quality NIR Lab</Text>
-              <Text style={styles.laneBadgeGreen}>{isSocketLive ? '🟢 Calibrated' : '🟡 Offline Sync'}</Text>
+              <Text style={styles.laneBadgeGreen}>{isSocketLive ? '🟢 Calibrated' : '🟡 Graceful Degraded Mode'}</Text>
             </View>
 
             <View style={styles.laneItem}>

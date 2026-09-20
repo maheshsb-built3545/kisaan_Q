@@ -39,6 +39,7 @@ const Token = require('../src/models/Token');
 const Farmer = require('../src/models/Farmer');
 const AuditLog = require('../src/models/AuditLog');
 const Notification = require('../src/models/Notification');
+const SlotOffer = require('../src/models/SlotOffer');
 const fastTrackAuctionService = require('../src/services/fastTrackAuctionService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'kisanq_jwt_super_secret_key_change_in_production';
@@ -114,7 +115,8 @@ async function runTests() {
   }
 
   const runId = Date.now().toString().slice(-4);
-  const todayStr = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const todayStr = tomorrow.toISOString().split('T')[0];
 
   // Staff JWTs
   const kpgOfficerJwt = jwt.sign(
@@ -159,7 +161,7 @@ async function runTests() {
       crop: 'Soybean',
       quantity: 25,
       slotDate: todayStr,
-      slotTime: '20:00 - 23:00',
+      slotTime: '10:00 - 13:00',
       vehicleNumber: `MH-17-FT-${String(idx).padStart(4, '0')}`
     });
 
@@ -167,9 +169,9 @@ async function runTests() {
     return { phone, name, farmerId, jwt: tokenJwt, tokenNumber };
   }
 
-  // Clean test rounds, bids, audit and notifications
+  // Clean test rounds, bids, audit and notifications (Preserve DEMO_ records)
   if (mongoose.connection.readyState === 1) {
-    await FastTrackRound.deleteMany({});
+    await FastTrackRound.deleteMany({ roundId: { $not: /^DEMO_/ } });
     await FastTrackBid.deleteMany({});
     await AuditLog.deleteMany({ action: { $regex: /^FAST_TRACK/ } });
     await Notification.deleteMany({ templateKey: { $regex: /^FAST_TRACK/ } });
@@ -214,7 +216,7 @@ async function runTests() {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${farmers[i].jwt}` }
     }, { tokenNumber: farmers[i].tokenNumber });
     if (i < 4) {
-      assert(joinRes.status === 200 && joinRes.data?.data?.status === 'JOINING', `Farmer ${i + 1} joined (Participants: ${i + 1}/5)`);
+      assert(joinRes.status === 200 && joinRes.data?.data?.status === 'JOINING', `Farmer ${i + 1} joined (Participants: ${i + 1}/5)`, joinRes.data || { status: joinRes.status });
     } else {
       assert(joinRes.status === 200 && joinRes.data?.data?.status === 'LIVE', `5th Farmer joined -> Auto-transitioned to LIVE with endsAt`, { status: joinRes.data?.data?.status, endsAt: joinRes.data?.data?.endsAt });
     }

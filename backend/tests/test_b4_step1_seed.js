@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const { Farmer, Token, Booking, Waitlist, SlotOffer, FastTrackRound } = require('../src/models');
 const slotReallocationService = require('../src/services/slotReallocationService');
+const { seedDemoFlow } = require('../scripts/seedDemoFlow');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'kisanq_jwt_super_secret_key_change_in_production';
 
@@ -70,6 +71,7 @@ async function runTest() {
   }
 
   await startEphemeralServer();
+  await seedDemoFlow();
 
   try {
     // -------------------------------------------------------------------------

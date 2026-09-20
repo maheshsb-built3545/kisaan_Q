@@ -267,13 +267,13 @@ export async function checkBackendHealth() {
       return {
         online: true,
         database: data.database || 'disconnected',
-        cluster: data.cluster || 'offline_fallback'
+        cluster: data.cluster || 'graceful_degraded_fallback'
       };
     }
   } catch {
     // Server offline
   }
-  return { online: false, database: 'disconnected', cluster: 'local_storage_fallback' };
+  return { online: false, database: 'disconnected', cluster: 'graceful_degraded_fallback' };
 }
 
 // ─── Scoped Local Token CRUD (Per Farmer Identity) ────────────────────────────

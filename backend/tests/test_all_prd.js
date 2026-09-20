@@ -21,7 +21,14 @@ const suites = [
   { name: 'B5: Fast-Track Bidding Auction Suite (test:fasttrack)', file: 'tests/test_fasttrack_bidding.js' },
   { name: 'B1: Unified Notification Centre Suite (test:notifications)', file: 'tests/test_notifications.js' },
   { name: 'Voice Config: Groq/Gemini/Regex NLU & Normalizer', file: 'tests/test_voice_config.js' },
-  { name: 'B2: Exact Queue Position & Privacy Masking', file: 'tests/test_b2_privacy_queue.js' }
+  { name: 'B2: Exact Queue Position & Privacy Masking', file: 'tests/test_b2_privacy_queue.js' },
+  { name: 'Fix Batch 4 Step 1: Seed Completeness & Demo Verification (test:step1)', file: 'tests/test_b4_step1_seed.js' },
+  { name: 'Fix Batch 4 Step 2: Slot Offer Deduplication (test:dedup)', file: 'tests/test_slot_offer_dedup.js' },
+  { name: 'Fix Batch 4 Step 4: Role Fixes & Officer Open Route Security (test:security)', file: 'tests/test_alias_and_open_security.js' },
+  { name: 'Fix Batch 4 Step 5: Voice Booking JWT Authentication Guard (test:voice-auth)', file: 'tests/test_voice_auth.js' },
+  { name: 'Fix Batch 4 Step 6: Frontend Dual Client Session Auth Isolation (test:frontend-client)', file: '../frontend-web/tests/test_client_session_auth.js' },
+  { name: 'B8: Operational Timings & Rolling Median Telemetry Engine (test:timings)', file: 'tests/test_timings_switch.js' },
+  { name: 'B8/B10: Real Health Signals & Graceful Degraded Mode (test:health)', file: 'tests/test_health_signals.js' }
 ];
 
 async function runSuite(suite) {
@@ -57,15 +64,25 @@ async function runAll() {
   console.log('📊 MASTER TEST RUN SUMMARY:');
   console.log('='.repeat(75));
 
-  let allPassed = true;
+  let passCount = 0;
+  let failCount = 0;
+  const notCheckedCount = 2; // Real SMS and Real Farmer Speech
+
   for (const res of results) {
     const mark = res.success ? '✅ PASS' : '❌ FAIL';
     console.log(`  ${mark} - ${res.name} (Exit code: ${res.code})`);
-    if (!res.success) allPassed = false;
+    if (res.success) passCount++;
+    else failCount++;
   }
 
+  console.log('-'.repeat(75));
+  console.log(`TOTAL SUITES: ${results.length}`);
+  console.log(`PASSED:       ${passCount}`);
+  console.log(`FAILED:       ${failCount}`);
+  console.log(`NOT CHECKED:  ${notCheckedCount} (Real SMS delivery & Real farmer microphone audio speech)`);
   console.log('='.repeat(75));
-  if (allPassed) {
+
+  if (failCount === 0) {
     console.log('🎉 ALL PRD TEST SUITES PASSED SUCCESSFULLY!\n');
     process.exit(0);
   } else {

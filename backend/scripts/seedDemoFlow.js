@@ -564,11 +564,17 @@ async function seedDemoFlow() {
   4. Cleanup: Run 'node scripts/seedDemoFlow.js --clean' to safely delete all demo records.
 `);
 
-  await mongoose.disconnect();
+  if (require.main === module) {
+    await mongoose.disconnect();
+  }
   console.log('✅ Demo flow seeded successfully. Idempotent state initialized.\n');
 }
 
-seedDemoFlow().catch((err) => {
-  console.error('❌ Error executing seedDemoFlow:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  seedDemoFlow().catch((err) => {
+    console.error('❌ Error executing seedDemoFlow:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { seedDemoFlow };

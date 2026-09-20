@@ -84,18 +84,21 @@ router.post(
 router.post(
   '/:id/retry',
   authenticate,
+  checkRole('operator', 'staff', 'supervisor', 'district_admin', 'resource_officer'),
   notificationController.retryNotification
 );
 
 router.post(
   '/resend-sms/:id',
   authenticate,
+  checkRole('operator', 'staff', 'supervisor', 'district_admin', 'resource_officer'),
   notificationController.retryNotification
 );
 
 router.post(
   '/:id/resend-sms',
   authenticate,
+  checkRole('operator', 'staff', 'supervisor', 'district_admin', 'resource_officer'),
   notificationController.retryNotification
 );
 
