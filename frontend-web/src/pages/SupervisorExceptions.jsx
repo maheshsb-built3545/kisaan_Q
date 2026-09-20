@@ -185,7 +185,7 @@ export default function SupervisorExceptions() {
         type: 'success',
         message: `${
           selectedExceptionForOverride.source === 'farmer' ? 'Farmer grievance resolved' : 'Supervisor override applied'
-        } for ${selectedExceptionForOverride.tokenNumber || 'token'}. Logged to immutable audit trail.`,
+        } for ${selectedExceptionForOverride.tokenNumber || 'token'}. Logged to auditable trail.`,
       });
       setSelectedExceptionForOverride(null);
       setOverrideReason('');
@@ -479,7 +479,7 @@ export default function SupervisorExceptions() {
           <div className="lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
             <h2 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
               <History className="w-4 h-4 text-emerald-600" />
-              <span>Immutable Audit Trail</span>
+              <span>Auditable Trail</span>
             </h2>
 
             <div className="space-y-3 text-xs">
@@ -571,8 +571,8 @@ export default function SupervisorExceptions() {
                       Admitted with 1.5% moisture deduction
                     </option>
                     <option value="Re-graded to Grade B FAQ">Re-graded to Grade B FAQ</option>
-                    <option value="Document mismatch resolved on-site via Aadhaar/RC">
-                      Document mismatch resolved on-site via Aadhaar/RC
+                    <option value="Document mismatch resolved on-site via Gov-ID/RC">
+                      Document mismatch resolved on-site via Gov-ID/RC
                     </option>
                     <option value="Special district procurement intake sanction">
                       Special district procurement intake sanction

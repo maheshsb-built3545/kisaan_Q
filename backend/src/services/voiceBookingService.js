@@ -620,7 +620,7 @@ async function handleCheckPayoutStatus({ tokenNumber }, session) {
       totalPayoutAmount: `₹${totalAmount.toLocaleString('en-IN')}`,
       payoutStatus: isCompleted ? 'PROCESSED_DBT_TRANSFERRED' : 'PENDING_FINAL_STAGE',
       dbtReferenceNumber: isCompleted ? `DBT-KQ-${Date.now().toString().slice(-8)}` : 'Will be generated after Stage 4 weighment',
-      bankAccount: 'Direct Bank Transfer (Aadhaar Seeded DBT Account)'
+      bankAccount: 'Direct Bank Transfer (DBT-Linked Account)'
     };
   } catch (err) {
     logger.error(`[VoiceBooking] handleCheckPayoutStatus error: ${err.message}`);

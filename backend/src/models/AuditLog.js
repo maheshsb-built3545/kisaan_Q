@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 /**
  * AuditLog Schema
- * Immutable event stream tracking administrative decisions, status shifts, and override actions.
+ * Auditable event stream tracking administrative decisions, status shifts, and override actions.
  */
 const auditLogSchema = new mongoose.Schema(
   {

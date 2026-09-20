@@ -479,9 +479,10 @@ function generateTokenNumber(mandiCode = 'KPG') {
 router.get('/health', (req, res) => {
   const isDbConnected = mongoose.connection.readyState === 1;
   return res.status(200).json({
-    status: 'ok',
+    status: isDbConnected ? 'ok' : 'degraded',
     database: isDbConnected ? 'connected' : 'disconnected',
-    cluster: isDbConnected ? (mongoose.connection.host || 'MongoDB Atlas') : 'offline_fallback',
+    mode: isDbConnected ? 'operational' : 'graceful degraded mode (dev-only in-memory fallback)',
+    cluster: isDbConnected ? (mongoose.connection.host || 'MongoDB Atlas') : 'disconnected',
     timestamp: new Date().toISOString()
   });
 });

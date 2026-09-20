@@ -7,7 +7,7 @@ const DEFAULT_REASONS = [
   { id: 'FOREIGN_MATTER_HIGH', label: 'Foreign Matter > 2% Admixture' },
   { id: 'WEIGHT_MISMATCH', label: 'Gross/Tare Scale Discrepancy' },
   { id: 'ANPR_PLATE_MISMATCH', label: 'Vehicle ANPR Plate Discrepancy' },
-  { id: 'AADHAAR_KYC_FAILED', label: 'Farmer KYC / Bank Discrepancy' },
+  { id: 'KYC_VERIFICATION_FAILED', label: 'Farmer KYC / Bank Discrepancy' },
   { id: 'GATE_EXIT_HOLD', label: 'Gate Exit Security Review' },
   { id: 'OTHER', label: 'Other Operational Exception' },
 ];

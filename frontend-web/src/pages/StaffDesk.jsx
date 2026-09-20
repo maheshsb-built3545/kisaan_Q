@@ -321,7 +321,7 @@ export default function StaffDesk() {
         bonus: '100% Full MSP Rate',
         multiplier: 1.0,
         badgeColor: 'bg-emerald-100 text-emerald-900 border-emerald-400',
-        desc: 'Meets Fair Average Quality statutory export specifications',
+        desc: 'Meets Fair Average Quality official export specifications',
       };
     }
     const isGradeB = moisture <= maxMoisture + 2.0 && foreignMatter <= maxForeignMatter + 2.0;
@@ -347,7 +347,7 @@ export default function StaffDesk() {
   const qaCertHash = useMemo(() => {
     const tok = selectedToken?.tokenNumber || selectedToken?.id || 'KQ-DEMO';
     const ts = Date.now().toString(36).toUpperCase();
-    return `QA-SHA256-MH-${activeMandi.id.split('-')[0]}-${tok}-${ts}`;
+    return `QA-HASH-MH-${activeMandi.id.split('-')[0]}-${tok}-${ts}`;
   }, [selectedToken, activeMandi]);
 
   // ─── ROLE HUD 3: Weighmaster (Live Telemetry HUD & Fluctuation) ─────────────
@@ -411,7 +411,7 @@ export default function StaffDesk() {
     return Number((netProduceMT * 10).toFixed(1));
   }, [netProduceMT]);
 
-  // ─── ROLE HUD 4 & 5: Procurement PO Bill & Statutory Pricing ────────────────
+  // ─── ROLE HUD 4 & 5: Procurement PO Bill & Official MSP Pricing ────────────
   const cropPricePerQtl = useMemo(() => {
     const crop = selectedToken?.crop || 'Soybean';
     const baseRate = activeMandi?.rates?.today?.[crop] || currentFaqSpec?.mspBaseRate || 2425;
@@ -931,7 +931,7 @@ export default function StaffDesk() {
         grade: autoCalculatedGrade.grade,
         qaCertHash: qaCertHash,
         faqStandardBand: currentFaqSpec.faqBand,
-        assayerRemarks: `Passed statutory APMC MSP standard: ${autoCalculatedGrade.grade}`,
+        assayerRemarks: `Passed official APMC MSP standard: ${autoCalculatedGrade.grade}`,
       };
     } else if (deskConfig.id === 'WEIGHBRIDGE') {
       stagePayload.weight = netProduceQtl;
@@ -973,7 +973,7 @@ export default function StaffDesk() {
         paymentRef: pmtRef,
         dbtStatus: 'PFMS_DISBURSEMENT_SUCCESS',
         beneficiaryName: selectedToken.farmerName,
-        accountMasked: 'SBI ········4102',
+        accountMasked: 'SBI ········4102 (demo data)',
         grossAmount: totalCalculatedAmount,
         duesDeducted: farmerPendingDues,
         totalPaid: netDbtPayout,
@@ -1881,7 +1881,7 @@ export default function StaffDesk() {
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-bold text-slate-900 flex items-center gap-1.5">
                           <Leaf className="w-4 h-4 text-emerald-700" />
-                          <span>Maharashtra Statutory FAQ Standard: <strong>{currentCrop}</strong></span>
+                          <span>Maharashtra Official FAQ Standard: <strong>{currentCrop}</strong></span>
                         </span>
                         <span className="font-mono font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-300 text-[10px]">
                           {currentFaqSpec.faqBand}
@@ -1962,7 +1962,7 @@ export default function StaffDesk() {
                           {autoCalculatedGrade.grade} — <span className="text-amber-300">{autoCalculatedGrade.bonus}</span>
                         </div>
                         <p className="text-[10px] font-mono text-slate-400 mt-1">
-                          Immutable Seal Hash: <strong className="text-emerald-300">{qaCertHash}</strong>
+                          Auditable Seal Hash: <strong className="text-emerald-300">{qaCertHash}</strong>
                         </p>
                       </div>
 
@@ -2096,7 +2096,7 @@ export default function StaffDesk() {
                   <div className="space-y-4">
                     <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-4">
                       <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide mb-3">
-                        Procurement Bill & Statutory Price Calculation ({activeMandi.name})
+                        Procurement Bill & Official MSP Price Calculation ({activeMandi.name})
                       </h4>
 
                       <div className="space-y-2.5 text-xs">
@@ -2194,12 +2194,12 @@ export default function StaffDesk() {
                         <div className="bg-white rounded-xl p-3 border border-slate-200">
                           <p className="text-[10px] text-slate-500 font-bold uppercase">Beneficiary Account</p>
                           <p className="font-bold text-slate-900 mt-0.5">{selectedToken.farmerName || 'Citizen Farmer'}</p>
-                          <p className="text-[11px] font-mono text-slate-600 mt-0.5">State Bank of India ······4102</p>
+                          <p className="text-[11px] font-mono text-slate-600 mt-0.5">State Bank of India ······4102 <span className="text-[9px] bg-amber-100 text-amber-800 px-1 py-0.5 rounded font-sans ml-1">demo data</span></p>
                         </div>
                         <div className="bg-white rounded-xl p-3 border border-slate-200">
                           <p className="text-[10px] text-slate-500 font-bold uppercase">DBT Protocol Bridge</p>
                           <p className="font-bold text-emerald-700 mt-0.5">Public Financial Mgmt System (PFMS)</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Aadhaar Payment Bridge (APB)</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Direct Benefit Payment Bridge (DBT)</p>
                         </div>
                       </div>
 
@@ -2611,7 +2611,7 @@ export default function StaffDesk() {
                 <div>
                   <h3 className="text-base font-black tracking-tight">Fast-Track Priority Queue Reviews</h3>
                   <p className="text-xs text-amber-100 font-medium">
-                    Statutory Floor Verified · Officer Approval moves Token to Queue Position #1
+                    MSP Floor Verified · Officer Approval moves Token to Queue Position #1
                   </p>
                 </div>
               </div>
@@ -2688,7 +2688,7 @@ export default function StaffDesk() {
                               <div className="font-bold text-slate-800">₹{req.marketPriceAtRequest?.toLocaleString() || '—'}<span className="text-[10px] text-slate-500">/Qtl</span></div>
                             </div>
                             <div className="bg-white p-2 rounded-xl border border-slate-200">
-                              <div className="text-[10px] text-slate-500 font-bold uppercase">Statutory MSP Floor</div>
+                              <div className="text-[10px] text-slate-500 font-bold uppercase">Official MSP Floor</div>
                               <div className="font-bold text-slate-800">₹{req.mspPriceAtRequest?.toLocaleString() || '—'}<span className="text-[10px] text-slate-500">/Qtl</span></div>
                             </div>
                             <div className="bg-emerald-50 p-2 rounded-xl border border-emerald-200">

@@ -21,7 +21,7 @@ const DICTIONARY = {
       headlineStart: 'Sell Produce Faster,',
       headlineEnd: 'Skip the Mandi Queue.',
       subheadline:
-        'AI departure scheduling, live OSRM routing, instant weighbridge passes, and direct bank payouts for Maharashtra’s farmers.',
+        'Rule-based departure scheduling, live OSRM routing, instant weighbridge passes, and direct bank payouts for Maharashtra’s farmers.',
       stats: [
         { value: '5 APMCs', label: 'Connected Regional Mandis' },
         { value: '~4.2 min', label: 'Average Gate Clearance' },
@@ -59,7 +59,7 @@ const DICTIONARY = {
       {
         id: 1,
         title: 'Voice & Smart Booking',
-        desc: 'Book slot in seconds via Voice AI Whisper, WhatsApp, or instant web interface.',
+        desc: 'Book slot in seconds via Voice recognition, WhatsApp, or instant web interface.',
         badge: 'Easy Booking',
       },
       {
@@ -94,7 +94,7 @@ const DICTIONARY = {
       },
       {
         id: 8,
-        title: 'AI Gate Surge Balancing',
+        title: 'Rule-Based Gate Surge Balancing',
         desc: 'Predictive intake balancing to open extra weighbridges before traffic peaks.',
         badge: 'Smart Intake',
       },
@@ -143,7 +143,7 @@ const DICTIONARY = {
       headlineStart: 'फसल बेचें तेज़ी से,',
       headlineEnd: 'मंडी की कतार से पाएं मुक्ति।',
       subheadline:
-        'एआई प्रस्थान समय निर्धारण, लाइव ओएसआरएम नेविगेशन, डिजिटल वजनकांटा पर्ची और सीधा बैंक भुगतान।',
+        'नियम-आधारित प्रस्थान समय निर्धारण, लाइव ओएसआरएम नेविगेशन, डिजिटल वजनकांटा पर्ची और सीधा बैंक भुगतान।',
       stats: [
         { value: '5 एपीएमसी', label: 'संबद्ध क्षेत्रीय मंडियां' },
         { value: '~4.2 मिनट', label: 'औसत गेट निकासी समय' },
@@ -181,7 +181,7 @@ const DICTIONARY = {
       {
         id: 1,
         title: 'आवाज़ एवं स्मार्ट बुकिंग',
-        desc: 'वॉइस व्हिस्पर एआई, व्हाट्सएप या सीधे वेब से कुछ ही सेकंड में स्लॉट बुक करें।',
+        desc: 'आवाज़ पहचान, व्हाट्सएप या सीधे वेब से कुछ ही सेकंड में स्लॉट बुक करें।',
         badge: 'आसान बुकिंग',
       },
       {
@@ -265,7 +265,7 @@ const DICTIONARY = {
       headlineStart: 'शेतमाल विका झटपट,',
       headlineEnd: 'बाजार समितीच्या रांगेतून मुक्ती.',
       subheadline:
-        'एआय आधारित निघण्याची वेळ, अचूक नेव्हिगेशन, डिजिटल वजनकाटा पावती आणि थेट बँक खात्यात चुकारा.',
+        'नियम-आधारित निघण्याची वेळ, अचूक नेव्हिगेशन, डिजिटल वजनकाटा पावती आणि थेट बँक खात्यात चुकारा.',
       stats: [
         { value: '५ बाजार समित्या', label: 'जोडलेली प्रमुख केंद्रे' },
         { value: '~४.२ मिनिटे', label: 'सरासरी गेट प्रवेश वेळ' },
@@ -303,7 +303,7 @@ const DICTIONARY = {
       {
         id: 1,
         title: 'व्हॉइस व स्मार्ट बुकिंग',
-        desc: 'व्हॉइस एआय, व्हॉट्सअ‍ॅप किंवा वेबद्वारे काही सेकंदांत स्लॉट बुक करा.',
+        desc: 'आवाज तंत्रज्ञान, व्हॉट्सअ‍ॅप किंवा वेबद्वारे काही सेकंदांत स्लॉट बुक करा.',
         badge: 'सुलभ बुकिंग',
       },
       {

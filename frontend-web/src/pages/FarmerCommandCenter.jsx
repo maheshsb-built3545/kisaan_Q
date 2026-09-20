@@ -146,7 +146,7 @@ function printStageReceipt({ token, stage }) {
     <div class="section-title">Citizen Farmer Particulars</div>
     <div class="grid">
       <div class="field"><label>Farmer Name</label><value>${token.farmerName}</value></div>
-      <div class="field"><label>Mobile / Aadhaar Ref</label><value>+91 ${token.phone}</value></div>
+      <div class="field"><label>Registered Mobile</label><value>+91 ${token.phone}</value></div>
       <div class="field"><label>Commodity Intake</label><value>${token.crop}</value></div>
       <div class="field"><label>Declared Quantity</label><value>${token.quantityBand || token.quantity + ' Qtl'}</value></div>
     </div>
@@ -162,7 +162,7 @@ function printStageReceipt({ token, stage }) {
       </div>
     </div>
     <div class="sig-box">
-      <strong>Officer Digital Signature:</strong> ${stage.officer || 'APMC Authorized Officer'} | PIN-VERIFIED-SHA256
+      <strong>Officer Digital Signature:</strong> ${stage.officer || 'APMC Authorized Officer'} | PIN-VERIFIED-AUTH-HASH
     </div>
   </div>
 

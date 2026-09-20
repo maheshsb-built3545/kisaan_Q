@@ -34,6 +34,43 @@ export default function AdminDashboard() {
     weighScale: '0.00 MT',
     lastEvent: null
   });
+  const [dbSignals, setDbSignals] = useState({
+    dbStatus: 'Connected',
+    dbMode: 'operational',
+    centresCount: 6,
+    lastActivity: 'Active'
+  });
+
+  const fetchLiveSignals = useCallback(async () => {
+    try {
+      const [healthRes, centresRes] = await Promise.allSettled([
+        staffClient.get('/health'),
+        staffClient.get('/centres')
+      ]);
+
+      let dbStatus = 'Disconnected';
+      let dbMode = 'graceful degraded mode (dev-only in-memory fallback)';
+      if (healthRes.status === 'fulfilled' && healthRes.value?.data) {
+        dbStatus = healthRes.value.data.database === 'connected' ? 'Connected' : 'Disconnected';
+        dbMode = healthRes.value.data.mode || healthRes.value.data.database;
+      }
+
+      let centresCount = 6;
+      if (centresRes.status === 'fulfilled' && centresRes.value?.data) {
+        const cData = centresRes.value.data;
+        centresCount = Array.isArray(cData) ? cData.length : (cData?.data?.length || 6);
+      }
+
+      setDbSignals(prev => ({
+        ...prev,
+        dbStatus,
+        dbMode,
+        centresCount,
+      }));
+    } catch (err) {
+      console.warn('[AdminDashboard] Signals fetch error:', err.message);
+    }
+  }, []);
 
   // Fetch tokens from live backend
   const fetchLiveTokens = useCallback(async () => {
@@ -61,6 +98,7 @@ export default function AdminDashboard() {
   // Socket.IO Setup & Event Listeners
   useEffect(() => {
     fetchLiveTokens();
+    fetchLiveSignals();
     joinAdminRoom();
 
     const unsubConn = subscribeConnectionStatus((connected) => {
@@ -293,26 +331,35 @@ export default function AdminDashboard() {
 
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
             <div className="text-xs font-bold text-slate-500 flex items-center justify-between">
-              <span>Telemetry Node Status</span>
-              <Radio className="w-4 h-4 text-emerald-600 animate-pulse" />
+              <span>Database & Network Telemetry</span>
+              <Radio className={`w-4 h-4 ${socketConnected ? 'text-emerald-600 animate-pulse' : 'text-amber-500'}`} />
             </div>
-            <div className="text-3xl font-black text-emerald-700 mt-2 font-mono">100%</div>
-            <div className="text-[11px] text-emerald-700 font-semibold mt-1">5 Regional Mandis Online</div>
+            <div className="text-2xl font-black text-emerald-700 mt-2 font-mono">
+              {dbSignals.dbStatus === 'Connected' ? 'Atlas DB Active' : 'Degraded Fallback'}
+            </div>
+            <div className="text-[11px] text-slate-600 mt-1 flex flex-col gap-0.5">
+              <span>● {dbSignals.centresCount} APMC Mandis in DB</span>
+              <span>● Gateway: {socketConnected ? '1 Live Socket Link' : 'Connecting'}</span>
+              <span>● Mode: {dbSignals.dbMode === 'operational' ? 'Operational Real-Time' : 'Graceful Degraded Mode'}</span>
+            </div>
           </div>
         </div>
 
         {/* Hardware Simulation Bar */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-500/20 flex items-center justify-center">
               <Gauge className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">IoT Hardware Telemetry Bridge</h3>
-              <p className="text-xs text-slate-600">
-                Gate Boom Barrier: <strong className={hardwareState.boomBarrier === 'OPEN' ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>{hardwareState.boomBarrier}</strong>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">IoT Hardware Telemetry Bridge</h3>
+                <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">simulated</span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Gate Boom Barrier (simulated): <strong className={hardwareState.boomBarrier === 'OPEN' ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>{hardwareState.boomBarrier}</strong>
                 {' · '}
-                Weighbridge Digital Cell: <strong className="text-slate-900 font-mono font-bold">{hardwareState.weighScale}</strong>
+                Weighbridge Digital Cell (simulated): <strong className="text-slate-900 font-mono font-bold">{hardwareState.weighScale}</strong>
               </p>
             </div>
           </div>
@@ -324,7 +371,7 @@ export default function AdminDashboard() {
               icon={ShieldCheck}
               onClick={toggleBoomBarrier}
             >
-              Toggle Barrier ({hardwareState.boomBarrier === 'OPEN' ? 'Close' : 'Open'})
+              Toggle Barrier ({hardwareState.boomBarrier === 'OPEN' ? 'Close' : 'Open'}) (simulated)
             </ActionButton>
             <ActionButton
               variant="outline"
@@ -332,7 +379,7 @@ export default function AdminDashboard() {
               icon={Scale}
               onClick={simulateScaleReading}
             >
-              Simulate Scale Reading
+              Simulate Scale Reading (simulated)
             </ActionButton>
           </div>
         </div>
@@ -368,9 +415,9 @@ export default function AdminDashboard() {
               onChange={(e) => setSelectedMandiId(e.target.value)}
               className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-emerald-500"
             >
-              <option value="ALL">All APMC Centers (5 Hubs)</option>
+              <option value="ALL">All APMC Centers (demo data)</option>
               {MANDIS.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
+                <option key={m.id} value={m.id}>{m.name} ({m.code}) - demo data</option>
               ))}
             </select>
           </div>

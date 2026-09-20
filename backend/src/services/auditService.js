@@ -5,7 +5,7 @@ const inMemoryAuditLogs = [];
 
 const auditService = {
   /**
-   * Record an immutable audit log entry in MongoDB or in-memory fallback
+   * Record an auditable trail entry in MongoDB or in-memory fallback
    */
   recordLog: async ({ actorId, actorRole, action, targetId, reason }) => {
     const entry = {

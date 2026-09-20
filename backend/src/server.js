@@ -92,9 +92,10 @@ app.use((req, res, next) => {
 app.get('/api/health', (req, res) => {
   const isDbConnected = mongoose.connection.readyState === 1;
   res.status(200).json({
-    status: 'ok',
+    status: isDbConnected ? 'ok' : 'degraded',
     database: isDbConnected ? 'connected' : 'disconnected',
-    cluster: isDbConnected ? (mongoose.connection.host || 'MongoDB Atlas') : 'offline_fallback',
+    mode: isDbConnected ? 'operational' : 'graceful degraded mode (dev-only in-memory fallback)',
+    cluster: isDbConnected ? (mongoose.connection.host || 'MongoDB Atlas') : 'disconnected',
     service: 'KisanQ Backend API',
     version: '1.0.0',
     timestamp: new Date().toISOString()

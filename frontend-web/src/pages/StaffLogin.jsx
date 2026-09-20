@@ -24,12 +24,20 @@ const ACTIVE_MANDIS = MANDIS.filter((m) =>
   ['KPG-01', 'SRD-02', 'RHT-03', 'VJP-04', 'SRP-05'].includes(m.id)
 );
 
+// Regional health metrics descriptor (labeled demo data per PRD 2.8)
+export const REGIONAL_HEALTH_METRICS = {
+  source: 'demo data',
+  status: 'Calibrated APMC Regional Network (demo data)',
+  nodeCount: '5 Mandis Configured (demo data)',
+  latency: '< 50ms Telemetry Standard (demo data)',
+};
+
 const MANDI_FACILITY_CONFIG = {
-  'KPG-01': 'Weighbridge Calibrated',
-  'SRD-02': 'Weighbridge Calibrated',
-  'RHT-03': 'Pitless Scale Active',
-  'VJP-04': 'Scales 1 & 2 Active',
-  'SRP-05': 'Weighbridge Calibrated',
+  'KPG-01': 'Weighbridge Calibrated (demo data)',
+  'SRD-02': 'Weighbridge Calibrated (demo data)',
+  'RHT-03': 'Pitless Scale Active (demo data)',
+  'VJP-04': 'Scales 1 & 2 Active (demo data)',
+  'SRP-05': 'Weighbridge Calibrated (demo data)',
 };
 
 // ─── Station Roles ───────────────────────────────────────────────────────────
