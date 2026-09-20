@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { exceptionsApi } from '../api/exceptions.api';
+import { staffComplaintsApi } from '../api/complaints.api';
 import { auditApi } from '../api/audit.api';
 import GovHeader from '../components/common/GovHeader';
 import {
@@ -12,7 +13,8 @@ import {
   History,
   RefreshCw,
   X,
-  Scale
+  Scale,
+  Filter
 } from 'lucide-react';
 import {
   DeskCard,
@@ -29,10 +31,11 @@ export default function SupervisorExceptions() {
   const [exceptions, setExceptions] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | PENDING | RESOLVED
+  const [sourceFilter, setSourceFilter] = useState('ALL'); // ALL | farmer | staff
   const [isLoading, setIsLoading] = useState(true);
   const [actionNotice, setActionNotice] = useState(null);
 
-  // Override Modal state
+  // Override / Resolution Modal state
   const [selectedExceptionForOverride, setSelectedExceptionForOverride] = useState(null);
   const [overrideReason, setOverrideReason] = useState('');
   const [overrideOutcome, setOverrideOutcome] = useState('Admitted with 1.5% moisture deduction');
@@ -49,75 +52,79 @@ export default function SupervisorExceptions() {
     try {
       setIsLoading(true);
 
-      const query =
+      const exQuery =
         statusFilter === 'PENDING'
           ? { status: 'pending_review' }
           : statusFilter === 'RESOLVED'
           ? { status: 'resolved' }
           : {};
 
-      const exRes = await exceptionsApi.getAllExceptions(query);
-      const exList = Array.isArray(exRes.data) ? exRes.data : (Array.isArray(exRes) ? exRes : []);
+      const compQuery =
+        statusFilter === 'PENDING'
+          ? { status: 'PENDING' }
+          : statusFilter === 'RESOLVED'
+          ? { status: 'RESOLVED' }
+          : {};
 
-      if (exList.length > 0) {
-        setExceptions(exList);
-      } else {
-        // Fallback sample records for demo verification
-        setExceptions([
-          {
-            _id: '65f1a2b3c4d5e6f7a8b9c0f1',
-            bookingId: {
-              _id: '65f1a2b3c4d5e6f7a8b9c0e3',
-              tokenNumber: 'TKN-LAS-1023',
-              crop: 'Red Onion',
-              status: 'CHECKED_IN',
-            },
-            type: 'quality_dispute',
-            reasonCode: 'Moisture 14.5% exceeds APMC tolerance limit of 12.0%',
-            raisedBy: { name: 'Operator Ramesh', role: 'operator' },
-            supervisorOverride: false,
-            overrideReason: null,
-            outcome: null,
-            createdAt: '2026-09-10T05:30:00.000Z',
-          },
-          {
-            _id: '65f1a2b3c4d5e6f7a8b9c0f2',
-            bookingId: {
-              _id: '65f1a2b3c4d5e6f7a8b9c0e4',
-              tokenNumber: 'TKN-LAS-1024',
-              crop: 'Maize',
-              status: 'CHECKED_IN',
-            },
-            type: 'document_mismatch',
-            reasonCode: 'Vehicle registration plate does not match token reservation form',
-            raisedBy: { name: 'Gate Operator Patil', role: 'operator' },
-            supervisorOverride: true,
-            overrideReason: 'Farmer provided valid RC book and Aadhaar identification on-site',
-            outcome: 'Identity verified and approved for physical intake',
-            createdAt: '2026-09-10T04:15:00.000Z',
-          },
-        ]);
-      }
+      const exPromise = exceptionsApi.getAllExceptions(exQuery).catch(() => []);
+      const compPromise = staffComplaintsApi.getComplaints(compQuery).catch(() => ({ data: { complaints: [] } }));
+
+      const [exRes, compRes] = await Promise.all([exPromise, compPromise]);
+      const exList = Array.isArray(exRes.data) ? exRes.data : (Array.isArray(exRes) ? exRes : []);
+      const compList = compRes?.data?.complaints || (Array.isArray(compRes?.data) ? compRes.data : []);
+
+      // Normalize staff exceptions
+      const normEx = exList.map((ex) => ({
+        _id: ex._id,
+        id: ex._id,
+        source: 'staff',
+        sourceLabel: 'Staff Exception',
+        tokenNumber: ex.bookingId?.tokenNumber || ex.tokenNumber || 'TKN-000',
+        crop: ex.bookingId?.crop || ex.crop || 'Commodity',
+        type: ex.type || 'Operational Exception',
+        reasonCode: ex.reasonCode || 'Discrepancy logged at operational station',
+        raisedBy: ex.raisedBy?.name || ex.raisedBy || 'Station Operator',
+        raisedByRole: ex.raisedBy?.role || 'operator',
+        status: ex.supervisorOverride ? 'RESOLVED' : 'PENDING',
+        supervisorOverride: Boolean(ex.supervisorOverride),
+        overrideReason: ex.overrideReason || null,
+        outcome: ex.outcome || null,
+        createdAt: ex.createdAt || new Date().toISOString(),
+      }));
+
+      // Normalize farmer grievances
+      const normComp = compList.map((c) => ({
+        _id: c._id || c.complaintId,
+        id: c._id || c.complaintId,
+        complaintId: c.complaintId,
+        source: 'farmer',
+        sourceLabel: 'Farmer Grievance',
+        tokenNumber: c.tokenNumber || 'TKN-000',
+        crop: c.crop || 'Commodity',
+        type: c.category || c.checkpoint || 'Citizen Grievance',
+        reasonCode: c.description || 'Farmer dispute filed at checkpoint',
+        raisedBy: c.farmerName || 'Citizen Farmer',
+        raisedByRole: 'farmer',
+        status: c.status === 'RESOLVED' ? 'RESOLVED' : 'PENDING',
+        supervisorOverride: c.status === 'RESOLVED',
+        overrideReason: c.resolutionNotes || null,
+        outcome: c.resolutionNotes ? `Resolution: ${c.resolutionNotes}` : null,
+        createdAt: c.createdAt || new Date().toISOString(),
+      }));
+
+      // Merge both models sorted by newest first
+      const merged = [...normEx, ...normComp].sort(
+        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+      );
+
+      setExceptions(merged);
 
       try {
         const auditRes = await auditApi.getAuditLogs();
         const logs = Array.isArray(auditRes.data) ? auditRes.data : (Array.isArray(auditRes) ? auditRes : []);
         setAuditLogs(logs);
       } catch {
-        setAuditLogs([
-          {
-            action: 'OVERRIDE_APPLIED',
-            actorRole: 'supervisor',
-            reason: 'Farmer provided valid RC book on-site',
-            timestamp: new Date().toISOString(),
-          },
-          {
-            action: 'CHECK_IN',
-            actorRole: 'operator',
-            reason: 'Farmer arrived and checked in at the centre',
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-          },
-        ]);
+        setAuditLogs([]);
       }
     } catch (err) {
       console.warn('[SupervisorDesk] Notice:', err.message);
@@ -130,29 +137,45 @@ export default function SupervisorExceptions() {
     fetchExceptionsAndAudit();
   }, [statusFilter]);
 
-  // Handle Supervisor Override Application
+  // Handle Supervisor Override or Farmer Grievance Resolution
   const handleApplyOverride = async (e) => {
     e.preventDefault();
     if (!selectedExceptionForOverride || !overrideReason.trim()) {
-      alert('Override reason is mandatory for supervisor audits.');
+      alert('Resolution / override reason is mandatory for supervisor audits.');
       return;
     }
 
     try {
       setIsSubmittingOverride(true);
-      await exceptionsApi.supervisorOverride(selectedExceptionForOverride._id, {
-        overrideReason: overrideReason.trim(),
-        outcome: overrideOutcome,
-      });
+      if (selectedExceptionForOverride.source === 'farmer') {
+        // Resolve farmer grievance via complaints API
+        await staffComplaintsApi.resolveComplaint(
+          selectedExceptionForOverride.complaintId || selectedExceptionForOverride._id,
+          {
+            status: 'RESOLVED',
+            resolutionNotes: overrideReason.trim(),
+          }
+        );
+      } else {
+        // Apply staff exception override via exceptions API
+        await exceptionsApi.supervisorOverride(selectedExceptionForOverride._id, {
+          overrideReason: overrideReason.trim(),
+          outcome: overrideOutcome,
+        });
+      }
 
       setExceptions((prev) =>
         prev.map((ex) =>
           ex._id === selectedExceptionForOverride._id
             ? {
                 ...ex,
+                status: 'RESOLVED',
                 supervisorOverride: true,
                 overrideReason: overrideReason.trim(),
-                outcome: overrideOutcome,
+                outcome:
+                  selectedExceptionForOverride.source === 'farmer'
+                    ? `Resolution: ${overrideReason.trim()}`
+                    : overrideOutcome,
               }
             : ex
         )
@@ -160,15 +183,15 @@ export default function SupervisorExceptions() {
 
       setActionNotice({
         type: 'success',
-        message: `Supervisor override applied for dispute on ${
-          selectedExceptionForOverride.bookingId?.tokenNumber || 'token'
-        }. Logged to immutable audit trail.`,
+        message: `${
+          selectedExceptionForOverride.source === 'farmer' ? 'Farmer grievance resolved' : 'Supervisor override applied'
+        } for ${selectedExceptionForOverride.tokenNumber || 'token'}. Logged to immutable audit trail.`,
       });
       setSelectedExceptionForOverride(null);
       setOverrideReason('');
       setTimeout(() => setActionNotice(null), 4000);
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Override failed');
+      alert(err.response?.data?.message || err.message || 'Action failed');
     } finally {
       setIsSubmittingOverride(false);
     }
@@ -200,8 +223,17 @@ export default function SupervisorExceptions() {
     }
   };
 
+  const isSupervisor = user?.role === 'supervisor' || user?.role === 'admin';
   const pendingCount = exceptions.filter((ex) => !ex.supervisorOverride).length;
   const resolvedCount = exceptions.filter((ex) => ex.supervisorOverride).length;
+  const farmerCount = exceptions.filter((ex) => ex.source === 'farmer').length;
+  const staffCount = exceptions.filter((ex) => ex.source === 'staff').length;
+
+  const displayedExceptions = exceptions.filter((item) => {
+    if (sourceFilter === 'farmer' && item.source !== 'farmer') return false;
+    if (sourceFilter === 'staff' && item.source !== 'staff') return false;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -242,7 +274,7 @@ export default function SupervisorExceptions() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Statutory oversight for Mandi operations, moisture deductions, weighbridge disputes, and auction approvals.
+              Unified governance desk for Farmer Grievances and Staff Operational Exceptions with mandatory resolution audit logs.
             </p>
           </div>
 
@@ -271,67 +303,86 @@ export default function SupervisorExceptions() {
         {/* ── B5: Officer Approvals Inbox ── */}
         <StaffOfficerApprovalsCard centreId={user?.assignedMandi || 'KPG-01'} userRole={user?.role} />
 
-        {/* ── B6: Farmer Grievance Resolution ── */}
-        <StaffGrievanceResolutionCard centreId={user?.assignedMandi || 'KPG-01'} userRole={user?.role} />
-
         {/* ── B4: Released Slots & Waitlist Reallocations ── */}
         <StaffReleasedSlotsCard centreId={user?.assignedMandi || 'KPG-01'} />
 
-        {/* Filter Tabs Bar */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-3 mb-6 shadow-xs flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            {[
-              { id: 'ALL', label: `All Disputes (${exceptions.length})` },
-              { id: 'PENDING', label: `Pending Review (${pendingCount})`, isAlert: pendingCount > 0 },
-              { id: 'RESOLVED', label: `Overridden / Resolved (${resolvedCount})` },
-            ].map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setStatusFilter(f.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  statusFilter === f.id
-                    ? f.isAlert
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'bg-slate-900 text-white shadow-sm'
-                    : f.isAlert
-                    ? 'bg-amber-50 text-amber-900 border border-amber-300'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+        {/* Filter Controls Bar (Source & Status) */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Source Filter */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+              {[
+                { id: 'ALL', label: `All Sources (${exceptions.length})` },
+                { id: 'farmer', label: `🌾 Farmer (${farmerCount})` },
+                { id: 'staff', label: `🏛️ Staff (${staffCount})` },
+              ].map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSourceFilter(s.id)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    sourceFilter === s.id
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-1.5">
+              {[
+                { id: 'ALL', label: `All Status (${displayedExceptions.length})` },
+                { id: 'PENDING', label: `Pending (${displayedExceptions.filter(x => !x.supervisorOverride).length})`, isAlert: true },
+                { id: 'RESOLVED', label: `Resolved (${displayedExceptions.filter(x => x.supervisorOverride).length})` },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setStatusFilter(f.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    statusFilter === f.id
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="text-xs text-slate-500 font-mono hidden sm:block">
-            Active Supervisor: <strong className="text-slate-900">{user?.name || 'Supervisor Patil'}</strong>
+            Active Officer: <strong className="text-slate-900">{user?.name || 'V. Pawar'}</strong> ({user?.role || 'supervisor'})
           </div>
         </div>
 
-        {/* Main Grid: Exceptions (2 cols) & Audit Ledger (1 col) */}
+        {/* Main Grid: Disputes / Exceptions (2 cols) & Audit Ledger (1 col) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
           <div className="lg:col-span-8 space-y-4">
             {isLoading ? (
               <div className="py-16 text-center bg-white border border-slate-200 rounded-2xl shadow-sm">
                 <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-2" />
-                <p className="text-xs text-slate-500">Loading dispute logs...</p>
+                <p className="text-xs text-slate-500">Loading dispute & exception logs...</p>
               </div>
-            ) : exceptions.length === 0 ? (
+            ) : displayedExceptions.length === 0 ? (
               <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-xs">
                 <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-100">
                   <ShieldCheck className="w-7 h-7" />
                 </div>
-                <h3 className="text-base font-bold text-slate-900">All Operations Clear — Zero Active Disputes</h3>
+                <h3 className="text-base font-bold text-slate-900">All Operations Clear — Zero Active Items</h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                  All mandi checkpoint intakes are operating within normal quality and weight parameters. New exceptions requiring override authorization will appear here.
+                  No grievances or operational exceptions match the selected filter.
                 </p>
               </div>
             ) : (
-              exceptions.map((ex) => {
+              displayedExceptions.map((ex) => {
                 const isOverridden = ex.supervisorOverride;
-                const token = ex.bookingId?.tokenNumber || 'TKN-000';
-                const crop = ex.bookingId?.crop || 'Commodity';
+                const token = ex.tokenNumber || 'TKN-000';
+                const crop = ex.crop || 'Commodity';
+                const isFarmer = ex.source === 'farmer';
 
                 return (
                   <div
@@ -339,28 +390,40 @@ export default function SupervisorExceptions() {
                     className={`bg-white rounded-2xl border transition-all p-5 shadow-xs ${
                       isOverridden
                         ? 'border-purple-200 bg-purple-50/20'
-                        : 'border-amber-300/80 bg-amber-50/20'
+                        : isFarmer
+                        ? 'border-emerald-300/80 bg-emerald-50/15'
+                        : 'border-amber-300/80 bg-amber-50/15'
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
                       <div className="flex items-center gap-2.5 flex-wrap">
+                        {/* Source Tag */}
+                        <span
+                          className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${
+                            isFarmer
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-blue-100 text-blue-800 border-blue-300'
+                          }`}
+                        >
+                          {isFarmer ? '🌾 Farmer Grievance' : '🏛️ Staff Exception'}
+                        </span>
                         <span className="font-mono font-bold text-base text-slate-900">{token}</span>
                         <span className="text-xs font-semibold text-slate-600">({crop})</span>
                         <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700">
-                          {ex.type.replace(/_/g, ' ')}
+                          {ex.type ? ex.type.replace(/_/g, ' ') : 'General'}
                         </span>
                       </div>
 
                       <StatusBadge
                         status={isOverridden ? 'COMPLETED' : 'HIGH'}
-                        label={isOverridden ? '✓ Overridden' : 'Pending Action'}
+                        label={isOverridden ? '✓ Resolved' : 'Pending Review'}
                         size="sm"
                       />
                     </div>
 
                     <div className="py-3">
                       <div className="text-xs text-slate-500 font-bold uppercase mb-1">
-                        Discrepancy Detail / Reason Code:
+                        {isFarmer ? 'Grievance Description / Disputed Checkpoint:' : 'Discrepancy Detail / Reason Code:'}
                       </div>
                       <p className="text-xs sm:text-sm font-mono text-slate-800 bg-slate-50 p-3 rounded-xl border border-slate-200">
                         {ex.reasonCode}
@@ -371,29 +434,39 @@ export default function SupervisorExceptions() {
                       <div className="p-3.5 rounded-xl bg-purple-50/70 border border-purple-200 text-xs space-y-1 mt-1">
                         <div className="font-bold text-purple-950 flex items-center gap-1.5">
                           <ShieldCheck className="w-4 h-4 text-purple-700" />
-                          <span>Executive Override Decision:</span>
+                          <span>Executive Resolution Decision:</span>
                         </div>
                         <div className="text-purple-900">
-                          <strong>Rationale:</strong> {ex.overrideReason}
+                          <strong>Rationale / Audit Notes:</strong> {ex.overrideReason}
                         </div>
-                        <div className="text-purple-800 text-[11px]">
-                          <strong>Settlement Outcome:</strong> {ex.outcome || 'Approved under supervisor authority'}
-                        </div>
+                        {ex.outcome && (
+                          <div className="text-purple-800 text-[11px]">
+                            <strong>Settlement Outcome:</strong> {ex.outcome}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                         <div className="text-xs text-slate-500 flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5" />
-                          <span>Raised by: <strong className="text-slate-700">{ex.raisedBy?.name || 'Gate Staff'}</strong></span>
+                          <span>
+                            Raised by: <strong className="text-slate-700">{ex.raisedBy}</strong>
+                          </span>
                         </div>
 
-                        <ActionButton
-                          variant="warning"
-                          size="sm"
-                          onClick={() => setSelectedExceptionForOverride(ex)}
-                        >
-                          Apply Supervisor Override
-                        </ActionButton>
+                        {isSupervisor ? (
+                          <ActionButton
+                            variant={isFarmer ? 'primary' : 'warning'}
+                            size="sm"
+                            onClick={() => setSelectedExceptionForOverride(ex)}
+                          >
+                            {isFarmer ? 'Resolve Grievance' : 'Apply Supervisor Override'}
+                          </ActionButton>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">
+                            Read-Only (Supervisor Only)
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -427,19 +500,29 @@ export default function SupervisorExceptions() {
         </div>
       </main>
 
-      {/* Supervisor Override Modal */}
+      {/* Supervisor Override / Resolution Modal */}
       {selectedExceptionForOverride && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 text-left">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-500/20 flex items-center justify-center">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    selectedExceptionForOverride.source === 'farmer'
+                      ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20'
+                      : 'bg-amber-50 text-amber-700 ring-1 ring-amber-500/20'
+                  }`}
+                >
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Supervisor Dispute Override</h3>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {selectedExceptionForOverride.source === 'farmer'
+                      ? `Resolve Farmer Grievance (${selectedExceptionForOverride.complaintId || selectedExceptionForOverride.tokenNumber})`
+                      : `Supervisor Dispute Override (${selectedExceptionForOverride.tokenNumber})`}
+                  </h3>
                   <p className="text-xs text-slate-500">
-                    Applying override for Token #{selectedExceptionForOverride.bookingId?.tokenNumber || 'TKN-000'}
+                    Token #{selectedExceptionForOverride.tokenNumber || 'TKN-000'} • {selectedExceptionForOverride.crop}
                   </p>
                 </div>
               </div>
@@ -455,59 +538,67 @@ export default function SupervisorExceptions() {
             <form onSubmit={handleApplyOverride} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase">
-                  Supervisor Override Rationale <span className="text-rose-500">* (Mandatory)</span>
+                  {selectedExceptionForOverride.source === 'farmer'
+                    ? 'Resolution Rationale & Action Taken'
+                    : 'Supervisor Override Rationale'}{' '}
+                  <span className="text-rose-500">* (Mandatory)</span>
                 </label>
                 <textarea
                   required
                   rows={3}
                   value={overrideReason}
                   onChange={(e) => setOverrideReason(e.target.value)}
-                  placeholder="Explain why this dispute is being overridden (e.g. secondary moisture test within acceptable APMC tolerance band)..."
+                  placeholder={
+                    selectedExceptionForOverride.source === 'farmer'
+                      ? 'Describe resolution (e.g. secondary quality sample re-graded to Grade A in presence of farmer, weighing calibrated)...'
+                      : 'Explain why this exception is overridden (e.g. secondary moisture test within acceptable APMC tolerance band)...'
+                  }
                   className="w-full text-xs p-3 border border-slate-300 rounded-xl focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase">
-                  Designated Settlement Outcome
-                </label>
-                <select
-                  value={overrideOutcome}
-                  onChange={(e) => setOverrideOutcome(e.target.value)}
-                  className="w-full text-xs p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:border-amber-500 focus:outline-none"
-                >
-                  <option value="Admitted with 1.5% moisture deduction">
-                    Admitted with 1.5% moisture deduction
-                  </option>
-                  <option value="Re-graded to Grade B FAQ">Re-graded to Grade B FAQ</option>
-                  <option value="Document mismatch resolved on-site via Aadhaar/RC">
-                    Document mismatch resolved on-site via Aadhaar/RC
-                  </option>
-                  <option value="Special district procurement intake sanction">
-                    Special district procurement intake sanction
-                  </option>
-                </select>
-              </div>
+              {selectedExceptionForOverride.source !== 'farmer' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase">
+                    Designated Settlement Outcome
+                  </label>
+                  <select
+                    value={overrideOutcome}
+                    onChange={(e) => setOverrideOutcome(e.target.value)}
+                    className="w-full text-xs p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:border-amber-500 focus:outline-none"
+                  >
+                    <option value="Admitted with 1.5% moisture deduction">
+                      Admitted with 1.5% moisture deduction
+                    </option>
+                    <option value="Re-graded to Grade B FAQ">Re-graded to Grade B FAQ</option>
+                    <option value="Document mismatch resolved on-site via Aadhaar/RC">
+                      Document mismatch resolved on-site via Aadhaar/RC
+                    </option>
+                    <option value="Special district procurement intake sanction">
+                      Special district procurement intake sanction
+                    </option>
+                  </select>
+                </div>
+              )}
 
-              <div className="flex gap-2.5 pt-2 border-t border-slate-100">
-                <ActionButton
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
                   type="button"
-                  variant="secondary"
-                  size="md"
                   onClick={() => setSelectedExceptionForOverride(null)}
-                  className="flex-1"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
                 >
                   Cancel
-                </ActionButton>
+                </button>
                 <ActionButton
                   type="submit"
-                  variant="warning"
-                  size="md"
+                  variant={selectedExceptionForOverride.source === 'farmer' ? 'primary' : 'warning'}
+                  size="sm"
                   isLoading={isSubmittingOverride}
-                  loadingText="Submitting Override…"
-                  className="flex-1"
+                  loadingText="Recording…"
                 >
-                  Confirm Override
+                  {selectedExceptionForOverride.source === 'farmer'
+                    ? 'Confirm & Resolve Grievance'
+                    : 'Confirm & Sign Override'}
                 </ActionButton>
               </div>
             </form>

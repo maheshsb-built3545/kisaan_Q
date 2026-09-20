@@ -20,11 +20,11 @@ router.post(
   exceptionController.raiseException
 );
 
-// Supervisor override (strictly supervisor only)
+// Supervisor override (strictly supervisor only; officers & district_admin read-only)
 router.post(
   '/:id/override',
   authenticate,
-  checkRole('supervisor', 'district_admin'),
+  checkRole('supervisor'),
   exceptionController.supervisorOverride
 );
 

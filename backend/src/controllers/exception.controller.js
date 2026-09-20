@@ -21,15 +21,18 @@ const exceptionController = {
     }
   },
 
-  /**
-   * POST /api/exceptions/:id/override - Supervisor override
-   */
   supervisorOverride: async (req, res) => {
     try {
+      if (req.user.role === 'district_admin' || (req.user.role !== 'supervisor' && req.user.role !== 'admin')) {
+        return errorResponse(res, 'Access denied: Only Mandi Supervisor can resolve or override exceptions.', 403);
+      }
       const { id } = req.params;
       const { overrideReason, outcome } = req.body;
+      if (!overrideReason || typeof overrideReason !== 'string' || !overrideReason.trim()) {
+        return errorResponse(res, 'Override reason is mandatory for supervisor overrides.', 400);
+      }
       const exception = await exceptionService.supervisorOverride(id, {
-        overrideReason,
+        overrideReason: overrideReason.trim(),
         outcome,
         actorId: req.user.id
       });

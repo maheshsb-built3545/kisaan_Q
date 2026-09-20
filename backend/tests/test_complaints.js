@@ -77,7 +77,8 @@ async function runComplaintTests() {
   const supervisorKpgJwt = jwt.sign({ id: 'sup_kpg', phone: '9800000008', role: 'supervisor', name: 'KPG Supervisor', assignedMandi: 'KPG-01' }, JWT_SECRET);
   const supervisorSrdJwt = jwt.sign({ id: 'sup_srd', phone: '9800000088', role: 'supervisor', name: 'SRD Supervisor', assignedMandi: 'SRD-02' }, JWT_SECRET);
   const officerJwt = jwt.sign({ id: 'officer_qa', phone: '9800000002', role: 'quality_assayer', name: 'Assayer Patil', assignedMandi: 'KPG-01' }, JWT_SECRET);
-  const resourceOfficerJwt = jwt.sign({ id: 'ro_kpg', phone: '9800000010', role: 'resource_officer', name: 'RO Kulkarni', assignedMandi: 'KPG-01' }, JWT_SECRET);
+  const resourceOfficerJwt = jwt.sign({ id: 'ro_kpg', phone: '9800000006', role: 'resource_officer', name: 'RO Kulkarni', assignedMandi: 'KPG-01' }, JWT_SECRET);
+  const districtAdminJwt = jwt.sign({ id: 'da_kpg', phone: '9800000008', role: 'district_admin', name: 'Collector Nagar', assignedMandi: 'KPG-01' }, JWT_SECRET);
 
   try {
     // -----------------------------------------------------------------------
@@ -241,12 +242,26 @@ async function runComplaintTests() {
     const roViewRes = await makeRequest('/api/complaints', 'GET', null, resourceOfficerJwt);
     assert(roViewRes.status === 200, 'Resource Officer has read-only access to complaints');
 
-    // Officer attempting to resolve (Must be rejected with 403)
-    const officerResolveRes = await makeRequest(`/api/complaints/${compA?.complaintId}/resolve`, 'PATCH', {
+    // Quality Assayer attempting to resolve (Must be rejected with 403)
+    const qaResolveRes = await makeRequest(`/api/complaints/${compA?.complaintId}/resolve`, 'PATCH', {
       status: 'RESOLVED',
-      resolutionNotes: 'Unauthorized officer resolution'
+      resolutionNotes: 'Unauthorized quality assayer resolution'
     }, officerJwt);
-    assert(officerResolveRes.status === 403, 'Desk officer resolution attempt rejected with 403 (Read-only restriction)');
+    assert(qaResolveRes.status === 403, 'Desk officer resolution attempt rejected with 403 (Read-only restriction)');
+
+    // Resource Officer attempting to resolve (Must be rejected with 403)
+    const roResolveRes = await makeRequest(`/api/complaints/${compA?.complaintId}/resolve`, 'PATCH', {
+      status: 'RESOLVED',
+      resolutionNotes: 'Unauthorized resource officer resolution'
+    }, resourceOfficerJwt);
+    assert(roResolveRes.status === 403, 'Resource officer resolution attempt rejected with 403 (Read-only restriction)');
+
+    // District Admin attempting to resolve (Must be rejected with 403)
+    const daResolveRes = await makeRequest(`/api/complaints/${compA?.complaintId}/resolve`, 'PATCH', {
+      status: 'RESOLVED',
+      resolutionNotes: 'Unauthorized district admin resolution'
+    }, districtAdminJwt);
+    assert(daResolveRes.status === 403, 'District admin resolution attempt rejected with 403 (Read-only restriction)');
 
     // -----------------------------------------------------------------------
     // Section 6: Supervisor Resolution & Cross-Centre Security
