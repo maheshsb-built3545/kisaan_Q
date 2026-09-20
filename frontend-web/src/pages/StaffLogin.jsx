@@ -15,6 +15,7 @@ import {
   onTokenCompleted, onTokenCancelled, onQueueSlotFreed
 } from '../services/socketService';
 import { TOKEN_STATUS, normalizeStatus, isTokenActive } from '../utils/statusEnums';
+import { staffClient } from '../api/client';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -143,20 +144,20 @@ export default function StaffLogin() {
     const mandiObj = ACTIVE_MANDIS.find((m) => m.id === targetMandiId) || ACTIVE_MANDIS[0];
     try {
       const [centresRes, tokensRes] = await Promise.allSettled([
-        fetch(`${API_BASE}/centres`, { signal: AbortSignal.timeout(3000) }),
-        fetch(`${API_BASE}/tokens/mandi/${targetMandiId}`, { signal: AbortSignal.timeout(3000) }),
+        staffClient.get('/centres', { signal: AbortSignal.timeout(3000) }),
+        staffClient.get(`/tokens/mandi/${targetMandiId}`, { signal: AbortSignal.timeout(3000) }),
       ]);
 
       let centreData = null;
-      if (centresRes.status === 'fulfilled' && centresRes.value.ok) {
-        const json = await centresRes.value.json();
+      if (centresRes.status === 'fulfilled' && centresRes.value.data) {
+        const json = centresRes.value.data;
         const centres = Array.isArray(json) ? json : json?.data || [];
         centreData = centres.find((c) => c.code === targetMandiId || c.name === mandiObj.name);
       }
 
       let tokens = [];
-      if (tokensRes.status === 'fulfilled' && tokensRes.value.ok) {
-        const json = await tokensRes.value.json();
+      if (tokensRes.status === 'fulfilled' && tokensRes.value.data) {
+        const json = tokensRes.value.data;
         tokens = Array.isArray(json?.tokens) ? json.tokens : (Array.isArray(json) ? json : []);
       }
 

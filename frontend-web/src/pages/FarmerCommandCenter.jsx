@@ -7,7 +7,7 @@ import VoiceBookingModal from '../components/farmer/VoiceBookingModal';
 import FarmerWaitlistOffersCard from '../components/farmer/FarmerWaitlistOffersCard';
 import FarmerFastTrackAuctionCard from '../components/farmer/FarmerFastTrackAuctionCard';
 import FarmerGrievanceModal from '../components/farmer/FarmerGrievanceModal';
-import { pricesApi, fastTrackApi, apiClient, BASE_URL } from '../api';
+import { pricesApi, fastTrackApi, farmerClient, BASE_URL } from '../api';
 import {
   MapPin, Clock, Zap, TrendingUp, TrendingDown, Minus,
   Ticket, CheckCircle2, Circle, Loader2, Printer,
@@ -1810,17 +1810,12 @@ export default function FarmerCommandCenter() {
       await Promise.all(
         MANDIS.map(async (m) => {
           try {
-            const tokRes = await fetch(`${BASE_URL}/tokens/mandi/${m.id}`, { signal: AbortSignal.timeout(3000) });
-            if (tokRes.ok) {
-              const tokData = await tokRes.json();
-              if (tokData?.success && Array.isArray(tokData.tokens)) {
-                const activeCount = tokData.tokens.filter(
-                  (t) => !['Completed', 'COMPLETED', 'Cancelled', 'CANCELLED'].includes(t.status)
-                ).length;
-                countMap[m.id] = activeCount;
-              } else {
-                countMap[m.id] = getMandiQueueCount(m.id);
-              }
+            const tokRes = await farmerClient.get(`/tokens/mandi/${m.id}`, { signal: AbortSignal.timeout(3000) });
+            if (tokRes.data?.success && Array.isArray(tokRes.data.tokens)) {
+              const activeCount = tokRes.data.tokens.filter(
+                (t) => !['Completed', 'COMPLETED', 'Cancelled', 'CANCELLED'].includes(t.status)
+              ).length;
+              countMap[m.id] = activeCount;
             } else {
               countMap[m.id] = getMandiQueueCount(m.id);
             }

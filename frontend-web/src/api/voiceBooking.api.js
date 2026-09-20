@@ -1,4 +1,4 @@
-import apiClient, { BASE_URL } from './client';
+import { farmerClient, BASE_URL } from './client';
 
 /**
  * API client for KisanQ Voice Booking Engine (Multimodal Gemini AI)
@@ -8,7 +8,7 @@ export const voiceBookingApi = {
    * Start a new voice booking interactive session
    */
   startSession: async ({ language = 'mr', farmerId, phone, farmerName }) => {
-    const response = await apiClient.post('/voice-booking/start', {
+    const response = await farmerClient.post('/voice-booking/start', {
       language,
       farmerId,
       phone,
@@ -27,7 +27,7 @@ export const voiceBookingApi = {
       formData.append('audio', audioBlob, `speech.${fileExt}`);
       if (mimeType) formData.append('mimeType', mimeType);
 
-      const response = await apiClient.post(`/voice-booking/${sessionId}/answer`, formData, {
+      const response = await farmerClient.post(`/voice-booking/${sessionId}/answer`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
@@ -35,7 +35,7 @@ export const voiceBookingApi = {
       });
       return response.data;
     } else {
-      const response = await apiClient.post(`/voice-booking/${sessionId}/answer`, {
+      const response = await farmerClient.post(`/voice-booking/${sessionId}/answer`, {
         textAnswer,
         mimeType: 'text/plain'
       }, {
@@ -49,7 +49,7 @@ export const voiceBookingApi = {
    * Fetch current session status
    */
   getSessionStatus: async (sessionId) => {
-    const response = await apiClient.get(`/voice-booking/${sessionId}/status`);
+    const response = await farmerClient.get(`/voice-booking/${sessionId}/status`);
     return response.data;
   },
 

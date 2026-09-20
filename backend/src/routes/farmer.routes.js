@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const farmerController = require('../controllers/farmer.controller');
 const { authenticate } = require('../middleware/auth.middleware');
+const { checkRole } = require('../middleware/rbac.middleware');
 
 // Save or update pickup location pin (authenticated farmer)
-router.patch('/pickup-location', authenticate, farmerController.updatePickupLocation);
+router.patch('/pickup-location', authenticate, checkRole('farmer'), farmerController.updatePickupLocation);
 
 // Save or update push token (authenticated farmer)
-router.patch('/push-token', authenticate, farmerController.updatePushToken);
+router.patch('/push-token', authenticate, checkRole('farmer'), farmerController.updatePushToken);
 
 module.exports = router;

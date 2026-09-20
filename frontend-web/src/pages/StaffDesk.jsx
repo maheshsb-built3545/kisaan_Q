@@ -19,6 +19,7 @@ import {
   ExceptionReasonModal
 } from '../components/staff';
 import { pricesApi, staffFastTrackApi as fastTrackApi } from '../api';
+import { staffClient } from '../api/client';
 import {
   MANDIS, STAGE_DEFINITIONS, getTokens,
   updateTokenStageAsync, checkBackendHealth,
@@ -491,23 +492,19 @@ export default function StaffDesk() {
       const health = await checkBackendHealth();
       setDbStatus(health);
 
-      const res = await fetch(`${API_BASE}/tokens/all`, {
-        headers: { 'Content-Type': 'application/json' },
+      const res = await staffClient.get('/tokens/all', {
         signal: AbortSignal.timeout(3000),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.tokens)) {
-          setTokens(data.tokens);
-          if (!selectedToken && data.tokens.length > 0) {
-            const mandiTokens = data.tokens.filter((t) => t.mandiId === activeMandiId || t.mandiCode === activeMandiId.split('-')[0]);
-            const firstActive = mandiTokens.find((t) => isTokenActive(t.status)) || mandiTokens[0] || data.tokens[0];
-            setSelectedToken(firstActive);
-          }
-          setIsLoading(false);
-          return;
+      if (res.data && res.data.success && Array.isArray(res.data.tokens)) {
+        setTokens(res.data.tokens);
+        if (!selectedToken && res.data.tokens.length > 0) {
+          const mandiTokens = res.data.tokens.filter((t) => t.mandiId === activeMandiId || t.mandiCode === activeMandiId.split('-')[0]);
+          const firstActive = mandiTokens.find((t) => isTokenActive(t.status)) || mandiTokens[0] || res.data.tokens[0];
+          setSelectedToken(firstActive);
         }
+        setIsLoading(false);
+        return;
       }
     } catch {
       // Fallback to local storage

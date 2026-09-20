@@ -43,21 +43,21 @@ router.post(
  * @desc    Farmer joins a round with their confirmed booking
  * @access  Farmer (Authenticated)
  */
-router.post('/rounds/:id/join', authenticateToken, fastTrackBiddingController.joinRound);
+router.post('/rounds/:id/join', authenticateToken, checkRole('farmer'), fastTrackBiddingController.joinRound);
 
 /**
  * @route   POST /api/fasttrack/rounds/:id/request-start
  * @desc    Participant requests start when under quorum
  * @access  Farmer (Authenticated)
  */
-router.post('/rounds/:id/request-start', authenticateToken, fastTrackBiddingController.requestStart);
+router.post('/rounds/:id/request-start', authenticateToken, checkRole('farmer'), fastTrackBiddingController.requestStart);
 
 /**
  * @route   POST /api/fasttrack/rounds/:id/bids
  * @desc    Place an atomic bid on a LIVE round
  * @access  Farmer (Authenticated)
  */
-router.post('/rounds/:id/bids', authenticateToken, fastTrackBiddingController.placeBid);
+router.post('/rounds/:id/bids', authenticateToken, checkRole('farmer'), fastTrackBiddingController.placeBid);
 
 /**
  * @route   POST /api/fasttrack/rounds/:id/start-decision
@@ -93,7 +93,7 @@ router.post(
  * @route   POST /api/fasttrack/rounds/:id/bid
  * @desc    Alias for POST /api/fasttrack/rounds/:id/bids (singular alias)
  */
-router.post('/rounds/:id/bid', authenticateToken, fastTrackBiddingController.placeBid);
+router.post('/rounds/:id/bid', authenticateToken, checkRole('farmer'), fastTrackBiddingController.placeBid);
 
 /**
  * @route   PATCH /api/fasttrack/rounds/:id/approve

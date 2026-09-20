@@ -13,6 +13,7 @@ import {
   onHardwareEvent, subscribeConnectionStatus, triggerHardwareSimulation
 } from '../services/socketService';
 import { MANDIS, STAGE_DEFINITIONS } from '../services/storageService';
+import { staffClient } from '../api/client';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const CROPS = ['Wheat', 'Soybean', 'Onion', 'Cotton'];
@@ -38,19 +39,11 @@ export default function AdminDashboard() {
   const fetchLiveTokens = useCallback(async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('kq_token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch(`${API_BASE}/tokens/all`, {
-        headers,
+      const res = await staffClient.get('/tokens/all', {
         signal: AbortSignal.timeout(3000)
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.tokens)) {
-          setTokens(data.tokens);
-        }
+      if (res.data && res.data.success && Array.isArray(res.data.tokens)) {
+        setTokens(res.data.tokens);
       }
     } catch (err) {
       console.warn('[AdminDashboard] Falling back to local storage tokens:', err.message);
@@ -139,30 +132,19 @@ export default function AdminDashboard() {
     if (stageDef.id === 'WEIGHBRIDGE') extras.weight = (token.quantity * 0.96).toFixed(2);
 
     try {
-      const tokenAuth = localStorage.getItem('kq_token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (tokenAuth) headers['Authorization'] = `Bearer ${tokenAuth}`;
-
-      const res = await fetch(`${API_BASE}/tokens/${encodeURIComponent(tokenNumber)}/stage-progress`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({
-          stageId: stageDef.id,
-          stageIndex: targetIndex,
-          officerName: stageDef.officer,
-          officerSigId: sigId,
-          status: 'Completed',
-          ...extras
-        })
+      const res = await staffClient.patch(`/tokens/${encodeURIComponent(tokenNumber)}/stage-progress`, {
+        stageId: stageDef.id,
+        stageIndex: targetIndex,
+        officerName: stageDef.officer,
+        officerSigId: sigId,
+        status: 'Completed',
+        ...extras
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.token) {
-          setTokens((prev) =>
-            prev.map((t) => ((t.tokenNumber || t.id) === tokenNumber ? data.token : t))
-          );
-        }
+      if (res.data && res.data.token) {
+        setTokens((prev) =>
+          prev.map((t) => ((t.tokenNumber || t.id) === tokenNumber ? res.data.token : t))
+        );
       }
     } catch (err) {
       console.error('Failed to advance stage from Admin:', err);
