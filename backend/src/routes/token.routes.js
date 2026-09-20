@@ -1837,7 +1837,7 @@ function validateSequentialPipeline(token, incomingStageIdx) {
  *          Farmer A cannot read Farmer B's dues.
  * @access  Private (farmer JWT matching :phone, or staff with non-farmer role)
  */
-router.get('/farmer/:phone/dues', authenticate, async (req, res) => {
+router.get(['/farmer/:phone/dues', '/farmer-dues/:phone'], authenticate, async (req, res) => {
   try {
     const { phone } = req.params;
     const callerPhone = req.user.phone;
