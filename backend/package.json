@@ -14,6 +14,8 @@
     "test:release": "node tests/test_slot_release.js",
     "test:complaints": "node tests/test_complaints.js",
     "test:fasttrack": "node tests/test_fasttrack_bidding.js",
+    "test:security": "node tests/test_alias_and_open_security.js",
+    "test:voice-auth": "node tests/test_voice_auth.js",
     "test:step1": "node tests/test_b4_step1_seed.js",
     "test:dedup": "node tests/test_slot_offer_dedup.js",
     "test:all": "node tests/test_all_prd.js"

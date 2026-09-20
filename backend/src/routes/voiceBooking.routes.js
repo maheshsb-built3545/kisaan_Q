@@ -4,7 +4,20 @@ const multer = require('multer');
 const voiceBookingService = require('../services/voiceBookingService');
 const logger = require('../utils/logger');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
-const { optionalAuthenticate } = require('../middleware/auth.middleware');
+const { authenticateToken } = require('../middleware/auth.middleware');
+
+// Valid roles permitted to initiate or interact with voice booking
+const ALLOWED_VOICE_ROLES = ['farmer', 'resource_officer', 'supervisor', 'operator', 'helpdesk', 'admin', 'district_admin', 'staff'];
+
+const requireVoiceAuth = (req, res, next) => {
+  if (!req.user) {
+    return errorResponse(res, 'Authentication required for voice booking.', 401);
+  }
+  if (!ALLOWED_VOICE_ROLES.includes(req.user.role)) {
+    return errorResponse(res, `Access forbidden. Role '${req.user.role}' is not authorized to use voice booking.`, 403);
+  }
+  next();
+};
 
 // Configure multer memory storage for audio file uploads (WAV, WebM, MP4, AAC, OGG)
 const upload = multer({
@@ -17,9 +30,9 @@ const upload = multer({
 /**
  * @route   POST /api/voice-booking/start
  * @desc    Initialize a conversational voice session with AI greeting
- * @access  Public / Authenticated (Farmer)
+ * @access  Authenticated (Farmer or Staff Assisting)
  */
-router.post('/start', optionalAuthenticate, async (req, res) => {
+router.post('/start', authenticateToken, requireVoiceAuth, async (req, res) => {
   try {
     const { farmerId, phone, farmerName, language = 'mr' } = req.body;
     const isFarmer = req.user?.role === 'farmer';
@@ -99,16 +112,16 @@ const handleConversationalAnswer = async (req, res) => {
 /**
  * @route   POST /api/voice-booking/:sessionId/answer
  * @desc    Submit spoken audio or text utterance for conversational processing
- * @access  Public (Farmer)
+ * @access  Authenticated (Farmer or Staff)
  */
-router.post('/:sessionId/answer', upload.single('audio'), handleConversationalAnswer);
+router.post('/:sessionId/answer', authenticateToken, requireVoiceAuth, upload.single('audio'), handleConversationalAnswer);
 
 /**
  * @route   POST /api/voice-booking/:sessionId/message
  * @desc    Alias route for conversational message processing
- * @access  Public (Farmer)
+ * @access  Authenticated (Farmer or Staff)
  */
-router.post('/:sessionId/message', upload.single('audio'), handleConversationalAnswer);
+router.post('/:sessionId/message', authenticateToken, requireVoiceAuth, upload.single('audio'), handleConversationalAnswer);
 
 /**
  * @route   GET /api/voice-booking/:sessionId/audio/:step
