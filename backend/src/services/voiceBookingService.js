@@ -578,7 +578,12 @@ async function handleCheckPayoutStatus({ tokenNumber }, session) {
     let token = null;
 
     if (tokenNumber && mongoose.connection.readyState === 1) {
-      token = await Token.findOne({ $or: [{ tokenNumber }, { id: tokenNumber }] });
+      token = await Token.findOne({
+        $and: [
+          { $or: [{ tokenNumber }, { id: tokenNumber }] },
+          { $or: [{ farmerPhone: phone }, { phone }] }
+        ]
+      });
     }
 
     if (!token && mongoose.connection.readyState === 1) {

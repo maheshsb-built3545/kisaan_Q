@@ -4,6 +4,7 @@ const multer = require('multer');
 const voiceBookingService = require('../services/voiceBookingService');
 const logger = require('../utils/logger');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
+const { optionalAuthenticate } = require('../middleware/auth.middleware');
 
 // Configure multer memory storage for audio file uploads (WAV, WebM, MP4, AAC, OGG)
 const upload = multer({
@@ -16,16 +17,25 @@ const upload = multer({
 /**
  * @route   POST /api/voice-booking/start
  * @desc    Initialize a conversational voice session with AI greeting
- * @access  Public (Farmer)
+ * @access  Public / Authenticated (Farmer)
  */
-router.post('/start', async (req, res) => {
+router.post('/start', optionalAuthenticate, async (req, res) => {
   try {
     const { farmerId, phone, farmerName, language = 'mr' } = req.body;
+    const isFarmer = req.user?.role === 'farmer';
+
+    if (isFarmer && phone && phone !== req.user.phone) {
+      return errorResponse(res, 'Access denied: Authenticated farmer cannot start voice booking for a different mobile number.', 403);
+    }
+
+    const effectivePhone = isFarmer ? req.user.phone : (phone || req.user?.phone);
+    const effectiveFarmerId = isFarmer ? (req.user.id || req.user._id) : (farmerId || req.user?.id);
+    const effectiveFarmerName = isFarmer ? (req.user.name || farmerName) : (farmerName || req.user?.name);
 
     const sessionData = await voiceBookingService.startSession({
-      farmerId: farmerId || req.user?.id,
-      phone: phone || req.user?.phone,
-      farmerName: farmerName || req.user?.name,
+      farmerId: effectiveFarmerId,
+      phone: effectivePhone,
+      farmerName: effectiveFarmerName,
       language
     });
 

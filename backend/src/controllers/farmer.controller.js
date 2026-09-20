@@ -9,8 +9,14 @@ const farmerController = {
   updatePickupLocation: async (req, res) => {
     try {
       const { latitude, longitude, address } = req.body;
-      const farmerId = req.user?.id || req.user?._id;
-      const phone = req.user?.phone || req.body?.phone;
+      const isFarmer = req.user?.role === 'farmer';
+      
+      if (isFarmer && req.body?.phone && req.body.phone !== req.user.phone) {
+        return errorResponse(res, 'Access denied: Cannot update location for a different phone number.', 403);
+      }
+
+      const farmerId = isFarmer ? (req.user?.id || req.user?._id) : (req.user?.id || req.body?.farmerId);
+      const phone = isFarmer ? req.user?.phone : (req.user?.phone || req.body?.phone);
 
       if (!latitude || !longitude) {
         return errorResponse(res, 'Latitude and longitude are required', 400);
@@ -37,8 +43,14 @@ const farmerController = {
   updatePushToken: async (req, res) => {
     try {
       const { pushToken } = req.body;
-      const farmerId = req.user?.id || req.user?._id;
-      const phone = req.user?.phone || req.body?.phone;
+      const isFarmer = req.user?.role === 'farmer';
+
+      if (isFarmer && req.body?.phone && req.body.phone !== req.user.phone) {
+        return errorResponse(res, 'Access denied: Cannot update push token for a different phone number.', 403);
+      }
+
+      const farmerId = isFarmer ? (req.user?.id || req.user?._id) : (req.user?.id || req.body?.farmerId);
+      const phone = isFarmer ? req.user?.phone : (req.user?.phone || req.body?.phone);
 
       if (!pushToken) {
         return errorResponse(res, 'pushToken string is required', 400);

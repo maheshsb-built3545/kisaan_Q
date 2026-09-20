@@ -2346,9 +2346,9 @@ router.post('/hardware-event', (req, res) => {
 /**
  * @route   GET /api/tokens/:tokenNumber/agripool-matches
  * @desc    Find active bookings within 500m radius heading to same mandi today
- * @access  Public
+ * @access  Private (Farmer owner of token or staff)
  */
-router.get('/:tokenNumber/agripool-matches', async (req, res) => {
+router.get('/:tokenNumber/agripool-matches', authenticate, async (req, res) => {
   try {
     const { tokenNumber } = req.params;
 
@@ -2362,6 +2362,21 @@ router.get('/:tokenNumber/agripool-matches', async (req, res) => {
 
     if (!currentToken) {
       return res.status(404).json({ success: false, message: 'Token not found' });
+    }
+
+    // Ownership enforcement for farmer callers
+    const callerRole = req.user.role;
+    const callerPhone = req.user.phone;
+    const isFarmer = !callerRole || callerRole === 'farmer';
+    const isOwner = (currentToken.farmerPhone === callerPhone) ||
+      (currentToken.phone === callerPhone) ||
+      (currentToken.farmerId && currentToken.farmerId.toString() === req.user.id);
+
+    if (isFarmer && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only query AgriPool matches for your own confirmed token.'
+      });
     }
 
     let currentLat = Number(currentToken.latitude) || 19.8928;

@@ -27,8 +27,16 @@ router.post('/join', optionalAuthenticate, async (req, res) => {
       priority
     } = req.body;
 
-    const effectivePhone = farmerPhone || phone || req.user?.phone;
-    const effectiveName = farmerName || req.user?.name || 'Farmer';
+    const isFarmer = req.user?.role === 'farmer';
+    const suppliedPhone = farmerPhone || phone;
+
+    if (isFarmer && suppliedPhone && suppliedPhone !== req.user.phone) {
+      return errorResponse(res, 'Access denied: Authenticated farmer cannot join waitlist under a different phone number.', 403);
+    }
+
+    const effectivePhone = isFarmer ? req.user.phone : (suppliedPhone || req.user?.phone);
+    const effectiveName = isFarmer ? (req.user?.name || farmerName || 'Farmer') : (farmerName || req.user?.name || 'Farmer');
+    const effectiveFarmerId = isFarmer ? (req.user.id || req.user._id) : (req.user?.id || null);
 
     if (!effectivePhone) {
       return errorResponse(res, 'Farmer phone number is required to join waitlist', 400);
@@ -38,7 +46,7 @@ router.post('/join', optionalAuthenticate, async (req, res) => {
     }
 
     const waitlistEntry = await slotReallocationService.joinWaitlist({
-      farmerId: req.user?.id || null,
+      farmerId: effectiveFarmerId,
       farmerName: effectiveName,
       farmerPhone: effectivePhone,
       centreId: centreId || mandiId || 'KPG-01',
