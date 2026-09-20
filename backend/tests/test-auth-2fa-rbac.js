@@ -236,20 +236,27 @@ async function runTests() {
   console.log('\n--- TEST 5: Farmer Authentication & Protected Booking ---');
   let testTokenNumber = null;
   let farmerToken = null;
+  const testFarmerPhone = `98765${Math.floor(10000 + Math.random() * 90000)}`;
 
   try {
     // 5.1 Farmer Request OTP
-    const otpReq = await request('/api/auth/farmer/request-otp', {
+    let otpReq = await request('/api/auth/farmer/request-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone: '9876500001', name: 'Balasaheb Vikhe', mode: 'register' })
+      body: JSON.stringify({ phone: testFarmerPhone, name: 'Balasaheb Vikhe', mode: 'register' })
     });
+    if (otpReq.status === 400 && otpReq.data?.message?.includes('already registered')) {
+      otpReq = await request('/api/auth/farmer/request-otp', {
+        method: 'POST',
+        body: JSON.stringify({ phone: testFarmerPhone, mode: 'login' })
+      });
+    }
     assert.strictEqual(otpReq.status, 200);
     recordPass('5.1 Farmer requested OTP successfully');
 
     // 5.2 Farmer Verify OTP
     const otpVerify = await request('/api/auth/farmer/verify-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone: '9876500001', otp: otpReq.data?.devOtp || VALID_OTP })
+      body: JSON.stringify({ phone: testFarmerPhone, otp: otpReq.data?.devOtp || VALID_OTP })
     });
     assert.strictEqual(otpVerify.status, 200);
     farmerToken = otpVerify.data.data?.token;
@@ -261,7 +268,7 @@ async function runTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${farmerToken}` },
       body: JSON.stringify({
-        farmerPhone: '9876500001',
+        farmerPhone: testFarmerPhone,
         farmerName: 'Balasaheb Vikhe',
         mandiId: 'KPG-01',
         crop: 'Soybean',
