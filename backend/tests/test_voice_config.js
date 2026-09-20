@@ -39,13 +39,17 @@ async function runVoiceConfigTests() {
   console.log('\n--- Section 1: Voice Config & Hierarchy ---');
   assert(VOICE_CONFIG.stt.groqModel === 'whisper-large-v3-turbo', 'Primary STT model configured to whisper-large-v3-turbo');
   assert(VOICE_CONFIG.nlu.groqModels.includes('openai/gpt-oss-20b'), 'Primary NLU models include openai/gpt-oss-20b');
+  assert(VOICE_CONFIG.nlu.groqModels.includes('openai/gpt-oss-120b'), 'Primary NLU models include openai/gpt-oss-120b');
+  assert(VOICE_CONFIG.nlu.groqModels.includes('qwen/qwen3.8-27b'), 'Primary NLU models include qwen/qwen3.8-27b');
+  assert(!VOICE_CONFIG.nlu.groqModels.includes('llama-3.3-70b-versatile'), 'Deprecated llama-3.3-70b-versatile removed');
+  assert(!VOICE_CONFIG.nlu.groqModels.includes('llama-3.1-8b-instant'), 'Deprecated llama-3.1-8b-instant removed');
   assert(VOICE_CONFIG.nlu.geminiModel === 'gemini-3.6-flash', 'Fallback NLU model configured to gemini-3.6-flash');
   assert(VOICE_CONFIG.nlu.ruleBasedFallback === true, 'Rule-based fallback enabled');
 
   // -----------------------------------------------------------------------
-  // Section 2: Canonical Centre Normalizer (En / Mr / Hi)
+  // Section 2: Canonical Centre Normalizer (En / Mr / Hi / Whisper Variants)
   // -----------------------------------------------------------------------
-  console.log('\n--- Section 2: Canonical Centre Normalizer ---');
+  console.log('\n--- Section 2: Canonical Centre Normalizer & Whisper Variants ---');
   const cEn = normalizeCentre('I want to book at Kopargaon mandi');
   assert(cEn?.success && cEn?.centre?.code === 'KPG-01', 'English centre text maps to KPG-01');
 
@@ -55,11 +59,17 @@ async function runVoiceConfigTests() {
   const cHi = normalizeCentre('मुझे कोपरगांव कृषि उपज मंडी में स्लॉट चाहिए');
   assert(cHi?.success && cHi?.centre?.code === 'KPG-01', 'Hindi centre text maps to KPG-01');
 
-  const cShirdi = normalizeCentre('शिर्डी');
-  assert(cShirdi?.success && cShirdi?.centre?.code === 'SRD-02', 'Marathi "शिर्डी" maps to SRD-02');
-
-  const cLasalgaon = normalizeCentre('लासलगाव');
-  assert(cLasalgaon?.success && cLasalgaon?.centre?.code === 'LSG-06', 'Marathi "लासलगाव" maps to LSG-06');
+  // Real Whisper transcription spelling variants for 6 centres
+  assert(normalizeCentre('शिरडी')?.centre?.code === 'SRD-02', 'Whisper variant "शिरडी" maps to SRD-02');
+  assert(normalizeCentre('शिर्डी')?.centre?.code === 'SRD-02', 'Canonical Marathi "शिर्डी" maps to SRD-02');
+  assert(normalizeCentre('रहाता')?.centre?.code === 'RHT-03', 'Canonical Marathi "रहाता" maps to RHT-03');
+  assert(normalizeCentre('राहता')?.centre?.code === 'RHT-03', 'Whisper variant "राहता" maps to RHT-03');
+  assert(normalizeCentre('वैजापूर')?.centre?.code === 'VJP-04', 'Canonical Marathi "वैजापूर" maps to VJP-04');
+  assert(normalizeCentre('वैजापुर')?.centre?.code === 'VJP-04', 'Whisper variant "वैजापुर" maps to VJP-04');
+  assert(normalizeCentre('श्रीरामपूर')?.centre?.code === 'SRP-05', 'Canonical Marathi "श्रीरामपूर" maps to SRP-05');
+  assert(normalizeCentre('श्रीरामपुर')?.centre?.code === 'SRP-05', 'Whisper variant "श्रीरामपुर" maps to SRP-05');
+  assert(normalizeCentre('लासलगाव')?.centre?.code === 'LSG-06', 'Canonical Marathi "लासलगाव" maps to LSG-06');
+  assert(normalizeCentre('लासलगांव')?.centre?.code === 'LSG-06', 'Whisper variant "लासलगांव" maps to LSG-06');
 
   // -----------------------------------------------------------------------
   // Section 3: Rejection of Multiple Centres (Never accept list as one centre)
@@ -75,29 +85,47 @@ async function runVoiceConfigTests() {
   assert(!multi3?.success && multi3?.error === 'ambiguous_multiple_centres', 'English list of centres rejected as ambiguous');
 
   // -----------------------------------------------------------------------
-  // Section 4: Canonical Crop Normalizer (En / Mr / Hi)
+  // Section 4: Canonical Crop Normalizer & Word Boundary Precision
   // -----------------------------------------------------------------------
-  console.log('\n--- Section 4: Canonical Crop Normalizer ---');
+  console.log('\n--- Section 4: Canonical Crop Normalizer & Word Boundaries ---');
   assert(normalizeCrop('soybean')?.id === 'Soybean', 'English "soybean" maps to Soybean');
   assert(normalizeCrop('सोयाबीन')?.id === 'Soybean', 'Marathi/Hindi "सोयाबीन" maps to Soybean');
+  assert(normalizeCrop('सोयाबिन')?.id === 'Soybean', 'Whisper variant "सोयाबिन" maps to Soybean');
   assert(normalizeCrop('कापूस')?.id === 'Cotton', 'Marathi "कापूस" maps to Cotton');
   assert(normalizeCrop('कपास')?.id === 'Cotton', 'Hindi "कपास" maps to Cotton');
+  assert(normalizeCrop('कपाशी')?.id === 'Cotton', 'Whisper/Marathi variant "कपाशी" maps to Cotton');
   assert(normalizeCrop('गहू')?.id === 'Wheat', 'Marathi "गहू" maps to Wheat');
+  assert(normalizeCrop('गव्हाची')?.id === 'Wheat', 'Inflected Marathi "गव्हाची" maps to Wheat');
+  assert(normalizeCrop('गव्हा')?.id === 'Wheat', 'Whisper variant "गव्हा" maps to Wheat');
   assert(normalizeCrop('कांदा')?.id === 'Onion', 'Marathi "कांदा" maps to Onion');
+  assert(normalizeCrop('लाल कांदा')?.id === 'Onion', 'Variant "लाल कांदा" maps to Onion');
   assert(normalizeCrop('मका')?.id === 'Maize', 'Marathi "मका" maps to Maize');
   assert(normalizeCrop('हरभरा')?.id === 'Chana', 'Marathi "हरभरा" maps to Chana');
+  assert(normalizeCrop('हरभरे')?.id === 'Chana', 'Marathi plural "हरभरे" maps to Chana');
+  assert(normalizeCrop('हरबरा')?.id === 'Chana', 'Whisper variant "हरबरा" maps to Chana');
+
+  // CRITICAL WORD BOUNDARY TEST: 'gram' must NOT match 'kilogram'
+  const kgSoybeanCrop = normalizeCrop('500 kilograms of soybean');
+  assert(kgSoybeanCrop?.id === 'Soybean', 'Word boundary test: "500 kilograms of soybean" resolves to Soybean (NOT Chana/gram)');
+
+  const exactGramCrop = normalizeCrop('25 quintal gram');
+  assert(exactGramCrop?.id === 'Chana', 'Exact standalone "gram" correctly resolves to Chana');
 
   // -----------------------------------------------------------------------
-  // Section 5: Quantity String to Numeric Normalizer
+  // Section 5: Quantity String to Numeric Normalizer & Word Boundaries
   // -----------------------------------------------------------------------
-  console.log('\n--- Section 5: Quantity String Normalizer ---');
+  console.log('\n--- Section 5: Quantity String Normalizer & Short Tokens ---');
   assert(normalizeQuantity('25 Quintal') === 25, '"25 Quintal" converts to number 25');
   assert(normalizeQuantity('25 quintals') === 25, '"25 quintals" converts to number 25');
   assert(normalizeQuantity('२५ क्विंटल') === 25, '"२५ क्विंटल" (Devanagari) converts to number 25');
   assert(normalizeQuantity('50 Q') === 50, '"50 Q" converts to number 50');
   assert(normalizeQuantity('30 ton') === 300, '"30 ton" converts to number 300 Quintals');
   assert(normalizeQuantity('500 kg') === 5, '"500 kg" converts to number 5 Quintals');
+  assert(normalizeQuantity('500 kilograms') === 5, '"500 kilograms" converts to number 5 Quintals');
   assert(normalizeQuantity(45) === 45, 'Raw number 45 passes through as 45');
+
+  // CRITICAL WORD BOUNDARY TEST: Short token 'q' must not match words like 'quick'
+  assert(normalizeQuantity('25 quick boxes') === 25, 'Short token test: "25 quick boxes" extracts numeric 25 without corrupting token');
 
   // -----------------------------------------------------------------------
   // Section 6: Rule-Based Extraction Fallback (Labeled rule-based, not AI)
@@ -165,3 +193,4 @@ runVoiceConfigTests()
     console.error('Fatal test error:', err);
     process.exit(1);
   });
+

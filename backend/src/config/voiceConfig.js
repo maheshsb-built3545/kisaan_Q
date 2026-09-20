@@ -43,8 +43,8 @@ const CANONICAL_CENTRES = [
     nameMarathi: 'कोपरगाव कृषी उत्पन्न बाजार समिती',
     nameHindi: 'कोपरगांव कृषि उपज मंडी',
     keywords: [
-      'kopargaon', 'kopergaon', 'kopargao', 'kopergao', 'kopergav', 'kopargav',
-      'कोपरगाव', 'कोपरगांव', 'कोपरगांवा', 'कोपरगावात'
+      'kopargaon', 'kopergaon', 'kopargao', 'kopergao', 'kopergav', 'kopargav', 'kopargaon apmc',
+      'कोपरगाव', 'कोपरगांव', 'कोपरगांवा', 'कोपरगावात', 'कोपरगावला', 'कोपरगावं', 'कोपरगाँव', 'कोपरगाव मंडी', 'कोपरगाव बाजार'
     ]
   },
   {
@@ -54,8 +54,8 @@ const CANONICAL_CENTRES = [
     nameMarathi: 'शिर्डी कृषी उत्पन्न बाजार समिती',
     nameHindi: 'शिर्डी कृषि उपज मंडी',
     keywords: [
-      'shirdi', 'sirdi', 'shiridi', 'shirdi apmc',
-      'शिर्डी', 'शिरडी', 'शिर्डीला', 'शिर्डीत'
+      'shirdi', 'sirdi', 'shiridi', 'shirdi apmc', 'sainagar shirdi',
+      'शिर्डी', 'शिरडी', 'शिरडीला', 'शिर्डीला', 'शिर्डीत', 'शिरडीत', 'शिर्डी मंडी', 'शिरडी मंडी', 'साईनगर शिर्डी', 'शिरडी बाजार', 'शिर्डी बाजार'
     ]
   },
   {
@@ -65,8 +65,8 @@ const CANONICAL_CENTRES = [
     nameMarathi: 'राहाता कृषी उत्पन्न बाजार समिती',
     nameHindi: 'राहाता कृषि उपज मंडी',
     keywords: [
-      'rahata', 'rahta', 'rahata apmc',
-      'राहाता', 'राहता', 'राहात्याला', 'राहात्यात'
+      'rahata', 'rahta', 'rahata apmc', 'rahat',
+      'रहाता', 'राहाता', 'राहता', 'रहात्याला', 'राहात्याला', 'राहात्यात', 'राहत्याला', 'राहत्यात', 'रहाता मंडी', 'राहाता मंडी', 'राहता मंडी', 'रहाता बाजार', 'राहाता बाजार', 'राहता बाजार'
     ]
   },
   {
@@ -76,8 +76,8 @@ const CANONICAL_CENTRES = [
     nameMarathi: 'वैजापूर कृषी उत्पन्न बाजार समिती',
     nameHindi: 'वैजापुर कृषि उपज मंडी',
     keywords: [
-      'vaijapur', 'vaizapur', 'vaijapur apmc',
-      'वैजापूर', 'वैजापुर', 'वैजापूरला', 'वैजापुरात'
+      'vaijapur', 'vaizapur', 'vyjapur', 'vaijapur apmc',
+      'वैजापूर', 'वैजापुर', 'वैजापूरला', 'वैजापुरात', 'वैजापुरला', 'वैजापुरात', 'वैजापूर मंडी', 'वैजापुर मंडी', 'वैजापूर बाजार'
     ]
   },
   {
@@ -87,8 +87,8 @@ const CANONICAL_CENTRES = [
     nameMarathi: 'श्रीरामपूर कृषी उत्पन्न बाजार समिती',
     nameHindi: 'श्रीरामपुर कृषि उपज मंडी',
     keywords: [
-      'shrirampur', 'shreerampur', 'srirampur', 'shrirampur apmc',
-      'श्रीरामपूर', 'श्रीरामपुर', 'श्रीरामपूरला', 'श्रीरामपुरात'
+      'shrirampur', 'shreerampur', 'srirampur', 'shrirampur apmc', 'sangamner', 'sangamner apmc',
+      'श्रीरामपूर', 'श्रीरामपुर', 'श्रीरामपूरला', 'श्रीरामपुरात', 'श्रीरामपुरला', 'श्रीरामपुरात', 'श्रीरामपूर मंडी', 'श्रीरामपुर मंडी', 'संगमनेर', 'संगमनेरला'
     ]
   },
   {
@@ -99,7 +99,7 @@ const CANONICAL_CENTRES = [
     nameHindi: 'लासलगांव प्याज मंडी',
     keywords: [
       'lasalgaon', 'lasalganw', 'lasalgoan', 'lasalgaon apmc',
-      'लासलगाव', 'लासलगांव', 'लासलगावात'
+      'लासलगाव', 'लासलगांव', 'लासलगावात', 'लासलगावला', 'लासलगावं', 'लासलगांवला', 'लासलगाव मंडी', 'लासलगाव बाजार'
     ]
   }
 ];
@@ -111,8 +111,8 @@ const CANONICAL_CROPS = [
     nameMarathi: 'सोयाबीन',
     nameHindi: 'सोयाबीन',
     keywords: [
-      'soybean', 'soya', 'soyabean', 'soya bean', 'soya-bean',
-      'सोयाबीन', 'सोया'
+      'soybean', 'soya', 'soyabean', 'soya bean', 'soya-bean', 'soybeans',
+      'सोयाबीन', 'सोया', 'सोयाबिन', 'सोयाबीनची', 'सोयाबीनचे', 'सोयाबीनला'
     ]
   },
   {
@@ -122,7 +122,7 @@ const CANONICAL_CROPS = [
     nameHindi: 'कपास',
     keywords: [
       'cotton', 'kapas', 'kapus', 'raw cotton',
-      'कापूस', 'कपास', 'कापसाची'
+      'कापूस', 'कपास', 'कापसाची', 'कापसाचे', 'कापुस', 'कपाशी', 'कपाशीची'
     ]
   },
   {
@@ -132,7 +132,7 @@ const CANONICAL_CROPS = [
     nameHindi: 'गेहूं',
     keywords: [
       'wheat', 'gehu', 'gahu', 'lokwan', 'sharbati',
-      'गहू', 'गेहूं', 'गव्हाची', 'गव्हाचे'
+      'गहू', 'गेहूं', 'गव्हाची', 'गव्हाचे', 'गव्हा', 'गेहू', 'गहूची', 'गहूचे'
     ]
   },
   {
@@ -141,8 +141,8 @@ const CANONICAL_CROPS = [
     nameMarathi: 'कांदा',
     nameHindi: 'प्याज',
     keywords: [
-      'onion', 'kanda', 'pyaj', 'pyaz', 'red onion', 'lal kanda', 'onion red',
-      'कांदा', 'प्याज', 'कांद्याची', 'कांदे'
+      'onion', 'kanda', 'pyaj', 'pyaz', 'red onion', 'lal kanda', 'onion red', 'onions',
+      'कांदा', 'प्याज', 'कांद्याची', 'कांदे', 'कांद्याचे', 'लाल कांदा', 'कांद्या'
     ]
   },
   {
@@ -152,7 +152,7 @@ const CANONICAL_CROPS = [
     nameHindi: 'मक्का',
     keywords: [
       'maize', 'corn', 'maka', 'makka', 'yellow corn',
-      'मका', 'मक्का', 'मक्याची'
+      'मका', 'मक्का', 'मक्याची', 'मक्याचे', 'मकाची', 'मकाचे'
     ]
   },
   {
@@ -161,8 +161,8 @@ const CANONICAL_CROPS = [
     nameMarathi: 'हरभरा',
     nameHindi: 'चना',
     keywords: [
-      'chana', 'harbhara', 'gram', 'bengal gram', 'chana dal',
-      'हरभरा', 'चना', 'हरभऱ्याची', 'हरभरे'
+      'chana', 'harbhara', 'gram', 'bengal gram', 'chana dal', 'chana-dal', 'harbara',
+      'हरभरा', 'चना', 'हरभऱ्याची', 'हरभरे', 'हरभऱ्याचे', 'हरबरा', 'हरबऱ्याची', 'चने'
     ]
   }
 ];
@@ -210,6 +210,30 @@ function convertDevanagariDigits(str) {
 }
 
 /**
+ * Checks if a keyword matches within a given text string using strict word boundary rules.
+ * Latin tokens match only on ASCII word boundaries \b, preventing substrings like 'gram' matching 'kilogram'.
+ * Non-ASCII (Devanagari/Indic) tokens match on Unicode / whitespace / punctuation boundaries.
+ */
+function matchesKeyword(text, kw) {
+  if (!text || !kw) return false;
+  const clean = text.toLowerCase();
+  const kwLower = kw.toLowerCase().trim();
+  if (clean === kwLower) return true;
+
+  // Latin tokens (letters, numbers, hyphens, spaces)
+  if (/^[a-z0-9\s-]+$/i.test(kwLower)) {
+    const escaped = kwLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+    return regex.test(clean);
+  }
+
+  // Devanagari / Indic tokens: match on start/end, whitespace, or punctuation
+  const escaped = kwLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, 'iu');
+  return regex.test(clean);
+}
+
+/**
  * Normalizes centre name or text input.
  * CRITICAL RULE: Never accept a list of multiple centres as one centre.
  * Returns:
@@ -240,13 +264,7 @@ function normalizeCentre(text) {
   // Find all matched distinct centres in the text
   const matchedList = [];
   for (const c of CANONICAL_CENTRES) {
-    const isMatched = c.keywords.some((kw) => {
-      // Use word boundary or exact presence
-      const kwLower = kw.toLowerCase();
-      if (clean === kwLower) return true;
-      const regex = new RegExp(`(^|\\s|[.,;?!/])${kwLower}($|\\s|[.,;?!/])`, 'i');
-      return regex.test(clean);
-    });
+    const isMatched = c.keywords.some((kw) => matchesKeyword(clean, kw));
 
     if (isMatched && !matchedList.some((m) => m.code === c.code)) {
       matchedList.push({
@@ -281,18 +299,14 @@ function normalizeCentre(text) {
 
 /**
  * Normalizes crop text input to canonical crop.
+ * Uses strict word boundary matching to ensure 'gram' does not match 'kilogram'.
  */
 function normalizeCrop(text) {
   if (!text || typeof text !== 'string') return null;
   const clean = text.toLowerCase().trim();
 
   for (const c of CANONICAL_CROPS) {
-    const isMatched = c.keywords.some((kw) => {
-      const kwLower = kw.toLowerCase();
-      if (clean === kwLower) return true;
-      const regex = new RegExp(`(^|\\s|[.,;?!/])${kwLower}($|\\s|[.,;?!/])`, 'i');
-      return regex.test(clean);
-    });
+    const isMatched = c.keywords.some((kw) => matchesKeyword(clean, kw));
 
     if (isMatched) {
       return {
@@ -309,6 +323,7 @@ function normalizeCrop(text) {
 
 /**
  * Normalizes quantity strings like "25 Quintal", "25 क्विंटल", "२५ क्विंटल", "30 tons", "500 kg" into numeric Quintals.
+ * Short Latin tokens like 'q', 'qt', 'qtl' are strictly bounded to avoid matching words like 'quick'.
  */
 function normalizeQuantity(textOrNum) {
   if (typeof textOrNum === 'number' && !isNaN(textOrNum) && textOrNum > 0) {
@@ -319,21 +334,21 @@ function normalizeQuantity(textOrNum) {
   let str = convertDevanagariDigits(String(textOrNum)).toLowerCase().trim();
 
   // Check ton / tonne multiplier (1 ton = 10 quintals)
-  const tonMatch = str.match(/([\d.]+)\s*(?:ton|tons|टन|tonnes?)/i);
+  const tonMatch = str.match(/([\d.]+)\s*(?:\b(?:ton|tons|tonnes?)\b|टन)/i);
   if (tonMatch) {
     const val = parseFloat(tonMatch[1]);
     if (!isNaN(val) && val > 0) return Math.round(val * 10 * 100) / 100;
   }
 
   // Check kg multiplier (100 kg = 1 quintal)
-  const kgMatch = str.match(/([\d.]+)\s*(?:kg|kgs|kilo|kilos|किलो|किग्र|किलोग्रॅम)/i);
+  const kgMatch = str.match(/([\d.]+)\s*(?:\b(?:kg|kgs|kilo|kilos|kilograms?)\b|किलो|किग्र|किलोग्रॅम|किलोग्राम)/i);
   if (kgMatch) {
     const val = parseFloat(kgMatch[1]);
     if (!isNaN(val) && val > 0) return Math.round((val / 100) * 100) / 100;
   }
 
   // Check standard quintal / pure numeric match (e.g. "25 Quintal", "25 Q", "25 क्विंटल", "25")
-  const qMatch = str.match(/([\d.]+)\s*(?:quintals?|quintal|क्विंटल|क्विंटल्स|कट्टा|पोती|q|qt|qtl)?/i);
+  const qMatch = str.match(/([\d.]+)\s*(?:\b(?:quintals?|quintal|qtl|qt|q)\b|क्विंटल|क्विंटल्स|कट्टा|पोती)?/i);
   if (qMatch) {
     const val = parseFloat(qMatch[1]);
     if (!isNaN(val) && val > 0) return Math.round(val * 100) / 100;
@@ -362,7 +377,7 @@ function normalizeSlot(text) {
   const clean = text.toLowerCase().trim();
 
   for (const s of CANONICAL_SLOTS) {
-    if (s.keywords.some((kw) => clean.includes(kw.toLowerCase()))) {
+    if (s.keywords.some((kw) => matchesKeyword(clean, kw) || clean.includes(kw.toLowerCase()))) {
       return s;
     }
   }
