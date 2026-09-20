@@ -1,6 +1,6 @@
-import apiClient, { BASE_URL } from './client';
+import apiClient, { farmerClient, staffClient, BASE_URL } from './client';
 
-export { apiClient, BASE_URL };
+export { apiClient, farmerClient, staffClient, BASE_URL };
 export { authApi } from './auth.api';
 export { centresApi } from './centres.api';
 export { bookingsApi } from './bookings.api';
@@ -10,10 +10,11 @@ export { exceptionsApi } from './exceptions.api';
 export { adminApi } from './admin.api';
 export { auditApi } from './audit.api';
 export { notificationsApi } from './notifications.api';
+export { staffNotificationsApi } from './staffNotifications.api';
 export { pricesApi } from './prices.api';
-export { fastTrackApi } from './fastTrack.api';
+export { fastTrackApi, staffFastTrackApi } from './fastTrack.api';
 export { voiceBookingApi } from './voiceBooking.api';
-export { waitlistApi } from './waitlist.api';
-export { complaintsApi } from './complaints.api';
+export { waitlistApi, staffWaitlistApi } from './waitlist.api';
+export { complaintsApi, staffComplaintsApi } from './complaints.api';
 
 export default apiClient;

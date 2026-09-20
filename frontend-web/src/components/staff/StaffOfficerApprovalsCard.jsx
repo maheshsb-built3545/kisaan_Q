@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, Clock, CheckCircle2, XCircle, AlertCircle, Loader2, ShieldCheck, UserCheck } from 'lucide-react';
-import { fastTrackApi } from '../../api';
+import { staffFastTrackApi } from '../../api/fastTrack.api';
 
 export default function StaffOfficerApprovalsCard({ centreId, userRole }) {
   const [rounds, setRounds] = useState([]);
@@ -14,7 +14,7 @@ export default function StaffOfficerApprovalsCard({ centreId, userRole }) {
     if (!centreId) return;
     try {
       setLoading(true);
-      const res = await fastTrackApi.getRounds({ centreId });
+      const res = await staffFastTrackApi.getRounds({ centreId });
       if (res?.success) {
         setRounds(res.data?.rounds || []);
       }
@@ -36,7 +36,7 @@ export default function StaffOfficerApprovalsCard({ centreId, userRole }) {
   const handleStartDecision = async (roundId, approved) => {
     try {
       setActionLoading(true);
-      const res = await fastTrackApi.officerStartDecision(roundId, {
+      const res = await staffFastTrackApi.officerStartDecision(roundId, {
         approved
       });
       if (res?.success) {
@@ -58,7 +58,7 @@ export default function StaffOfficerApprovalsCard({ centreId, userRole }) {
 
     try {
       setActionLoading(true);
-      const res = await fastTrackApi.officerDecision(roundId, {
+      const res = await staffFastTrackApi.officerDecision(roundId, {
         approved,
         declineReason: approved ? null : declineReason.trim()
       });

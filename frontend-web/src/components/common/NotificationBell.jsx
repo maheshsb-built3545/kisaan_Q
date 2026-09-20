@@ -3,10 +3,15 @@ import { Link } from 'react-router-dom';
 import { Bell, CheckCheck, MessageSquare, Radio, ExternalLink, ShieldAlert, Sparkles, X, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { notificationsApi } from '../../api/notifications.api';
+import { staffNotificationsApi } from '../../api/staffNotifications.api';
 import { joinUserRoom, joinStaffRole, onNotificationNew } from '../../services/socketService';
 
-export default function NotificationBell({ className = '' }) {
-  const { user } = useAuth();
+export default function NotificationBell({ className = '', area = 'farmer' }) {
+  const { farmerUser, staffUser } = useAuth();
+  // Strict area isolation: use the user and API for THIS area only.
+  const user = area === 'staff' ? staffUser : farmerUser;
+  const api = area === 'staff' ? staffNotificationsApi : notificationsApi;
+
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -25,8 +30,8 @@ export default function NotificationBell({ className = '' }) {
     try {
       setIsLoading(true);
       const [listRes, countRes] = await Promise.allSettled([
-        notificationsApi.getMyNotifications({ limit: 20 }),
-        notificationsApi.getUnreadCount()
+        api.getMyNotifications({ limit: 20 }),
+        api.getUnreadCount()
       ]);
 
       if (listRes.status === 'fulfilled' && listRes.value?.success) {
@@ -40,7 +45,7 @@ export default function NotificationBell({ className = '' }) {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, api]);
 
   // Initial fetch and Socket.IO listeners
   useEffect(() => {
@@ -48,15 +53,15 @@ export default function NotificationBell({ className = '' }) {
 
     fetchNotifications();
 
-    // Join personal room
-    joinUserRoom(userId);
+    // Join personal room on the correct socket
+    joinUserRoom(userId, area);
 
-    // If staff, join role & centre rooms
-    if (userRole) {
+    // If staff area, join role & centre rooms on staff socket
+    if (area === 'staff' && userRole) {
       joinStaffRole(userRole, userCentreId);
     }
 
-    // Subscribe to live notification:new
+    // Subscribe to live notification:new on the correct socket
     const unsub = onNotificationNew((data) => {
       const incoming = data.notification || data;
       setNotifications((prev) => [incoming, ...prev]);
@@ -69,7 +74,7 @@ export default function NotificationBell({ className = '' }) {
         event: incoming.event
       });
       setTimeout(() => setRecentToast(null), 5000);
-    });
+    }, area);
 
     // Close on outside click
     const handleClickOutside = (e) => {
@@ -83,13 +88,13 @@ export default function NotificationBell({ className = '' }) {
       unsub();
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [user, userId, userRole, userCentreId, fetchNotifications]);
+  }, [user, userId, userRole, userCentreId, fetchNotifications, area]);
 
   // Mark single as read
   const handleMarkAsRead = async (id, e) => {
     e?.stopPropagation();
     try {
-      await notificationsApi.markAsRead(id);
+      await api.markAsRead(id);
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, read: true, channels: { ...n.channels, inApp: { status: 'read' } } } : n))
       );
@@ -102,7 +107,7 @@ export default function NotificationBell({ className = '' }) {
   // Mark all as read
   const handleMarkAllAsRead = async () => {
     try {
-      await notificationsApi.markAllAsRead();
+      await api.markAllAsRead();
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, read: true, channels: { ...n.channels, inApp: { status: 'read' } } }))
       );

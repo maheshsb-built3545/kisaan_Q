@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi } from '../api/auth.api';
+import { destroySocket } from '../services/socketService';
 
 const AuthContext = createContext(null);
 
@@ -226,6 +227,7 @@ export const AuthProvider = ({ children }) => {
    * Logout Farmer specifically (Preserves staff session!)
    */
   const logoutFarmer = useCallback(() => {
+    destroySocket('farmer');
     setFarmerToken(null);
     setFarmerUser(null);
     localStorage.removeItem('kisanq_farmer_token');
@@ -241,6 +243,7 @@ export const AuthProvider = ({ children }) => {
    * Logout Staff specifically (Preserves farmer session!)
    */
   const logoutStaff = useCallback(() => {
+    destroySocket('staff');
     setStaffToken(null);
     setStaffUser(null);
     localStorage.removeItem('kisanq_staff_token');

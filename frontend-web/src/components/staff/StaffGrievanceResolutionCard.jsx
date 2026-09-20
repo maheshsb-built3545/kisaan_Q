@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldAlert, CheckCircle2, Clock, AlertCircle, Loader2, MessageSquare, Filter, XCircle } from 'lucide-react';
-import { complaintsApi } from '../../api';
+import { staffComplaintsApi } from '../../api/complaints.api';
 
 export default function StaffGrievanceResolutionCard({ centreId, userRole }) {
   const [complaints, setComplaints] = useState([]);
@@ -17,7 +17,7 @@ export default function StaffGrievanceResolutionCard({ centreId, userRole }) {
       const params = {};
       if (centreId && centreId !== 'ALL') params.centreId = centreId;
       if (sourceFilter !== 'ALL') params.source = sourceFilter;
-      const res = await complaintsApi.getComplaints(params);
+      const res = await staffComplaintsApi.getComplaints(params);
       if (res?.success) {
         setComplaints(res.data?.complaints || []);
       }
@@ -42,7 +42,7 @@ export default function StaffGrievanceResolutionCard({ centreId, userRole }) {
 
     try {
       setActionLoading(true);
-      const res = await complaintsApi.resolveComplaint(id, {
+      const res = await staffComplaintsApi.resolveComplaint(id, {
         status,
         resolutionNotes: notes.trim()
       });

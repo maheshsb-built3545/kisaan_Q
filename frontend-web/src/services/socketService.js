@@ -4,39 +4,57 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ||
   (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5000');
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-let socket = null;
+// Area-keyed socket singletons: 'farmer' and 'staff' are fully independent.
+const sockets = {};
 const connectionListeners = new Set();
 
 /**
- * Initialize or get singleton Socket.IO client
+ * Get or create the Socket.IO singleton for the given area.
+ * area = 'farmer' | 'staff'
+ * Each area picks its own JWT from localStorage — no cross-fallback.
  */
-export function getSocket() {
-  if (!socket) {
-    socket = io(SOCKET_URL, {
+export function getSocket(area = 'farmer') {
+  if (!sockets[area]) {
+    const token = area === 'staff'
+      ? localStorage.getItem('kisanq_staff_token')
+      : localStorage.getItem('kisanq_farmer_token');
+
+    sockets[area] = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 10000,
-      withCredentials: true
+      withCredentials: true,
+      auth: token ? { token } : undefined
     });
 
-    socket.on('connect', () => {
-      console.log('⚡ [Socket.IO] Connected to KisanQ Real-Time Gateway:', socket.id);
-      connectionListeners.forEach((cb) => cb(true, socket.id));
+    sockets[area].on('connect', () => {
+      console.log(`⚡ [Socket.IO:${area}] Connected to KisanQ Real-Time Gateway:`, sockets[area].id);
+      connectionListeners.forEach((cb) => cb(true, sockets[area].id));
     });
 
-    socket.on('disconnect', (reason) => {
-      console.warn('⚡ [Socket.IO] Disconnected from Real-Time Gateway:', reason);
+    sockets[area].on('disconnect', (reason) => {
+      console.warn(`⚡ [Socket.IO:${area}] Disconnected from Real-Time Gateway:`, reason);
       connectionListeners.forEach((cb) => cb(false, null));
     });
 
-    socket.on('connect_error', (err) => {
-      console.debug('⚡ [Socket.IO] Connection error (falling back to polling):', err.message);
+    sockets[area].on('connect_error', (err) => {
+      console.debug(`⚡ [Socket.IO:${area}] Connection error (falling back to polling):`, err.message);
       connectionListeners.forEach((cb) => cb(false, null));
     });
   }
-  return socket;
+  return sockets[area];
+}
+
+/**
+ * Disconnect and destroy the socket for a given area (called on logout).
+ */
+export function destroySocket(area = 'farmer') {
+  if (sockets[area]) {
+    sockets[area].disconnect();
+    delete sockets[area];
+  }
 }
 
 /**
@@ -100,10 +118,10 @@ export function leaveCentreQueue(centreId) {
 }
 
 /**
- * Join Global Admin Room
+ * Join Global Admin Room — uses staff socket
  */
 export function joinAdminRoom() {
-  const s = getSocket();
+  const s = getSocket('staff');
   if (s && s.connected) {
     s.emit('join_admin');
   } else if (s) {
@@ -276,10 +294,11 @@ export async function triggerHardwareSimulation({ mandiId = 'KPG-01', device, ac
 }
 
 /**
- * Join Personal User Notification Room
+ * Join Personal User Notification Room.
+ * area = 'farmer' (default) | 'staff'
  */
-export function joinUserRoom(userId) {
-  const s = getSocket();
+export function joinUserRoom(userId, area = 'farmer') {
+  const s = getSocket(area);
   if (s && s.connected) {
     s.emit('join_user', userId);
   } else if (s) {
@@ -288,10 +307,10 @@ export function joinUserRoom(userId) {
 }
 
 /**
- * Join Staff Role & Centre Notification Room
+ * Join Staff Role & Centre Notification Room — uses staff socket
  */
 export function joinStaffRole(role, centreId) {
-  const s = getSocket();
+  const s = getSocket('staff');
   const payload = { role, centreId };
   if (s && s.connected) {
     s.emit('join_staff_role', payload);
@@ -301,10 +320,11 @@ export function joinStaffRole(role, centreId) {
 }
 
 /**
- * Subscribe to real-time notification:new events
+ * Subscribe to real-time notification:new events.
+ * area = 'farmer' (default) | 'staff'
  */
-export function onNotificationNew(callback) {
-  const s = getSocket();
+export function onNotificationNew(callback, area = 'farmer') {
+  const s = getSocket(area);
   s.on('notification:new', callback);
   return () => s.off('notification:new', callback);
 }

@@ -3,35 +3,19 @@ import axios from 'axios';
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 /**
- * Centralized Axios instance configured for KisanQ API
+ * FARMER Axios instance — reads ONLY kisanq_farmer_token.
+ * No fallback to staff token.
+ * Use for all farmer-area API calls.
  */
-const apiClient = axios.create({
+const farmerClient = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
-apiClient.interceptors.request.use(
+farmerClient.interceptors.request.use(
   (config) => {
-    const isStaffArea = typeof window !== 'undefined' && (
-      window.location.pathname.startsWith('/staff') ||
-      window.location.pathname.startsWith('/admin') ||
-      window.location.pathname.startsWith('/supervisor') ||
-      window.location.pathname.startsWith('/guard') ||
-      window.location.pathname.startsWith('/weighmaster') ||
-      window.location.pathname.startsWith('/planning')
-    );
-
-    const staffToken = localStorage.getItem('kisanq_staff_token') || localStorage.getItem('kq_staff_token');
-    const farmerToken = localStorage.getItem('kisanq_farmer_token') || localStorage.getItem('kq_farmer_token');
-
-    let token = isStaffArea ? (staffToken || farmerToken) : (farmerToken || staffToken);
-    if (!token) {
-      token = localStorage.getItem('kq_token') || localStorage.getItem('token');
-    }
-
+    const token = localStorage.getItem('kisanq_farmer_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -41,34 +25,59 @@ apiClient.interceptors.request.use(
 );
 
 /**
- * Response Interceptor
- * Formats API errors and handles authentication expiration smoothly
+ * STAFF Axios instance — reads ONLY kisanq_staff_token.
+ * No fallback to farmer token.
+ * Use for all staff/officer/supervisor/admin API calls.
  */
-apiClient.interceptors.response.use(
-  (response) => {
-    // Return standard response
-    return response;
-  },
-  (error) => {
-    if (error.response) {
-      const status = error.response.status;
-      const message = error.response.data?.message || 'Server error occurred';
+const staffClient = axios.create({
+  baseURL: BASE_URL,
+  timeout: 15000,
+  headers: { 'Content-Type': 'application/json' },
+});
 
-      if (status === 401) {
-        console.warn(`[API 401 Unauthorized]: ${message}`);
-        // Do not perform hard page reload; contexts and route guards will handle redirection
-      } else if (status === 403) {
-        console.warn(`[API 403 Forbidden]: ${message}`);
-      } else if (status >= 500) {
-        console.error(`[API 500 Internal Error]: ${message}`);
-      }
-    } else if (error.request) {
-      console.error('[API Network Error]: No response received from server');
+staffClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('kisanq_staff_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-
-    return Promise.reject(error);
-  }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
+/**
+ * Shared response interceptor factory — formats errors consistently
+ */
+function attachResponseInterceptor(instance) {
+  instance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'Server error occurred';
+        if (status === 401) {
+          console.warn(`[API 401 Unauthorized]: ${message}`);
+        } else if (status === 403) {
+          console.warn(`[API 403 Forbidden]: ${message}`);
+        } else if (status >= 500) {
+          console.error(`[API 500 Internal Error]: ${message}`);
+        }
+      } else if (error.request) {
+        console.error('[API Network Error]: No response received from server');
+      }
+      return Promise.reject(error);
+    }
+  );
+}
+
+attachResponseInterceptor(farmerClient);
+attachResponseInterceptor(staffClient);
+
+// Legacy default export — NOT used by any new module.
+// Kept only so any module that has not been migrated still compiles.
+// It reads farmer token with NO staff fallback.
+const apiClient = farmerClient;
+
 export default apiClient;
-export { BASE_URL };
+export { farmerClient, staffClient, BASE_URL };

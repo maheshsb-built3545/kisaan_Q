@@ -1,11 +1,11 @@
-import apiClient from './client';
+import { farmerClient, staffClient } from './client';
 
 export const authApi = {
   /**
-   * Request OTP for farmer login / registration
+   * Request OTP for farmer login / registration (no auth token needed yet)
    */
   requestFarmerOtp: async ({ phone, name, preferredLanguage, registeredVia, passcode, mode }) => {
-    const res = await apiClient.post('/auth/farmer/request-otp', {
+    const res = await farmerClient.post('/auth/farmer/request-otp', {
       phone,
       name,
       preferredLanguage,
@@ -17,10 +17,10 @@ export const authApi = {
   },
 
   /**
-   * Verify OTP and complete farmer authentication
+   * Verify OTP and complete farmer authentication (no auth token needed yet)
    */
   verifyFarmerOtp: async ({ phone, otp, name, preferredLanguage, registeredVia, passcode, mode }) => {
-    const res = await apiClient.post('/auth/farmer/verify-otp', {
+    const res = await farmerClient.post('/auth/farmer/verify-otp', {
       phone,
       otp,
       name,
@@ -33,10 +33,10 @@ export const authApi = {
   },
 
   /**
-   * Step 1: Staff Role & Credential Match
+   * Step 1: Staff Role & Credential Match (no auth token needed yet)
    */
   verifyStaffCredentials: async ({ mobileNumber, phone, password, role }) => {
-    const res = await apiClient.post('/auth/staff/verify-credentials', {
+    const res = await staffClient.post('/auth/staff/verify-credentials', {
       mobileNumber: mobileNumber || phone,
       phone: phone || mobileNumber,
       password,
@@ -46,10 +46,10 @@ export const authApi = {
   },
 
   /**
-   * Step 2: Clean OTP Verification
+   * Step 2: Staff OTP Verification (no auth token needed yet — challenge token in body)
    */
   verifyStaffOtp: async ({ challengeToken, otp }) => {
-    const res = await apiClient.post('/auth/staff/verify-otp', {
+    const res = await staffClient.post('/auth/staff/verify-otp', {
       challengeToken,
       otp,
     });
@@ -57,10 +57,10 @@ export const authApi = {
   },
 
   /**
-   * Dynamic Mandi Center Switching (PATCH /api/auth/staff/switch-centre)
+   * Dynamic Mandi Center Switching — uses staffClient (requires active staff token)
    */
   switchStaffCenter: async ({ targetMandiId, targetMandiName }) => {
-    const res = await apiClient.patch('/auth/staff/switch-centre', {
+    const res = await staffClient.patch('/auth/staff/switch-centre', {
       targetMandiId,
       targetMandiName,
     });
@@ -68,10 +68,10 @@ export const authApi = {
   },
 
   /**
-   * Legacy Staff login with name/phone and password
+   * Legacy Staff login with name/phone and password — uses staffClient
    */
   staffLogin: async ({ name, phone, password }) => {
-    const res = await apiClient.post('/auth/staff/login', {
+    const res = await staffClient.post('/auth/staff/login', {
       name,
       phone,
       password,
@@ -80,10 +80,10 @@ export const authApi = {
   },
 
   /**
-   * Staff registration (internal onboarding)
+   * Staff registration (internal onboarding) — uses staffClient
    */
   staffRegister: async ({ name, role, centreId, password, officerCode, deskName, terminalLane, assignedMandi }) => {
-    const res = await apiClient.post('/auth/staff/register', {
+    const res = await staffClient.post('/auth/staff/register', {
       name,
       role,
       centreId,
@@ -97,25 +97,23 @@ export const authApi = {
   },
 
   /**
-   * Fetch current authenticated user profile
+   * Fetch current authenticated user profile — uses staffClient (called during staff session validation)
    */
   getMe: async () => {
-    const res = await apiClient.get('/auth/me');
+    const res = await staffClient.get('/auth/me');
     return res.data;
   },
 
   /**
-   * Save or update farmer pickup location pin
+   * Save or update farmer pickup location pin — uses farmerClient
    */
   updatePickupLocation: async ({ latitude, longitude, address, phone }) => {
-    const res = await apiClient.patch('/farmers/pickup-location', {
+    const res = await farmerClient.patch('/farmers/pickup-location', {
       latitude,
       longitude,
       address,
-      phone
+      phone,
     });
     return res.data;
   },
 };
-
-

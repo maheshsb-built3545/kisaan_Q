@@ -159,7 +159,7 @@ async function runTests() {
       crop: 'Soybean',
       quantity: 25,
       slotDate: todayStr,
-      slotTime: '14:00 - 17:00',
+      slotTime: '20:00 - 23:00',
       vehicleNumber: `MH-17-FT-${String(idx).padStart(4, '0')}`
     });
 

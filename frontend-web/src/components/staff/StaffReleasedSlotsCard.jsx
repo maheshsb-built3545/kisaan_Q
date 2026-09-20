@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { History, Clock, ArrowRight, Loader2, Sparkles } from 'lucide-react';
-import { waitlistApi } from '../../api';
+import { staffWaitlistApi } from '../../api/waitlist.api';
 
 export default function StaffReleasedSlotsCard({ centreId }) {
   const [offers, setOffers] = useState([]);
@@ -10,7 +10,7 @@ export default function StaffReleasedSlotsCard({ centreId }) {
     if (!centreId) return;
     try {
       setLoading(true);
-      const res = await waitlistApi.getOffers({ centreId });
+      const res = await staffWaitlistApi.getOffers({ centreId });
       if (res?.success) {
         setOffers(res.data?.offers || []);
       }

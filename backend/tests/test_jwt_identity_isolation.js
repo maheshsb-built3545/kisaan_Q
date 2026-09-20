@@ -76,7 +76,7 @@ async function runTests() {
     mandiName: 'APMC Kopargaon',
     crop: 'Soybean',
     quantity: 25,
-    status: 'Booked',
+    status: 'GATE_IN',
     slotDate: 'Today',
     slotTime: 'Morning 08:00 – 11:00 AM'
   });
