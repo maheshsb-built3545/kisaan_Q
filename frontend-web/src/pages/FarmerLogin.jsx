@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Sprout, Phone, User, Lock, Globe, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { demoApi } from '../api/demo.api';
+import { Sprout, Phone, User, Lock, Globe, ArrowRight, ShieldCheck, Sparkles, FlaskConical, Loader2 } from 'lucide-react';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
 
 export default function FarmerLogin() {
   const navigate = useNavigate();
-  const { farmerOtpRequest, clearFarmerSession } = useAuth();
+  const { farmerOtpRequest, clearFarmerSession, demoFarmerLogin } = useAuth();
 
   const [phone, setPhone] = useState('');
   const [passcode, setPasscode] = useState('');
@@ -15,6 +16,17 @@ export default function FarmerLogin() {
   const [preferredLanguage, setPreferredLanguage] = useState('mr');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Demo mode state
+  const [demoEnabled, setDemoEnabled] = useState(false);
+  const [demoLoggingIn, setDemoLoggingIn] = useState(null); // profile key being logged in
+
+  // Check demo status on mount
+  useEffect(() => {
+    demoApi.getDemoStatus()
+      .then(res => setDemoEnabled(res?.data?.enabled === true))
+      .catch(() => setDemoEnabled(false));
+  }, []);
 
   // Clear any existing stale farmer session on mount
   React.useEffect(() => {
@@ -82,6 +94,49 @@ export default function FarmerLogin() {
     setName(demoName);
     setPasscode(demoPasscode);
     setError('');
+  };
+
+  // Demo profiles for the one-click section
+  const DEMO_PROFILES = [
+    {
+      key: 'ramesh_kadam',
+      name: 'Ramesh Kadam',
+      phone: '9800100001',
+      subtitle: 'Active booking · Fast-track · Waitlist offer',
+      badge: 'Hero'
+    },
+    {
+      key: 'sunil_shinde',
+      name: 'Sunil Shinde',
+      phone: '9800100002',
+      subtitle: 'Live assaying token · Open complaint',
+      badge: 'Grievance'
+    },
+    {
+      key: 'dattatray_pawar',
+      name: 'Dattatray Pawar',
+      phone: '9800100003',
+      subtitle: 'Waitlist candidate',
+      badge: 'Waitlist'
+    }
+  ];
+
+  const handleDemoLogin = async (profileKey) => {
+    try {
+      setDemoLoggingIn(profileKey);
+      setError('');
+      const res = await demoFarmerLogin(profileKey);
+      if (res?.data?.landingPath) {
+        navigate(res.data.landingPath);
+      } else {
+        navigate('/farmer-dashboard');
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || 'Demo login failed';
+      setError(msg);
+    } finally {
+      setDemoLoggingIn(null);
+    }
   };
 
   return (
@@ -227,6 +282,70 @@ export default function FarmerLogin() {
                   <div className="font-semibold text-slate-200">Sunil Shinde</div>
                   <div className="text-[10px] text-slate-500">9800100002 (Kolpewadi)</div>
                 </button>
+              </div>
+            </div>
+          )}
+          {/* Demo Farmer Login Section — shown only when DEMO_MODE=true */}
+          {demoEnabled && (
+            <div
+              id="demo-farmer-section"
+              className="mt-6 pt-5 border-t border-amber-500/20"
+              style={{
+                background: 'linear-gradient(135deg, rgba(251,191,36,0.04) 0%, transparent 100%)',
+                borderRadius: '12px',
+                padding: '16px',
+                marginTop: '20px',
+                border: '1px solid rgba(251,191,36,0.2)'
+              }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <FlaskConical className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Demo Farmer Login</span>
+                <span className="ml-auto text-[10px] text-slate-500">One click · No OTP required</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {DEMO_PROFILES.map((profile) => (
+                  <button
+                    key={profile.key}
+                    id={`demo-farmer-btn-${profile.key}`}
+                    type="button"
+                    onClick={() => handleDemoLogin(profile.key)}
+                    disabled={demoLoggingIn !== null}
+                    className="text-left p-3 rounded-xl border transition-all duration-150 hover:border-amber-500/50 hover:bg-amber-500/5 disabled:opacity-60 disabled:cursor-not-allowed"
+                    style={{
+                      background: 'rgba(15,23,42,0.8)',
+                      border: '1px solid rgba(251,191,36,0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-200">{profile.name}</span>
+                        <span style={{
+                          fontSize: '9px',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          background: 'rgba(251,191,36,0.15)',
+                          color: '#fbbf24',
+                          border: '1px solid rgba(251,191,36,0.3)',
+                          letterSpacing: '0.05em',
+                          textTransform: 'uppercase',
+                          fontWeight: 600
+                        }}>{profile.badge}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">{profile.phone} · {profile.subtitle}</div>
+                    </div>
+                    <div className="flex items-center">
+                      {demoLoggingIn === profile.key ? (
+                        <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                      ) : (
+                        <ArrowRight className="w-4 h-4 text-amber-400/60" />
+                      )}
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           )}

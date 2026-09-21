@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import GovHeader from '../components/common/GovHeader';
+import DemoBanner from '../components/common/DemoBanner';
 import PickupLocationPicker from '../components/common/PickupLocationPicker';
 import VoiceBookingModal from '../components/farmer/VoiceBookingModal';
 import FarmerWaitlistOffersCard from '../components/farmer/FarmerWaitlistOffersCard';
@@ -2387,6 +2388,7 @@ export default function FarmerCommandCenter() {
 
   return (
     <div className="min-h-screen bg-slate-50 relative">
+      <DemoBanner area="farmer" />
       {/* ── Real-Time Live Officer Sign-Off Toast ─────────────────────────────── */}
       {liveOfficerToast && (
         <div className="fixed top-20 right-6 z-50 animate-bounce bg-emerald-950 border-2 border-emerald-400 text-white px-5 py-4 rounded-2xl shadow-2xl backdrop-blur-md max-w-sm flex items-start gap-3">
