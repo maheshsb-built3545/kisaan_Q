@@ -78,7 +78,7 @@ const FARMERS = [
     name: 'Ramesh Kadam',
     village: 'Kolpewadi',
     crop: 'Soybean',
-    landArea: 8.5,
+    landArea: 20.0,
     preferredLanguage: 'mr',
     vehicleNumber: 'MH-17-BY-5124',
     pickupLocation: { type: 'Point', coordinates: [74.4789, 19.8824], address: 'Kolpewadi, Kopargaon' },
@@ -90,7 +90,7 @@ const FARMERS = [
       village: 'Kolpewadi',
       taluka: 'Kopargaon',
       district: 'Ahilyanagar',
-      areaAcres: 8.5,
+      areaAcres: 20.0,
       ownershipType: 'owner',
       ownerNameOn712: 'रमेश विठ्ठल कदम',
       source: 'auto_filled',
@@ -182,7 +182,7 @@ const FARMERS = [
     name: 'Suresh Patil',
     village: 'Dodi',
     crop: 'Soybean',
-    landArea: 3.5,
+    landArea: 6.0,
     preferredLanguage: 'mr',
     vehicleNumber: 'MH-17-DH-5566',
     pickupLocation: { type: 'Point', coordinates: [74.4400, 19.8500], address: 'Dodi, Kopargaon' },
@@ -194,7 +194,7 @@ const FARMERS = [
       village: 'Dodi',
       taluka: 'Kopargaon',
       district: 'Ahilyanagar',
-      areaAcres: 3.5,
+      areaAcres: 6.0,
       ownershipType: 'owner',
       ownerNameOn712: 'सुरेश बापू पाटील',
       source: 'auto_filled',
@@ -1769,9 +1769,9 @@ async function seedShowcase() {
   const anom2Tok = await Token.create({
     tokenNumber: 'KQ-KPG-2026-3902',
     id: 'KQ-KPG-2026-3902',
-    farmerName: FARMERS[3].name,
-    farmerPhone: FARMERS[3].phone,
-    farmerId: FARMERS[3]._id,
+    farmerName: 'Commercial Multi-Axle Lot',
+    farmerPhone: '9800990099',
+    farmerId: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9f777'),
     mandiId: 'KPG-01',
     mandiName: MANDI_NAME,
     crop: 'Soybean',
@@ -1781,13 +1781,13 @@ async function seedShowcase() {
     slotTime: '08:00 AM - 06:00 PM',
     status: 'In-Progress',
     currentStageIndex: 2,
-    vehicleNumber: FARMERS[3].vehicleNumber,
+    vehicleNumber: 'MH-17-TR-9999',
     stages: build5Stages({ gateStatus: 'Completed', assayStatus: 'Completed', weighStatus: 'In Progress' }),
     createdAt: new Date(),
     seedBatch: SEED_BATCH
   });
   const anom2Book = await Booking.create({
-    farmerId: FARMERS[3]._id,
+    farmerId: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9f777'),
     centreId: KPG_CENTRE_OBJECT_ID,
     crop: 'Soybean',
     quantityBand: '15q+',
@@ -1957,7 +1957,7 @@ async function seedShowcase() {
     {
       bookingId: bSunilActive._id,
       type: 'quality_dispute',
-      reasonCode: '[Rule-Based Yield Warning] Booked quantity (25.00 Qtl) exceeds expected max (18.00 Qtl) for declared land 1.5 Acres (Assumed Yield: 8 Qtl/Acre × 1.5 tolerance)',
+      reasonCode: '[Rule-Based Yield Warning] [Token: KQ-KPG-2026-6286] Booked quantity (25.00 Qtl) exceeds expected max (18.00 Qtl) for declared land 1.5 Acres (Assumed Yield: 8 Qtl/Acre × 1.5 tolerance)',
       raisedBy: supervisorUser._id,
       supervisorOverride: false,
       seedBatch: SEED_BATCH,
@@ -2107,8 +2107,9 @@ async function seedShowcase() {
   let tokenSeq = 1;
   for (const sc of STAGE_CONFIGS) {
     for (let j = 0; j < sc.count; j++) {
-      const fIdx = (tokenSeq + j) % FARMERS.length;
-      const f = FARMERS[fIdx];
+      const fIdx = (tokenSeq + j) % 20;
+      const yardPhone = `980099${String(fIdx + 1).padStart(4, '0')}`;
+      const yardFarmerName = `Yard Lot Farmer #${fIdx + 1}`;
       const tNum = `${sc.prefix}${String(j + 1).padStart(2, '0')}`;
       const isComp = sc.status === 'COMPLETED';
       const cTime = isComp ? new Date(Date.now() - (j + 1) * 3600000) : new Date();
@@ -2122,12 +2123,12 @@ async function seedShowcase() {
       await Token.create({
         tokenNumber: tNum,
         id: tNum,
-        farmerName: f.name,
-        farmerPhone: f.phone,
-        farmerId: f._id,
+        farmerName: yardFarmerName,
+        farmerPhone: yardPhone,
+        farmerId: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9f888'),
         mandiId: 'KPG-01',
         mandiName: MANDI_NAME,
-        crop: f.crop,
+        crop: 'Soybean',
         quantity: 20 + ((j * 7) % 30),
         quantityBand: '15q+',
         slotDate: t.dateStr,
@@ -2135,7 +2136,7 @@ async function seedShowcase() {
         slotLabel: '08:00 AM - 06:00 PM',
         status: sc.status,
         currentStageIndex: sc.stageIdx,
-        vehicleNumber: f.vehicleNumber,
+        vehicleNumber: `MH-17-YD-${String(fIdx + 1000)}`,
         stages: build5Stages({
           gateStatus: sc.stageIdx >= 0 && sc.status !== 'BOOKED' ? 'Completed' : 'Pending', gateTime: gTime,
           assayStatus: sc.stageIdx >= 1 ? (isComp || sc.stageIdx > 1 ? 'Completed' : 'In Progress') : 'Pending', assayTime: aTime,
@@ -2159,18 +2160,18 @@ async function seedShowcase() {
 
   for (const oc of OTHER_CENTRES) {
     for (let k = 0; k < 5; k++) {
-      const f = FARMERS[(k + 6) % FARMERS.length];
+      const yardPhone = `980098${String(k + 1).padStart(4, '0')}`;
       const tkNum = `${oc.prefix}${k + 1}`;
       const cTime = new Date(Date.now() - (k + 1) * 3600000);
       await Token.create({
         tokenNumber: tkNum,
         id: tkNum,
-        farmerName: f.name,
-        farmerPhone: f.phone,
-        farmerId: f._id,
+        farmerName: `Baseline Yard Farmer #${k + 1}`,
+        farmerPhone: yardPhone,
+        farmerId: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9f888'),
         mandiId: oc.code,
         mandiName: oc.name,
-        crop: f.crop,
+        crop: 'Soybean',
         quantity: 25,
         quantityBand: '15q+',
         slotDate: t.dateStr,
@@ -2255,18 +2256,21 @@ async function seedShowcase() {
     110  // Day 6           -> Red
   ];
 
+  const bgFarmerId = new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9f999');
+  const bgCrops = ['Soybean', 'Wheat', 'Cotton', 'Onion', 'Maize'];
+
   for (let d = 0; d < 7; d++) {
     const dStr = getOffsetDateStr(d);
     const count = KPG_DAILY_BOOKINGS[d];
     const bDocs = [];
     for (let b = 0; b < count; b++) {
-      const f = FARMERS[b % FARMERS.length];
+      const crop = bgCrops[b % bgCrops.length];
       const startT = new Date(`${dStr}T09:00:00.000Z`);
       const endT = new Date(`${dStr}T10:00:00.000Z`);
       bDocs.push({
-        farmerId: f._id,
+        farmerId: bgFarmerId,
         centreId: KPG_CENTRE_OBJECT_ID,
-        crop: f.crop,
+        crop,
         quantityBand: '15q+',
         arrivalWindowStart: startT,
         arrivalWindowEnd: endT,
@@ -2294,13 +2298,13 @@ async function seedShowcase() {
       const count = pattern[d];
       const bDocs = [];
       for (let b = 0; b < count; b++) {
-        const f = FARMERS[b % FARMERS.length];
+        const crop = bgCrops[b % bgCrops.length];
         const startT = new Date(`${dStr}T09:00:00.000Z`);
         const endT = new Date(`${dStr}T10:00:00.000Z`);
         bDocs.push({
-          farmerId: f._id,
+          farmerId: bgFarmerId,
           centreId: centre.objectId,
-          crop: f.crop,
+          crop,
           quantityBand: '15q+',
           arrivalWindowStart: startT,
           arrivalWindowEnd: endT,

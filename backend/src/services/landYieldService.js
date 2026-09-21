@@ -4,11 +4,12 @@
  * Rules:
  * 1. Expected max = areaAcres * yieldPerAcre * toleranceMultiplier (1.5).
  * 2. Compares with sum of farmer's active/completed bookings for that crop in the current season + new booking.
- * 3. Never blocks bookings: booking succeeds with warning { code: 'LAND_QUANTITY_EXCEEDS_ESTIMATE' }.
- * 4. Raises a supervisor-visible rule-based exception / anomaly flag.
- * 5. Sends a notification to the farmer.
- * 6. If farmer has no land record, returns a non-blocking reminder card (no flag).
- * 7. Yield estimates are labeled 'rule-based' and 'assumed'.
+ * 3. Count each lot ONCE: sums Tokens first and adds Bookings only when no Token exists for that booking.
+ * 4. Never blocks bookings: booking succeeds with warning { code: 'LAND_QUANTITY_EXCEEDS_ESTIMATE' }.
+ * 5. Single open supervisor-visible flag per farmer+crop+season (updates numbers instead of creating duplicates).
+ * 6. Sends a notification to the farmer.
+ * 7. If farmer has no land record, returns a non-blocking reminder card (no flag).
+ * 8. Yield estimates are labeled 'rule-based' and 'assumed'.
  */
 
 const mongoose = require('mongoose');
@@ -68,7 +69,8 @@ const landYieldService = {
   },
 
   /**
-   * Calculate total booked quantity for a farmer and crop within current season
+   * Calculate total booked quantity for a farmer and crop within current season.
+   * DEDUPLICATION: Count each lot ONCE: sum Tokens and add Bookings ONLY when no token exists for that booking.
    * Excludes CANCELLED bookings/tokens.
    * @param {Object} params
    * @param {string} params.farmerId
@@ -76,53 +78,22 @@ const landYieldService = {
    * @param {string} params.crop
    * @param {Date} [params.targetDate]
    * @param {string} [params.excludeBookingId]
+   * @returns {Promise<{ totalQuintals: number, lots: Array }>}
    */
-  getSeasonalBookedQuantity: async ({ farmerId, phone, crop, targetDate = new Date(), excludeBookingId = null }) => {
+  getSeasonalBookedQuantityWithLots: async ({ farmerId, phone, crop, targetDate = new Date(), excludeBookingId = null }) => {
     const { startDate, endDate } = getCurrentSeasonBounds(targetDate);
     const rawPhone = (phone || '').toString().trim().replace(/\D/g, '');
+    const normCrop = normalizeCropKey(crop);
+
+    const countedLots = [];
+    const countedBookingIds = new Set();
+    const countedTokenNumbers = new Set();
     let totalQuintals = 0;
 
-    // 1. Query MongoDB Bookings
     try {
       if (mongoose.connection.readyState === 1) {
-        const query = {
-          crop: new RegExp(crop, 'i'),
-          status: { $nin: ['CANCELLED', 'Cancelled'] },
-          createdAt: { $gte: startDate, $lte: endDate }
-        };
-
-        if (farmerId && mongoose.Types.ObjectId.isValid(farmerId)) {
-          query.farmerId = farmerId;
-        } else if (rawPhone) {
-          const farmerDoc = await Farmer.findOne({ phone: rawPhone });
-          if (farmerDoc) query.farmerId = farmerDoc._id;
-        }
-
-        if (excludeBookingId && mongoose.Types.ObjectId.isValid(excludeBookingId)) {
-          query._id = { $ne: excludeBookingId };
-        }
-
-        if (query.farmerId) {
-          const bookings = await Booking.find(query);
-          for (const b of bookings) {
-            // Estimate quintals from quantityBand if netWeight not recorded
-            let qtl = Number(b.netWeight) / 100 || 0;
-            if (qtl <= 0) {
-              if (b.quantityBand === '0-5q') qtl = 5;
-              else if (b.quantityBand === '5-15q') qtl = 15;
-              else if (b.quantityBand === '15q+') qtl = 25;
-              else {
-                const match = (b.quantityBand || '').match(/(\d+)/);
-                qtl = match ? Number(match[1]) : 10;
-              }
-            }
-            totalQuintals += qtl;
-          }
-        }
-
-        // Also query Tokens collection for active/completed seasonal tokens
+        // 1. Query Tokens collection first
         const tokenQuery = {
-          crop: new RegExp(crop, 'i'),
           status: { $nin: ['CANCELLED', 'Cancelled'] },
           createdAt: { $gte: startDate, $lte: endDate }
         };
@@ -139,20 +110,86 @@ const landYieldService = {
 
         const tokens = await Token.find(tokenQuery);
         for (const t of tokens) {
-          const qtl = Number(t.quantity) || 10;
+          if (normalizeCropKey(t.crop) !== normCrop) continue;
+
+          let qtl = Number(t.quantity) || 10;
+          if (t.bookingId) countedBookingIds.add(t.bookingId.toString());
+          if (t.tokenNumber) countedTokenNumbers.add(t.tokenNumber.toString());
+
           totalQuintals += qtl;
+          countedLots.push({
+            type: 'token',
+            id: t._id.toString(),
+            tokenNumber: t.tokenNumber,
+            bookingId: t.bookingId?.toString() || null,
+            crop: t.crop,
+            quantity: qtl,
+            status: t.status
+          });
+        }
+
+        // 2. Query Bookings collection — add ONLY if not already counted as a token
+        const bookingQuery = {
+          status: { $nin: ['CANCELLED', 'Cancelled'] },
+          createdAt: { $gte: startDate, $lte: endDate }
+        };
+
+        if (farmerId && mongoose.Types.ObjectId.isValid(farmerId)) {
+          bookingQuery.farmerId = farmerId;
+        } else if (rawPhone) {
+          const farmerDoc = await Farmer.findOne({ phone: rawPhone });
+          if (farmerDoc) bookingQuery.farmerId = farmerDoc._id;
+        }
+
+        if (excludeBookingId && mongoose.Types.ObjectId.isValid(excludeBookingId)) {
+          bookingQuery._id = { $ne: excludeBookingId };
+        }
+
+        if (bookingQuery.farmerId) {
+          const bookings = await Booking.find(bookingQuery);
+          for (const b of bookings) {
+            if (normalizeCropKey(b.crop) !== normCrop) continue;
+
+            const bIdStr = b._id.toString();
+            if (countedBookingIds.has(bIdStr) || (b.tokenNumber && countedTokenNumbers.has(b.tokenNumber))) {
+              // Already counted as a token — skip double counting
+              continue;
+            }
+
+            let qtl = Number(b.netWeight) / 100 || 0;
+            if (qtl <= 0) {
+              if (b.quantityBand === '0-5q') qtl = 5;
+              else if (b.quantityBand === '5-15q') qtl = 15;
+              else if (b.quantityBand === '15q+') qtl = 25;
+              else {
+                const match = (b.quantityBand || '').match(/(\d+)/);
+                qtl = match ? Number(match[1]) : 10;
+              }
+            }
+
+            countedBookingIds.add(bIdStr);
+            totalQuintals += qtl;
+            countedLots.push({
+              type: 'booking',
+              id: bIdStr,
+              tokenNumber: b.tokenNumber || null,
+              crop: b.crop,
+              quantity: qtl,
+              status: b.status
+            });
+          }
         }
       }
     } catch (dbErr) {
       logger.warn(`[LandYield] Seasonal booking sum DB error: ${dbErr.message}`);
     }
 
-    // 2. In-memory Bookings fallback
-    if (inMemoryBookings) {
+    // In-memory fallback
+    if (inMemoryBookings && totalQuintals === 0) {
       for (const [, b] of inMemoryBookings.entries()) {
         if (excludeBookingId && b._id?.toString() === excludeBookingId.toString()) continue;
         if (['CANCELLED', 'Cancelled'].includes(b.status)) continue;
-        if (!b.crop || !b.crop.toLowerCase().includes(crop.toLowerCase())) continue;
+        if (!b.crop || normalizeCropKey(b.crop) !== normCrop) continue;
         const bDate = new Date(b.createdAt || Date.now());
         if (bDate < startDate || bDate > endDate) continue;
 
@@ -165,11 +202,30 @@ const landYieldService = {
           else if (b.quantityBand === '5-15q') qtl = 15;
           else if (b.quantityBand === '15q+') qtl = 25;
           totalQuintals += qtl;
+          countedLots.push({
+            type: 'booking_memory',
+            id: b._id?.toString() || 'mem',
+            tokenNumber: b.tokenNumber,
+            crop: b.crop,
+            quantity: qtl,
+            status: b.status
+          });
         }
       }
     }
 
-    return Math.round(totalQuintals * 100) / 100;
+    return {
+      totalQuintals: Math.round(totalQuintals * 100) / 100,
+      lots: countedLots
+    };
+  },
+
+  /**
+   * Helper returning just the total quantity
+   */
+  getSeasonalBookedQuantity: async (params) => {
+    const res = await landYieldService.getSeasonalBookedQuantityWithLots(params);
+    return res.totalQuintals;
   },
 
   /**
@@ -236,8 +292,9 @@ const landYieldService = {
     const assumedYield = yieldEst.yieldPerAcre;
     const toleranceMultiplier = yieldEst.toleranceMultiplier;
 
-    // Sum seasonal bookings prior to this booking
+    // Sum seasonal bookings prior to this booking (deduplicating lots)
     let priorSeasonalTotal = 0;
+    let countedLots = [];
     if (Array.isArray(existingActiveBookings)) {
       const normCrop = normalizeCropKey(crop);
       priorSeasonalTotal = existingActiveBookings
@@ -250,12 +307,14 @@ const landYieldService = {
         })
         .reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
     } else {
-      priorSeasonalTotal = await landYieldService.getSeasonalBookedQuantity({
+      const lotRes = await landYieldService.getSeasonalBookedQuantityWithLots({
         farmerId: targetFarmer?._id || farmerId,
         phone: targetFarmer?.phone || phone,
         crop,
         excludeBookingId: bookingId
       });
+      priorSeasonalTotal = lotRes.totalQuintals;
+      countedLots = lotRes.lots;
     }
 
     const totalSeasonalBooked = Math.round((priorSeasonalTotal + newQty) * 100) / 100;
@@ -279,11 +338,13 @@ const landYieldService = {
         totalSeasonalBooked,
         bookedQtl: totalSeasonalBooked,
         warning: null,
-        reminder: null
+        reminder: null,
+        lots: countedLots
       };
     }
 
     // QUANTITY EXCEEDS ESTIMATE
+    const tokenDisplay = tokenNumber || 'KQ-BOOKING';
     const warning = {
       code: 'LAND_QUANTITY_EXCEEDS_ESTIMATE',
       ruleLabel: 'rule-based',
@@ -295,30 +356,46 @@ const landYieldService = {
       areaAcres,
       assumedYield,
       toleranceMultiplier,
+      tokenNumber: tokenDisplay,
       farmerNotice: 'This is more than we estimate your declared land can produce. A supervisor may check this. You can still continue.'
     };
 
-    // Create supervisor-visible anomaly flag (Exception record)
+    // Create or UPDATE single OPEN supervisor-visible anomaly flag (Exception record)
     let flagRecord = null;
     try {
-      const reasonCode = `[Rule-Based Yield Warning] Booked quantity (${totalSeasonalBooked} Qtl) exceeds expected max (${expectedMax} Qtl) for declared land ${areaAcres} Acres (Assumed Yield: ${assumedYield} Qtl/Acre × 1.5 tolerance)`;
+      const reasonCode = `[Rule-Based Yield Warning] [Token: ${tokenDisplay}] Booked quantity (${totalSeasonalBooked} Qtl) exceeds expected max (${expectedMax} Qtl) for declared land ${areaAcres} Acres (Assumed Yield: ${assumedYield} Qtl/Acre × 1.5 tolerance)`;
 
-      const staffRaisedId = new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9c001'); // System / Governance bot ID
+      const staffRaisedId = new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9c001'); // Governance Desk
       const targetBookingId = bookingId && mongoose.Types.ObjectId.isValid(bookingId)
         ? bookingId
         : new mongoose.Types.ObjectId();
 
       if (mongoose.connection.readyState === 1) {
-        flagRecord = await Exception.create({
+        // Find existing open exception for this booking or farmer to avoid duplicate open flags
+        const existingOpenException = await Exception.findOne({
           bookingId: targetBookingId,
-          type: 'quality_dispute', // Maps to dispute/anomaly in unified governance desk
-          reasonCode,
-          raisedBy: staffRaisedId,
-          supervisorOverride: false,
-          overrideReason: null,
-          outcome: null
+          type: 'quality_dispute',
+          supervisorOverride: false
         });
-        logger.info(`[LandYield] Supervisor flag logged in MongoDB: ${flagRecord._id}`);
+
+        if (existingOpenException) {
+          existingOpenException.reasonCode = reasonCode;
+          existingOpenException.updatedAt = new Date();
+          await existingOpenException.save();
+          flagRecord = existingOpenException;
+          logger.info(`[LandYield] Updated existing open supervisor flag: ${flagRecord._id}`);
+        } else {
+          flagRecord = await Exception.create({
+            bookingId: targetBookingId,
+            type: 'quality_dispute',
+            reasonCode,
+            raisedBy: staffRaisedId,
+            supervisorOverride: false,
+            overrideReason: null,
+            outcome: null
+          });
+          logger.info(`[LandYield] Supervisor flag created in MongoDB: ${flagRecord._id}`);
+        }
       }
 
       // Write Audit Log
@@ -335,24 +412,23 @@ const landYieldService = {
         await AuditLog.create(auditPayload);
       }
     } catch (flagErr) {
-      logger.warn(`[LandYield] Flag creation notice: ${flagErr.message}`);
+      logger.warn(`[LandYield] Flag creation/update notice: ${flagErr.message}`);
     }
 
     // Notify farmer through notify()
     try {
       const farmerIdStr = (farmer?._id || farmerId || 'farmer').toString();
-      const tokenNum = tokenNumber || 'KQ-BOOKING';
       notificationService.notify(
         { id: farmerIdStr, type: 'farmer' },
         'land_quantity_warning',
         {
-          tokenNumber: tokenNum,
+          tokenNumber: tokenDisplay,
           crop: yieldEst.cropName,
           booked: totalSeasonalBooked,
           expected: expectedMax,
           notice: warning.farmerNotice
         },
-        { dedupeKey: `${farmerIdStr}_land_warning_${tokenNum}` }
+        { dedupeKey: `${farmerIdStr}_land_warning_${tokenDisplay}` }
       ).catch((e) => logger.warn(`[LandYield] Notification dispatch notice: ${e.message}`));
     } catch (notifErr) {
       logger.warn(`[LandYield] Notification error: ${notifErr.message}`);
@@ -374,7 +450,8 @@ const landYieldService = {
       bookedQtl: totalSeasonalBooked,
       warning,
       reminder: null,
-      flagId: flagRecord?._id || null
+      flagId: flagRecord?._id || null,
+      lots: countedLots
     };
   }
 };
