@@ -91,7 +91,7 @@ const PHYSICAL_STATION_ROLES = [
     deskName: 'APMC Secretary Procurement Terminal',
     terminalLane: 'APMC Secretary Terminal',
     terminalCode: 'SEC-PROC-01',
-    description: 'Generates purchase order bill, confirms statutory rates & weights',
+    description: 'Generates purchase order bill, confirms declared APMC rates & weights',
   },
   {
     id: 'accounts_settlement',

@@ -82,7 +82,7 @@ export const staffFastTrackApi = {
     return res.data;
   },
 
-  // Legacy / Compatibility Aliases (maps to PRD decision route with staffClient):
+  // Legacy / Compatibility Aliases (maps to official decision route with staffClient):
   getPendingRequests: async (params = {}) => {
     const res = await staffClient.get('/fasttrack/rounds', { params: { ...params, status: 'AWAITING_APPROVAL' } });
     return res.data;

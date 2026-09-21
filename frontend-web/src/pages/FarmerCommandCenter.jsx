@@ -135,7 +135,7 @@ function printStageReceipt({ token, stage }) {
       <div class="mandi-title">${token.mandiName || 'APMC Mandi'}</div>
       <div class="sub-title">National Agriculture Market (e-NAM) Electronic Physical Slip</div>
     </div>
-    <div class="badge">✓ Statutory Verified</div>
+    <div class="badge">✓ APMC Official Verified</div>
   </div>
 
   <div style="margin-bottom:16px;">
@@ -2841,7 +2841,7 @@ export default function FarmerCommandCenter() {
                         No Active Bookings — Reserve Your Arrival Slot
                       </h2>
                       <p className="text-xs sm:text-sm text-slate-300 mt-1.5 max-w-xl leading-relaxed">
-                        Book in advance to secure priority weighbridge clearance, real-time "Leave-By" GPS timing, and automated statutory MSP floor protection.
+                        Book in advance to secure priority weighbridge clearance, real-time "Leave-By" GPS timing, and automated guaranteed MSP floor protection.
                       </p>
                     </div>
 
@@ -2882,7 +2882,7 @@ export default function FarmerCommandCenter() {
                       { desk: 'Desk 2', title: 'Quality Lab', desc: 'NIR moisture & foreign matter assaying with automated FAQ grading.', icon: Leaf, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
                       { desk: 'Desk 3', title: 'Pitless Scale', desc: 'Live gross weighbridge capture with digital zero-tamper slip generation.', icon: Scale, color: 'text-purple-600 bg-purple-50 border-purple-200' },
                       { desk: 'Desk 4', title: 'Unloading Yard', desc: 'Produce transfer to official APMC storage bays & tare weight deduction.', icon: Package, color: 'text-amber-600 bg-amber-50 border-amber-200' },
-                      { desk: 'Desk 5', title: 'DBT Settlement', desc: 'Immediate statutory MSP payout settlement directly to farmer bank account.', icon: Banknote, color: 'text-emerald-700 bg-emerald-50 border-emerald-300' }
+                      { desk: 'Desk 5', title: 'DBT Settlement', desc: 'Immediate direct MSP payout settlement directly to farmer bank account.', icon: Banknote, color: 'text-emerald-700 bg-emerald-50 border-emerald-300' }
                     ].map((step, idx) => {
                       const IconComp = step.icon;
                       return (

@@ -1,7 +1,7 @@
 import { farmerClient, staffClient } from './client';
 
 /**
- * Redirect & Broadcast API client (B9)
+ * Redirect & Broadcast API client
  */
 export const redirectApi = {
   // Staff actions

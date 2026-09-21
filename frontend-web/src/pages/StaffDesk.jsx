@@ -974,7 +974,7 @@ export default function StaffDesk() {
         paymentRef: pmtRef,
         dbtStatus: 'PFMS_DISBURSEMENT_SUCCESS',
         beneficiaryName: selectedToken.farmerName,
-        accountMasked: 'SBI ········4102',
+        accountMasked: 'DBT Bank ········4102',
         grossAmount: totalCalculatedAmount,
         duesDeducted: farmerPendingDues,
         totalPaid: netDbtPayout,

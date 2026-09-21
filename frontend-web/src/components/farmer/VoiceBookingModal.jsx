@@ -598,7 +598,7 @@ export default function VoiceBookingModal({
                             <div className="grid grid-cols-3 gap-2 text-center py-1">
                               <div className="bg-slate-900/60 p-2 rounded-xl">
                                 <span className="text-[10px] text-slate-400 block">MSP (हमीभाव)</span>
-                                <strong className="text-emerald-400 text-xs">₹{msg.actionResult.statutoryMSP}</strong>
+                                <strong className="text-emerald-400 text-xs">₹{msg.actionResult.mspPrice ?? msg.actionResult.msp ?? msg.actionResult.price ?? '—'}</strong>
                               </div>
                               <div className="bg-slate-900/60 p-2 rounded-xl">
                                 <span className="text-[10px] text-slate-400 block">Today (आज)</span>

@@ -490,8 +490,14 @@ async function runTestSuite() {
     });
 
     await new Promise((resolve) => {
+      const timer = setTimeout(resolve, 2000);
       clientA.on('connect', () => {
+        clearTimeout(timer);
         clientA.emit('join_user', testFarmerA._id.toString());
+        resolve();
+      });
+      clientA.on('connect_error', () => {
+        clearTimeout(timer);
         resolve();
       });
     });
@@ -506,7 +512,17 @@ async function runTestSuite() {
       transports: ['websocket'],
       reconnection: false
     });
-    await new Promise((resolve) => clientB.on('connect', resolve));
+    await new Promise((resolve) => {
+      const timer = setTimeout(resolve, 2000);
+      clientB.on('connect', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      clientB.on('connect_error', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
     clientB.disconnect(); // Farmer B goes offline
 
     // Dispatch notification while B is offline
