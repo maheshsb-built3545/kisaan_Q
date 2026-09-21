@@ -39,7 +39,10 @@ const suites = [
   { name: 'Pilot Showcase Integrity & Real Evidence Suite (verify:showcase)', file: 'tests/verify_showcase_checks.js' },
 
   // 4. Demo Access Endpoints
-  { name: 'Demo Access Endpoints & Isolation (test:demo)', file: 'tests/test_demo.js' }
+  { name: 'Demo Access Endpoints & Isolation (test:demo)', file: 'tests/test_demo.js' },
+
+  // 5. Farmer Registration & Land Details + Quantity Check
+  { name: 'Farmer Land Record & Quantity Check Rule Suite (test:land)', file: 'tests/test_land.js' }
 ];
 
 async function runSuite(suite) {

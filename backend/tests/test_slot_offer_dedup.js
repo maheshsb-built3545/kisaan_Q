@@ -59,7 +59,7 @@ async function runTest() {
     await Token.create({
       tokenNumber: testTokenNum,
       id: testTokenNum,
-      farmerName: 'Test No-Show Farmer',
+      farmerName: 'Namdev Shinde',
       farmerPhone: '9800000098',
       phone: '9800000098',
       mandiId: 'KPG-01',
@@ -76,7 +76,7 @@ async function runTest() {
 
     await Waitlist.create({
       id: `${TEST_PREFIX}WL_01`,
-      farmerName: 'Test Waitlist Candidate',
+      farmerName: 'Balu Kadam',
       farmerPhone: testPhone,
       centreId: 'KPG-01',
       mandiId: 'KPG-01',

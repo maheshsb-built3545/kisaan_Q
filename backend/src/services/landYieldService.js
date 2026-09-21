@@ -15,6 +15,7 @@ const mongoose = require('mongoose');
 const { Farmer, Booking, Token, Exception, AuditLog } = require('../models');
 const {
   LAND_YIELD_CONFIG,
+  normalizeCropKey,
   getCropYieldConfig,
   getCurrentSeasonBounds,
   calculateExpectedMaxYield
@@ -183,23 +184,29 @@ const landYieldService = {
    * @param {string} [params.centreId]
    */
   checkLandQuantityLimit: async ({
+    farmer = null,
     farmerId,
     phone,
     crop,
     requestedQuantity,
+    newBookingQuantity,
     bookingId = null,
     tokenNumber = null,
-    centreId = 'KPG-01'
+    centreId = 'KPG-01',
+    existingActiveBookings = null
   }) => {
-    const farmer = await landYieldService.findFarmer(farmerId, phone);
-    const newQty = Number(requestedQuantity) || 10;
+    let targetFarmer = farmer;
+    if (!targetFarmer) {
+      targetFarmer = await landYieldService.findFarmer(farmerId, phone);
+    }
+    const newQty = Number(requestedQuantity !== undefined ? requestedQuantity : newBookingQuantity) || 10;
 
     // Check if farmer has valid land details
     const hasLandRecord = Boolean(
-      farmer &&
-      farmer.landRecord &&
-      typeof farmer.landRecord.areaAcres === 'number' &&
-      farmer.landRecord.areaAcres > 0
+      targetFarmer &&
+      targetFarmer.landRecord &&
+      typeof targetFarmer.landRecord.areaAcres === 'number' &&
+      targetFarmer.landRecord.areaAcres > 0
     );
 
     // If NO land record: non-blocking reminder card only, NO supervisor flag created
@@ -207,32 +214,49 @@ const landYieldService = {
       return {
         passed: true,
         isExceeded: false,
+        exceedsLimit: false,
         hasLandRecord: false,
         areaAcres: 0,
         expectedMax: null,
+        expectedMaxQtl: null,
         totalSeasonalBooked: newQty,
+        bookedQtl: newQty,
         warning: null,
         reminder: {
-          code: 'LAND_DETAILS_MISSING',
+          code: 'ADD_LAND_DETAILS',
           message: 'Add your land details to verify yield estimates & expedite mandi check-in',
           actionUrl: '/profile#land-details'
         }
       };
     }
 
-    const areaAcres = farmer.landRecord.areaAcres;
+    const areaAcres = targetFarmer.landRecord.areaAcres;
     const yieldEst = calculateExpectedMaxYield(crop, areaAcres);
     const expectedMax = yieldEst.expectedMax;
     const assumedYield = yieldEst.yieldPerAcre;
     const toleranceMultiplier = yieldEst.toleranceMultiplier;
 
     // Sum seasonal bookings prior to this booking
-    const priorSeasonalTotal = await landYieldService.getSeasonalBookedQuantity({
-      farmerId: farmer?._id || farmerId,
-      phone: farmer?.phone || phone,
-      crop,
-      excludeBookingId: bookingId
-    });
+    let priorSeasonalTotal = 0;
+    if (Array.isArray(existingActiveBookings)) {
+      const normCrop = normalizeCropKey(crop);
+      priorSeasonalTotal = existingActiveBookings
+        .filter(b => {
+          if (!b) return false;
+          const status = (b.status || '').toLowerCase();
+          if (status === 'cancelled' || status === 'canceled') return false;
+          if (normalizeCropKey(b.crop) !== normCrop) return false;
+          return true;
+        })
+        .reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
+    } else {
+      priorSeasonalTotal = await landYieldService.getSeasonalBookedQuantity({
+        farmerId: targetFarmer?._id || farmerId,
+        phone: targetFarmer?.phone || phone,
+        crop,
+        excludeBookingId: bookingId
+      });
+    }
 
     const totalSeasonalBooked = Math.round((priorSeasonalTotal + newQty) * 100) / 100;
 
@@ -243,14 +267,17 @@ const landYieldService = {
       return {
         passed: true,
         isExceeded: false,
+        exceedsLimit: false,
         hasLandRecord: true,
         areaAcres,
         expectedMax,
+        expectedMaxQtl: expectedMax,
         assumedYield,
         toleranceMultiplier,
         source: 'assumed',
         ruleLabel: 'rule-based',
         totalSeasonalBooked,
+        bookedQtl: totalSeasonalBooked,
         warning: null,
         reminder: null
       };
@@ -334,14 +361,17 @@ const landYieldService = {
     return {
       passed: true, // NON-BLOCKING: Booking still succeeds!
       isExceeded: true,
+      exceedsLimit: true,
       hasLandRecord: true,
       areaAcres,
       expectedMax,
+      expectedMaxQtl: expectedMax,
       assumedYield,
       toleranceMultiplier,
       source: 'assumed',
       ruleLabel: 'rule-based',
       totalSeasonalBooked,
+      bookedQtl: totalSeasonalBooked,
       warning,
       reminder: null,
       flagId: flagRecord?._id || null

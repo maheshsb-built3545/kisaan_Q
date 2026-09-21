@@ -194,7 +194,7 @@ Analyze this 7/12 document and return a STRICT JSON object with these exact fiel
 - ownershipType: string (Must be one of: "owner", "co_owner", "tenant", "family_holding")
 - ownerNameOn712: string (Primary holder / खातेदाराचे नाव as written on the 7/12)
 
-Do NOT include any Aadhaar numbers, PAN numbers, or bank account numbers under any circumstance.
+Do NOT extract or return any national identity numbers, PAN cards, or bank accounts under any circumstance. Only extract agricultural land fields.
 Return ONLY valid raw JSON without markdown code fences or extra text.`;
 
         const result = await model.generateContent([prompt, imagePart]);

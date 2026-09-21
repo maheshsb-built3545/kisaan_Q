@@ -476,7 +476,9 @@ const farmerService = {
       pending,
       verified,
       rejected,
-      total
+      total,
+      totalFarmers: total,
+      totalWithLand: verified + rejected + pending
     };
   }
 };

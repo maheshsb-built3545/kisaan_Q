@@ -49,8 +49,8 @@ const DEFAULT_SLOTS = CANONICAL_SLOTS;
 const SUPPORT_INFO = {
   tollFree: '1800-123-54726',
   tollFreeDisplay: '1800-123-KISAN (1800-123-54726)',
-  whatsapp: '+919876543210',
-  whatsappUrl: 'https://wa.me/919876543210?text=Hello%20KisanQ%20Support',
+  whatsapp: '+91-98765-43210',
+  whatsappUrl: 'https://wa.me/91-9876543210?text=Hello%20KisanQ%20Support',
   operatingHours: 'Voice Helpline 24x7 | Mandi Desk 07:00 AM - 07:00 PM',
   portalUrl: 'https://kisanq.gov.in'
 };

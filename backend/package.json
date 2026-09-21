@@ -24,6 +24,7 @@
     "test:isolation": "node tests/test_notification_isolation.js",
     "test:planning": "node tests/test_planning.js",
     "test:redirect": "node tests/test_redirect.js",
+    "test:land": "node tests/test_land.js",
     "test:all": "node tests/test_all_prd.js",
     "test:demo": "node tests/test_demo.js",
     "showcase:seed": "node scripts/seedShowcase.js",

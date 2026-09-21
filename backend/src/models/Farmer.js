@@ -1,8 +1,10 @@
 const mongoose = require('mongoose');
 
 /**
- * Farmer Schema
- * STRICT PRIVACY: Data Minimization applied - No Aadhaar or raw banking data stored.
+ * Farmer Model - Extended with Land Details Subdocument (Self-declared with Supervisor Verification)
+ * STRICT PRIVACY & DATA MINIMIZATION:
+ * Zero national identity document numbers or raw banking numbers stored.
+ * 7/12 documents are processed ephemerally and NEVER stored in the database.
  */
 const farmerSchema = new mongoose.Schema(
   {
