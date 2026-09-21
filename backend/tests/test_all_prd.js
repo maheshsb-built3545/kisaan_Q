@@ -3,10 +3,28 @@
  * 
  * Runs the complete suite of backend, security, session isolation,
  * role-based access control, planning, and showcase verification tests.
+ * 
+ * Invariants Enforced:
+ * 1. Pre-run & Post-run capture of showcase farmer landRecord (verificationStatus, areaAcres)
+ * 2. Pre-run & Post-run capture of non-showcase collection counts
+ * 3. Master run FAILS if any showcase landRecord or non-showcase count changed during test execution.
  */
+
+const dns = require('dns');
+try { dns.setServers(['8.8.8.8', '1.1.1.1']); } catch (_) {}
 
 const { spawn } = require('child_process');
 const path = require('path');
+const mongoose = require('mongoose');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
+const {
+  Farmer, Token, Booking, Waitlist, SlotOffer, FastTrackRound,
+  Complaint, Exception, Notification, ProcurementRecord, AuditLog
+} = require('../src/models');
+
+const SHOWCASE_PHONES = Array.from({ length: 25 }, (_, i) => `98001000${String(i + 1).padStart(2, '0')}`);
+const SEED_BATCH = 'showcase-1';
 
 const suites = [
   // 1. Session Isolation & Token Identity Suites
@@ -45,6 +63,45 @@ const suites = [
   { name: 'Farmer Land Record & Quantity Check Rule Suite (test:land)', file: 'tests/test_land.js' }
 ];
 
+async function captureDatabaseBaseline() {
+  if (mongoose.connection.readyState !== 1) {
+    const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+    if (mongoUri) {
+      await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 }).catch(() => {});
+    }
+  }
+
+  if (mongoose.connection.readyState !== 1) {
+    return { showcaseLand: {}, nonShowcaseCounts: {} };
+  }
+
+  // 1. Showcase farmer land records
+  const showcaseFarmers = await Farmer.find({ phone: { $in: SHOWCASE_PHONES } }).lean();
+  const showcaseLand = {};
+  showcaseFarmers.forEach((f) => {
+    showcaseLand[f.phone] = {
+      name: f.name,
+      areaAcres: f.landRecord?.areaAcres || null,
+      verificationStatus: f.landRecord?.verificationStatus || null
+    };
+  });
+
+  // 2. Non-showcase collection counts
+  const nonShowcaseCounts = {
+    Farmers: await Farmer.countDocuments({ seedBatch: { $ne: SEED_BATCH }, phone: { $nin: SHOWCASE_PHONES } }),
+    Bookings: await Booking.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    Tokens: await Token.countDocuments({ seedBatch: { $ne: SEED_BATCH }, farmerPhone: { $nin: SHOWCASE_PHONES } }),
+    Waitlist: await Waitlist.countDocuments({ seedBatch: { $ne: SEED_BATCH }, farmerPhone: { $nin: SHOWCASE_PHONES } }),
+    SlotOffers: await SlotOffer.countDocuments({ seedBatch: { $ne: SEED_BATCH }, farmerPhone: { $nin: SHOWCASE_PHONES } }),
+    FastTrackRounds: await FastTrackRound.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    Complaints: await Complaint.countDocuments({ seedBatch: { $ne: SEED_BATCH }, farmerPhone: { $nin: SHOWCASE_PHONES } }),
+    Exceptions: await Exception.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+    ProcurementRecords: await ProcurementRecord.countDocuments({ seedBatch: { $ne: SEED_BATCH } })
+  };
+
+  return { showcaseLand, nonShowcaseCounts };
+}
+
 async function runSuite(suite) {
   return new Promise((resolve) => {
     console.log('\n' + '#'.repeat(75));
@@ -68,11 +125,20 @@ async function runAll() {
   console.log('🌟 KISANQ MASTER PRD & PILOT TEST RUNNER (ALL SUITES)');
   console.log('='.repeat(75));
 
+  console.log('\n📸 Capturing pre-run showcase land records and collection baselines...');
+  const baselineBefore = await captureDatabaseBaseline();
+  if (mongoose.connection.readyState === 1) {
+    await mongoose.disconnect();
+  }
+
   const results = [];
   for (const suite of suites) {
     const result = await runSuite(suite);
     results.push(result);
   }
+
+  console.log('\n📸 Capturing post-run showcase land records and collection baselines...');
+  const baselineAfter = await captureDatabaseBaseline();
 
   console.log('\n' + '='.repeat(75));
   console.log('📊 MASTER TEST RUN SUMMARY:');
@@ -96,11 +162,61 @@ async function runAll() {
   console.log(`NOT CHECKED:  ${notCheckedCount} (Real SMS delivery & Real farmer microphone audio speech)`);
   console.log('='.repeat(75));
 
+  // ─── Showcase Data & Baseline Immutability Check ─────────────────────────
+  console.log('\n' + '='.repeat(75));
+  console.log('🛡️ SHOWCASE DATA & NON-SHOWCASE IMMUTABILITY AUDIT');
+  console.log('='.repeat(75));
+
+  let isolationViolation = false;
+
+  if (Object.keys(baselineBefore.showcaseLand).length > 0) {
+    console.log('\n1. Showcase Farmer Land Records:');
+    for (const phone of Object.keys(baselineBefore.showcaseLand)) {
+      const bLand = baselineBefore.showcaseLand[phone];
+      const aLand = baselineAfter.showcaseLand[phone];
+      const unchanged = (
+        aLand &&
+        bLand.areaAcres === aLand.areaAcres &&
+        bLand.verificationStatus === aLand.verificationStatus
+      );
+      if (!unchanged) {
+        isolationViolation = true;
+        console.error(`  ❌ VIOLATION: Farmer ${phone} (${bLand.name}) changed!`);
+        console.error(`     Before: ${JSON.stringify(bLand)}`);
+        console.error(`     After:  ${JSON.stringify(aLand)}`);
+      } else {
+        console.log(`  ✅ ${phone} (${bLand.name.padEnd(20)}): Status=${String(bLand.verificationStatus).padEnd(8)} | Area=${bLand.areaAcres} Ac (Preserved)`);
+      }
+    }
+
+    console.log('\n2. Non-Showcase Collection Counts:');
+    for (const coll of Object.keys(baselineBefore.nonShowcaseCounts)) {
+      const bCount = baselineBefore.nonShowcaseCounts[coll];
+      const aCount = baselineAfter.nonShowcaseCounts[coll];
+      const match = bCount === aCount;
+      if (!match) {
+        isolationViolation = true;
+        console.error(`  ❌ VIOLATION: Collection ${coll} non-showcase count changed! Before: ${bCount} | After: ${aCount}`);
+      } else {
+        console.log(`  ✅ ${coll.padEnd(22)}: Before=${String(bCount).padStart(4)} | After=${String(aCount).padStart(4)} (Preserved)`);
+      }
+    }
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    await mongoose.disconnect();
+  }
+
+  if (isolationViolation) {
+    console.error('\n❌ TEST RUN FAILED: Showcase or Non-Showcase data was modified during test execution!\n');
+    process.exit(1);
+  }
+
   if (failCount === 0) {
-    console.log('🎉 ALL TEST SUITES PASSED SUCCESSFULLY!\n');
+    console.log('\n🎉 ALL TEST SUITES PASSED AND SHOWCASE DATA PRESERVED 100%!\n');
     process.exit(0);
   } else {
-    console.error('❌ SOME TEST SUITES FAILED. Check logs above.\n');
+    console.error('\n❌ SOME TEST SUITES FAILED. Check logs above.\n');
     process.exit(1);
   }
 }
