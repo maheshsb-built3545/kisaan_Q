@@ -98,7 +98,7 @@ const DESK_CONFIGS = [
     title: 'Treasury, Auto-Deduction & PFMS/DBT Settlement',
     shortName: 'Treasury & DBT',
     stationCode: 'DBT-TRY',
-    officerDefault: 'Treasurer Deshmukh',
+    officerDefault: 'Treasury Officer Kale',
     officerCode: 'TRY-DBT-KPG',
     terminalLane: 'Accounts & DBT Payout Desk',
     icon: Banknote,

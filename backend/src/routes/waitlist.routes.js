@@ -98,10 +98,14 @@ router.get('/my', authenticateToken, async (req, res) => {
 router.get('/centre/:centreId', authenticateToken, scopeToCentre, async (req, res) => {
   try {
     const centreId = req.scopedCentreId || req.params.centreId;
-    const waitlist = await Waitlist.find({
+    const query = {
       centreId,
       status: { $in: ['WAITING', 'OFFERED'] }
-    }).sort({ priority: -1, joinedAt: 1 });
+    };
+    if (req.user?.demo) {
+      query.seedBatch = 'showcase-1';
+    }
+    const waitlist = await Waitlist.find(query).sort({ priority: -1, joinedAt: 1 });
 
     return successResponse(res, { waitlist, count: waitlist.length }, `Waitlist retrieved for centre ${centreId}`, 200);
   } catch (err) {
@@ -124,6 +128,7 @@ router.get('/offers', authenticateToken, scopeToCentre, async (req, res) => {
     }
 
     if (req.query.status) filter.status = req.query.status;
+    if (req.user?.demo) filter.seedBatch = 'showcase-1';
 
     const offers = await SlotOffer.find(filter).sort({ createdAt: -1 });
     return successResponse(res, { offers }, 'Offers retrieved', 200);

@@ -167,8 +167,13 @@ async function runTests() {
   // ─────────────────────────────────────────────────────────────────────────
   // TEST 4 & 5: Issued demo token works on normal routes; RBAC still applies
   // ─────────────────────────────────────────────────────────────────────────
-  console.log('[Test 4 & 5] Demo token works on normal routes; RBAC enforced');
+  // ─────────────────────────────────────────────────────────────────────────
+  // TEST 4 & 5: Issued demo token works on normal routes; RBAC & TTL enforced
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('[Test 4 & 5] Demo token works on normal routes; RBAC & TTL enforced');
   {
+    const jwt = require('jsonwebtoken');
+    const authService = require('../src/services/authService');
     const app = buildApp('true', 'development', undefined);
     const server = await startServer(app);
 
@@ -180,10 +185,15 @@ async function runTests() {
 
     const farmerToken = farmerLoginRes.body?.data?.token;
 
+    // Verify Demo Token TTL (default 4h = 14400s)
+    const decodedFarmer = jwt.decode(farmerToken);
+    const ttlSeconds = decodedFarmer.exp - decodedFarmer.iat;
+    assert(ttlSeconds === 4 * 3600, 'T4.4: Demo token expiry matches DEMO_TOKEN_TTL (4h = 14400s)', `got ${ttlSeconds}s`);
+
     // Test token works on /api/auth/me
     const meRes = await makeRequest(server, '/api/auth/me', 'GET', null, farmerToken);
-    assert(meRes.status === 200, 'T4.4: Demo farmer token works on /api/auth/me', `got ${meRes.status}`);
-    assert(meRes.body?.data?.user?.role === 'farmer', 'T4.5: /me returns role=farmer');
+    assert(meRes.status === 200, 'T4.5: Demo farmer token works on /api/auth/me', `got ${meRes.status}`);
+    assert(meRes.body?.data?.user?.role === 'farmer', 'T4.6: /me returns role=farmer');
 
     // Test RBAC: farmer accessing supervisor route → 403
     const supervisorRouteRes = await makeRequest(server, '/api/auth/test-supervisor-guard', 'GET', null, farmerToken);
@@ -191,58 +201,54 @@ async function runTests() {
 
     // Issue staff demo token (supervisor)
     const staffLoginRes = await makeRequest(server, '/api/auth/demo/staff', 'POST', { role: 'supervisor' });
-    assert(staffLoginRes.status === 200, 'T4.6: Staff demo login (supervisor) → 200', `got ${staffLoginRes.status}`);
-    assert(staffLoginRes.body?.data?.user?.demo === true, 'T4.7: Staff token has demo:true claim');
-    assert(staffLoginRes.body?.data?.user?.role === 'supervisor', 'T4.8: Staff token has correct role');
+    assert(staffLoginRes.status === 200, 'T5.2: Staff demo login (supervisor) → 200', `got ${staffLoginRes.status}`);
+    assert(staffLoginRes.body?.data?.user?.demo === true, 'T5.3: Staff token has demo:true claim');
+    assert(staffLoginRes.body?.data?.user?.role === 'supervisor', 'T5.4: Staff token has correct role');
 
     const staffToken = staffLoginRes.body?.data?.token;
 
     // Supervisor token on supervisor guard → 200
     const supGuardRes = await makeRequest(server, '/api/auth/test-supervisor-guard', 'GET', null, staffToken);
-    assert(supGuardRes.status === 200, 'T5.2: Demo staff (supervisor) token → 200 on supervisor route', `got ${supGuardRes.status}`);
+    assert(supGuardRes.status === 200, 'T5.5: Demo staff (supervisor) token → 200 on supervisor route', `got ${supGuardRes.status}`);
 
     // Farmer token on farmer guard → 200
     const farmerGuardRes = await makeRequest(server, '/api/auth/test-farmer-guard', 'GET', null, farmerToken);
-    assert(farmerGuardRes.status === 200, 'T5.3: Demo farmer token → 200 on farmer route', `got ${farmerGuardRes.status}`);
+    assert(farmerGuardRes.status === 200, 'T5.6: Demo farmer token → 200 on farmer route', `got ${farmerGuardRes.status}`);
 
-    await stopServer(server);
-    console.log();
-  }
+    // ─────────────────────────────────────────────────────────────────────────
+    // TEST 6: POST /api/demo/reset Auth, Rate-Limiting & Isolation
+    // ─────────────────────────────────────────────────────────────────────────
+    console.log('\n[Test 6] POST /api/demo/reset auth, rate limiting & isolation');
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // TEST 6: Demo reset isolation (requires DB)
-  // ─────────────────────────────────────────────────────────────────────────
-  console.log('[Test 6] Demo reset isolation check');
-  if (!dbConnected) {
-    console.log('  ⏭️  SKIP: MongoDB not available — cannot test reset isolation');
-    console.log();
-  } else {
-    const { Token, Booking, Waitlist, FastTrackRound } = require('../src/models');
-    const SHOWCASE_FARMER_PHONES = Array.from({ length: 25 }, (_, i) => `98001000${String(i + 1).padStart(2, '0')}`);
-    const SEED_BATCH = 'showcase-1';
+    // 6.1 No token → 401
+    const noTokenRes = await makeRequest(server, '/api/demo/reset', 'POST');
+    assert(noTokenRes.status === 401, 'T6.1: Reset with no token → 401', `got ${noTokenRes.status}`);
 
-    // Count non-showcase documents BEFORE
-    const nonShowcaseBefore = {
-      tokens: await Token.countDocuments({ farmerPhone: { $nin: SHOWCASE_FARMER_PHONES }, seedBatch: { $ne: SEED_BATCH } }),
-      bookings: await Booking.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
-      waitlist: await Waitlist.countDocuments({ farmerPhone: { $nin: SHOWCASE_FARMER_PHONES }, seedBatch: { $ne: SEED_BATCH } }),
-      fastTrackRounds: await FastTrackRound.countDocuments({ seedBatch: { $ne: SEED_BATCH } })
-    };
+    // 6.2 Real non-demo token (demo: false/undefined) → 403
+    const nonDemoToken = authService.generateToken({ id: 'real_farmer_1', phone: '9899999999', role: 'farmer' });
+    const nonDemoRes = await makeRequest(server, '/api/demo/reset', 'POST', null, nonDemoToken);
+    assert(nonDemoRes.status === 403, 'T6.2: Reset with non-demo token → 403', `got ${nonDemoRes.status}`);
 
-    console.log('  📊 Non-showcase counts BEFORE reset:');
-    Object.entries(nonShowcaseBefore).forEach(([k, v]) => console.log(`     ${k}: ${v}`));
+    if (dbConnected) {
+      const { Token, Booking, Waitlist, FastTrackRound } = require('../src/models');
+      const SHOWCASE_FARMER_PHONES = Array.from({ length: 25 }, (_, i) => `98001000${String(i + 1).padStart(2, '0')}`);
+      const SEED_BATCH = 'showcase-1';
 
-    // Build app with demo mode and get token
-    const app = buildApp('true', 'development', undefined);
-    const server = await startServer(app);
+      // Count non-showcase documents BEFORE
+      const nonShowcaseBefore = {
+        tokens: await Token.countDocuments({ farmerPhone: { $nin: SHOWCASE_FARMER_PHONES }, seedBatch: { $ne: SEED_BATCH } }),
+        bookings: await Booking.countDocuments({ seedBatch: { $ne: SEED_BATCH } }),
+        waitlist: await Waitlist.countDocuments({ farmerPhone: { $nin: SHOWCASE_FARMER_PHONES }, seedBatch: { $ne: SEED_BATCH } }),
+        fastTrackRounds: await FastTrackRound.countDocuments({ seedBatch: { $ne: SEED_BATCH } })
+      };
 
-    const farmerLoginRes = await makeRequest(server, '/api/auth/demo/farmer', 'POST', { profile: 'ramesh_kadam' });
-    const demoToken = farmerLoginRes.body?.data?.token;
+      console.log('  📊 Non-showcase counts BEFORE reset:');
+      Object.entries(nonShowcaseBefore).forEach(([k, v]) => console.log(`     ${k}: ${v}`));
 
-    // Call reset
-    const resetRes = await makeRequest(server, '/api/demo/reset', 'POST', null, demoToken);
+      // 6.3 First reset call with valid demo token → 200
+      const reset1Res = await makeRequest(server, '/api/demo/reset', 'POST', null, farmerToken);
+      assert(reset1Res.status === 200 || reset1Res.status === 503, 'T6.3: First reset with demo token → 200', `got ${reset1Res.status}`);
 
-    if (resetRes.status === 200) {
       // Count non-showcase documents AFTER
       const nonShowcaseAfter = {
         tokens: await Token.countDocuments({ farmerPhone: { $nin: SHOWCASE_FARMER_PHONES }, seedBatch: { $ne: SEED_BATCH } }),
@@ -257,16 +263,18 @@ async function runTests() {
       const allMatch = Object.keys(nonShowcaseBefore).every(
         (k) => nonShowcaseBefore[k] === nonShowcaseAfter[k]
       );
-      assert(allMatch, 'T6.1: Reset did not modify any non-showcase documents', 
+      assert(allMatch, 'T6.4: Reset did not modify any non-showcase documents (counts identical)',
         allMatch ? '' : `Before: ${JSON.stringify(nonShowcaseBefore)} After: ${JSON.stringify(nonShowcaseAfter)}`);
 
-      const isolation = resetRes.body?.data?.isolation;
-      assert(isolation?.isolationOk === true, 'T6.2: Server-side isolation check passed');
+      if (reset1Res.status === 200) {
+        assert(reset1Res.body?.data?.isolation?.isolationOk === true, 'T6.5: Server-side isolation assertion passed');
+      }
+
+      // 6.6 Rapid second reset call → 429 (Rate Limit: 1 per 30s)
+      const reset2Res = await makeRequest(server, '/api/demo/reset', 'POST', null, farmerToken);
+      assert(reset2Res.status === 429, 'T6.6: Rapid second reset → 429 Too Many Requests (Rate limit enforced)', `got ${reset2Res.status}`);
     } else {
-      // DB might be empty — 503 or empty collections is not a test failure
-      const isExpectedEmpty = resetRes.status === 503;
-      assert(isExpectedEmpty || resetRes.status === 200, 'T6.1: Reset returned expected status', `got ${resetRes.status}: ${resetRes.body?.message}`);
-      console.log('  ℹ️  Note: Reset returned', resetRes.status, '—', resetRes.body?.message || '(no showcase data seeded)');
+      console.log('  ℹ️  MongoDB disconnected — skipped live collection count comparisons');
     }
 
     await stopServer(server);

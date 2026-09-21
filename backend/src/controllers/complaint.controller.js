@@ -164,6 +164,7 @@ const complaintController = {
       if (req.query.category) filter.category = req.query.category;
       if (req.query.tokenNumber) filter.tokenNumber = req.query.tokenNumber;
       if (req.query.source) filter.source = req.query.source;
+      if (user.demo) filter.seedBatch = 'showcase-1';
 
       const complaints = await Complaint.find(filter).sort({ createdAt: -1 });
 

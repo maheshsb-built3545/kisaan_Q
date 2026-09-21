@@ -10,7 +10,8 @@ const fastTrackBiddingController = {
   getRounds: async (req, res) => {
     try {
       const { centreId, status, slotDate } = req.query;
-      const rounds = await fastTrackAuctionService.getRounds({ centreId, status, slotDate });
+      const isDemo = Boolean(req.user?.demo);
+      const rounds = await fastTrackAuctionService.getRounds({ centreId, status, slotDate, isDemo });
       return successResponse(res, { rounds, total: rounds.length }, 'Fast-track rounds retrieved', 200);
     } catch (err) {
       return errorResponse(res, err.message, 500);

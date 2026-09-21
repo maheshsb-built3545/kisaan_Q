@@ -96,7 +96,7 @@ const PHYSICAL_STATION_ROLES = [
   {
     id: 'accounts_settlement',
     roleLabel: 'Desk 5: Treasury & DBT',
-    officerName: 'Treasurer Deshmukh',
+    officerName: 'Treasury Officer Kale',
     officerPhone: '9800000005',
     officerCode: 'TRY-DBT-KPG',
     icon: Banknote,
@@ -144,7 +144,7 @@ const MANAGEMENT_ROLES = [
   {
     id: 'district_admin',
     roleLabel: 'District Administrator',
-    officerName: 'Collector Nagar',
+    officerName: 'District Collector Ahilyanagar',
     officerPhone: '9800000008',
     officerCode: 'DA-AHD-01',
     icon: Landmark,

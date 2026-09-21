@@ -349,6 +349,9 @@ const planningController = {
       } else {
         query = { $or: [{ fromCentre: centreId }, { toCentre: centreId }] };
       }
+      if (req.user?.demo) {
+        query.seedBatch = 'showcase-1';
+      }
       if (mongoose.connection.readyState !== 1) return successResponse(res, [], 'Requests retrieved (offline)');
       const requests = await PlanRequest.find(query).sort({ createdAt: -1 }).limit(50).lean();
       return successResponse(res, requests, 'Requests retrieved');

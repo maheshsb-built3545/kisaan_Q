@@ -161,6 +161,13 @@ const centreService = {
   getAllCentres: async (filters = {}) => {
     let centres = [];
     const query = {};
+    const officialCodes = OFFICIAL_CENTRES.map(c => c.code);
+
+    if (filters.code) {
+      query.code = filters.code;
+    } else {
+      query.code = { $in: officialCodes };
+    }
 
     if (filters.crop) {
       query.cropsHandled = { $in: [filters.crop] };
@@ -182,9 +189,13 @@ const centreService = {
         if (inMemoryCentres.size === 0) {
           await centreService.ensureOfficialCentres();
         }
-        // Extract unique centres by _id from inMemoryCentres map
+        // Extract unique centres by _id from inMemoryCentres map filtered to official codes
         const uniqueMap = new Map();
-        inMemoryCentres.forEach(c => uniqueMap.set(c._id.toString(), c));
+        inMemoryCentres.forEach(c => {
+          if (officialCodes.includes(c.code)) {
+            uniqueMap.set(c._id.toString(), c);
+          }
+        });
         centres = Array.from(uniqueMap.values());
       }
     } catch (err) {
@@ -193,7 +204,11 @@ const centreService = {
         await centreService.ensureOfficialCentres();
       }
       const uniqueMap = new Map();
-      inMemoryCentres.forEach(c => uniqueMap.set(c._id.toString(), c));
+      inMemoryCentres.forEach(c => {
+        if (officialCodes.includes(c.code)) {
+          uniqueMap.set(c._id.toString(), c);
+        }
+      });
       centres = Array.from(uniqueMap.values());
     }
 

@@ -243,6 +243,9 @@ const exceptionService = {
     } else if (filters.status === 'resolved') {
       query.supervisorOverride = true;
     }
+    if (filters.isDemo || filters.seedBatch) {
+      query.seedBatch = filters.seedBatch || 'showcase-1';
+    }
     // Any other or missing status → no filter applied (return all)
 
     try {

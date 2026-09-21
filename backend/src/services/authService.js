@@ -98,7 +98,7 @@ const SEEDED_STAFF_REGISTRY = [
     isActive: true
   },
   {
-    name: 'Treasurer Deshmukh',
+    name: 'Treasury Officer Kale',
     phone: '9800000005',
     role: 'accounts_settlement',
     officerCode: 'TRY-DBT-KPG',
@@ -205,7 +205,7 @@ const SEEDED_STAFF_REGISTRY = [
   },
   // District Admin — read-only district-level oversight
   {
-    name: 'Collector Nagar',
+    name: 'District Collector Ahilyanagar',
     phone: '9800000008',
     role: 'district_admin',
     officerCode: 'DA-AHD-01',

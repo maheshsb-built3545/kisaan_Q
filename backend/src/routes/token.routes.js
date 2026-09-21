@@ -492,7 +492,7 @@ router.get('/health', (req, res) => {
  * @desc    Fetch all tokens in the system (for Admin Dashboard / Multi-crop Kanban)
  * @access  Public
  */
-router.get('/all', async (req, res) => {
+router.get('/all', optionalAuthenticate, async (req, res) => {
   try {
     const { crop, mandiId, status, limit = 100 } = req.query;
     const filter = {};
@@ -504,6 +504,9 @@ router.get('/all', async (req, res) => {
       ];
     }
     if (status) filter.status = status;
+    if (req.user?.demo) {
+      filter.seedBatch = 'showcase-1';
+    }
 
     if (mongoose.connection.readyState === 1) {
       const tokens = await Token.find(filter)
@@ -549,17 +552,22 @@ router.get('/all', async (req, res) => {
  * @desc    Fetch all active and actionable tokens for a specific Mandi (Booked, In-Progress, Gate-Exit-Requested)
  * @access  Public
  */
-router.get('/mandi/:mandiId', async (req, res) => {
+router.get('/mandi/:mandiId', optionalAuthenticate, async (req, res) => {
   try {
     const { mandiId } = req.params;
+    const isDemo = Boolean(req.user?.demo);
+    const filter = {
+      $or: [
+        { mandiId },
+        { mandiCode: mandiId.split('-')[0] }
+      ]
+    };
+    if (isDemo) {
+      filter.seedBatch = 'showcase-1';
+    }
 
     if (mongoose.connection.readyState === 1) {
-      const tokens = await Token.find({
-        $or: [
-          { mandiId },
-          { mandiCode: mandiId.split('-')[0] }
-        ]
-      }).sort({ isFastTrack: -1, createdAt: 1 });
+      const tokens = await Token.find(filter).sort({ isFastTrack: -1, createdAt: 1 });
 
       let activePos = 1;
       const enrichedTokens = tokens.map((tok) => {

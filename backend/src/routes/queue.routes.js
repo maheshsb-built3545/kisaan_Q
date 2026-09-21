@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const queueController = require('../controllers/queue.controller');
-const { authenticate } = require('../middleware/auth.middleware');
+const { authenticate, optionalAuthenticate } = require('../middleware/auth.middleware');
 const { checkRole } = require('../middleware/rbac.middleware');
 
-// Live queue state (public for dashboard display boards)
-router.get('/live/:centreId', queueController.getLiveQueue);
+// Live queue state (public for dashboard display boards, scoped in demo)
+router.get('/live/:centreId', optionalAuthenticate, queueController.getLiveQueue);
 
 // Staff actions: check-in and release require authentication and staff roles
 router.post(

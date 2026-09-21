@@ -47,14 +47,14 @@ const SHOWCASE_FARMER_PHONE_SET = new Set(
 
 // ─── Showcase Staff Map ─────────────────────────────────────────────────────
 const SHOWCASE_STAFF_MAP = {
-  'security_gate':      { phone: '9800000001', name: 'Ramesh Shinde',           assignedMandi: 'KPG-01', landingPath: '/admin-dashboard/desk' },
-  'quality_assayer':    { phone: '9800000002', name: 'S. Patil',                 assignedMandi: 'KPG-01', landingPath: '/admin-dashboard/desk' },
-  'weighmaster':        { phone: '9800000003', name: 'Suresh Jadhav',            assignedMandi: 'KPG-01', landingPath: '/admin-dashboard/desk' },
-  'procurement':        { phone: '9800000004', name: 'Secretary Deshmukh',       assignedMandi: 'KPG-01', landingPath: '/admin-dashboard/desk' },
-  'accounts_settlement':{ phone: '9800000005', name: 'Treasurer Deshmukh',       assignedMandi: 'KPG-01', landingPath: '/admin-dashboard/desk' },
-  'resource_officer':   { phone: '9800000006', name: 'P. Kulkarni',              assignedMandi: 'KPG-01', landingPath: '/planning' },
-  'supervisor':         { phone: '9800000007', name: 'V. Pawar',                 assignedMandi: 'KPG-01', landingPath: '/supervisor-exceptions' },
-  'district_admin':     { phone: '9800000008', name: 'Collector Nagar',          assignedMandi: 'KPG-01', landingPath: '/admin-dashboard' }
+  'security_gate':      { phone: '9800000001', name: 'Ramesh Shinde',                  assignedMandi: 'KPG-01', landingPath: '/admin-dashboard/desk' },
+  'quality_assayer':    { phone: '9800000002', name: 'S. Patil',                        assignedMandi: 'KPG-01', landingPath: '/admin-dashboard/desk' },
+  'weighmaster':        { phone: '9800000003', name: 'Suresh Jadhav',                   assignedMandi: 'KPG-01', landingPath: '/admin-dashboard/desk' },
+  'procurement':        { phone: '9800000004', name: 'Secretary Deshmukh',              assignedMandi: 'KPG-01', landingPath: '/admin-dashboard/desk' },
+  'accounts_settlement':{ phone: '9800000005', name: 'Treasury Officer Kale',          assignedMandi: 'KPG-01', landingPath: '/admin-dashboard/desk' },
+  'resource_officer':   { phone: '9800000006', name: 'P. Kulkarni',                     assignedMandi: 'KPG-01', landingPath: '/planning' },
+  'supervisor':         { phone: '9800000007', name: 'V. Pawar',                        assignedMandi: 'KPG-01', landingPath: '/supervisor-exceptions' },
+  'district_admin':     { phone: '9800000008', name: 'District Collector Ahilyanagar', assignedMandi: 'KPG-01', landingPath: '/admin-dashboard' }
 };
 
 // Showcase seed batch tag used by seedShowcase.js
@@ -124,7 +124,8 @@ const demoController = {
         demo: true  // ← demo claim
       };
 
-      const token = authService.generateToken(tokenPayload, '8h');
+      const demoTokenTtl = process.env.DEMO_TOKEN_TTL || '4h';
+      const token = authService.generateToken(tokenPayload, demoTokenTtl);
 
       logger.info(`[Demo] Farmer demo login issued: ${farmerName} (${profile.phone})`);
 
@@ -184,7 +185,8 @@ const demoController = {
         demo: true  // ← demo claim
       };
 
-      const token = authService.generateToken(tokenPayload, '8h');
+      const demoTokenTtl = process.env.DEMO_TOKEN_TTL || '4h';
+      const token = authService.generateToken(tokenPayload, demoTokenTtl);
 
       logger.info(`[Demo] Staff demo login issued: ${tokenPayload.name} (${role})`);
 

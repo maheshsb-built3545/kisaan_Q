@@ -72,7 +72,8 @@ const exceptionController = {
    */
   getAllExceptions: async (req, res) => {
     try {
-      const exceptions = await exceptionService.getAllExceptions(req.query);
+      const isDemo = Boolean(req.user?.demo);
+      const exceptions = await exceptionService.getAllExceptions({ ...req.query, isDemo });
       return successResponse(res, exceptions, 'Exceptions retrieved successfully');
     } catch (error) {
       return errorResponse(res, error.message, 500);

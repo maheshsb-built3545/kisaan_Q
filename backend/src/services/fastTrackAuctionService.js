@@ -895,6 +895,9 @@ const fastTrackAuctionService = {
     if (filter.centreId) query.centreId = filter.centreId;
     if (filter.status) query.status = filter.status;
     if (filter.slotDate) query.slotDate = filter.slotDate;
+    if (filter.isDemo || filter.seedBatch) {
+      query.seedBatch = filter.seedBatch || 'showcase-1';
+    }
 
     return await FastTrackRound.find(query).sort({ createdAt: -1 });
   },

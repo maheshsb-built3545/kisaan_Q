@@ -9,7 +9,8 @@ const queueController = {
     try {
       const { centreId } = req.params;
       const { date } = req.query;
-      const queue = await queueService.getLiveQueue(centreId, date);
+      const isDemo = Boolean(req.user?.demo);
+      const queue = await queueService.getLiveQueue(centreId, date, isDemo);
       return successResponse(res, queue, 'Live queue state retrieved');
     } catch (error) {
       return errorResponse(res, error.message, 500);

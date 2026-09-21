@@ -100,20 +100,25 @@ const queueService = {
    * Recompute position map for all active bookings in a centre's queue.
    * Returns a Map of bookingId -> position range string like "4-7 ahead"
    */
-  computePositionMap: async (centreId, date) => {
+  computePositionMap: async (centreId, date, isDemo = false) => {
     const dateStr = date || queueService.getTodayDateStr();
     let activeBookings = [];
 
+    const bookingQuery = {
+      centreId,
+      status: { $in: ['BOOKED', 'CONFIRMED', 'CHECKED_IN'] },
+      arrivalWindowStart: {
+        $gte: new Date(`${dateStr}T00:00:00.000Z`),
+        $lte: new Date(`${dateStr}T23:59:59.999Z`)
+      }
+    };
+    if (isDemo) {
+      bookingQuery.seedBatch = 'showcase-1';
+    }
+
     try {
       if (mongoose.connection.readyState === 1) {
-        activeBookings = await Booking.find({
-          centreId,
-          status: { $in: ['BOOKED', 'CONFIRMED', 'CHECKED_IN'] },
-          arrivalWindowStart: {
-            $gte: new Date(`${dateStr}T00:00:00.000Z`),
-            $lte: new Date(`${dateStr}T23:59:59.999Z`)
-          }
-        }).populate('farmerId').sort({ arrivalWindowStart: 1, createdAt: 1 });
+        activeBookings = await Booking.find(bookingQuery).populate('farmerId').sort({ arrivalWindowStart: 1, createdAt: 1 });
       }
     } catch (err) {
       logger.warn(`Position computation fallback: ${err.message}`);
@@ -395,9 +400,9 @@ const queueService = {
   /**
    * Get the full live queue for a centre (REST endpoint)
    */
-  getLiveQueue: async (centreId, date) => {
+  getLiveQueue: async (centreId, date, isDemo = false) => {
     const dateStr = date || queueService.getTodayDateStr();
-    const { positionMap, activeBookingIds, totalActive } = await queueService.computePositionMap(centreId, dateStr);
+    const { positionMap, activeBookingIds, totalActive } = await queueService.computePositionMap(centreId, dateStr, isDemo);
 
     return {
       centreId,
