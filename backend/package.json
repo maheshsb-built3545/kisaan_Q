@@ -25,8 +25,8 @@
     "test:planning": "node tests/test_planning.js",
     "test:redirect": "node tests/test_redirect.js",
     "test:all": "node tests/test_all_prd.js",
+    "test:demo": "node tests/test_demo.js",
     "showcase:seed": "node scripts/seedShowcase.js",
-    "showcase:clean": "node scripts/seedShowcase.js --clean",
     "showcase:live": "node scripts/seedShowcase.js --live"
   },
   "dependencies": {

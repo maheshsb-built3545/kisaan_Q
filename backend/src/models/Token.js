@@ -231,6 +231,11 @@ const tokenSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  seedBatch: {
+    type: String,
+    default: null,
+    index: true
   }
 }, {
   timestamps: true

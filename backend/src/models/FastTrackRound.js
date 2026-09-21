@@ -134,6 +134,11 @@ const fastTrackRoundSchema = new mongoose.Schema(
     capPerHour: {
       type: Number,
       default: 2
+    },
+    seedBatch: {
+      type: String,
+      default: null,
+      index: true
     }
   },
   {

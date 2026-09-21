@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
+const demoController = require('../controllers/demo.controller');
 const { authenticate } = require('../middleware/auth.middleware');
 const { checkRole } = require('../middleware/rbac.middleware');
 const { otpRateLimiter, loginRateLimiter } = require('../middleware/rateLimiter.middleware');
+const { demoModeGuard } = require('../middleware/demo.middleware');
 const { successResponse } = require('../utils/apiResponse');
 
 // Farmer authentication endpoints (with aliases for standard /request-otp and /verify-otp)
@@ -23,6 +25,14 @@ router.patch('/staff/switch-centre', authenticate, authController.switchStaffCen
 router.post('/staff/login', loginRateLimiter, authController.staffLogin);
 router.post('/staff/register', authController.staffRegister);
 router.post('/staff/seed', authController.seedStaff);
+
+// ─── Demo Authentication Endpoints (DEMO_MODE guard required) ──────────────
+// GET /api/auth/demo/status — no auth needed; returns { enabled: bool }
+router.get('/demo/status', demoController.getDemoStatus);
+// POST /api/auth/demo/farmer — issues farmer JWT with demo:true
+router.post('/demo/farmer', demoModeGuard, demoController.demoFarmerLogin);
+// POST /api/auth/demo/staff — issues staff JWT with demo:true
+router.post('/demo/staff', demoModeGuard, demoController.demoStaffLogin);
 
 // Current user profile check (Protected)
 router.get('/me', authenticate, authController.getMe);

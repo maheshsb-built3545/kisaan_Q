@@ -36,7 +36,10 @@ const suites = [
   { name: 'B9: Multi-Mandi Redirect & Trilingual Broadcast Suite (test:redirect)', file: 'tests/test_redirect.js' },
 
   // 3. Showcase Pilot Verification
-  { name: 'Pilot Showcase Integrity & Real Evidence Suite (verify:showcase)', file: 'tests/verify_showcase_checks.js' }
+  { name: 'Pilot Showcase Integrity & Real Evidence Suite (verify:showcase)', file: 'tests/verify_showcase_checks.js' },
+
+  // 4. Demo Access Endpoints
+  { name: 'Demo Access Endpoints & Isolation (test:demo)', file: 'tests/test_demo.js' }
 ];
 
 async function runSuite(suite) {

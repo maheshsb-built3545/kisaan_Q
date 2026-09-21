@@ -68,6 +68,11 @@ const waitlistSchema = new mongoose.Schema(
     joinedAt: {
       type: Date,
       default: Date.now
+    },
+    seedBatch: {
+      type: String,
+      default: null,
+      index: true
     }
   },
   {

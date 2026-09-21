@@ -21,6 +21,7 @@ const waitlistRoutes = require('./waitlist.routes');
 const redirectRoutes = require('./redirect.routes');
 
 const complaintRoutes = require('./complaint.routes');
+const demoRoutes = require('./demo.routes');
 
 // Mount modular service routes
 router.use('/auth', authRoutes);
@@ -49,6 +50,7 @@ router.use('/exceptions', exceptionRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
 router.use('/audit', auditRoutes);
+router.use('/demo', demoRoutes);
 
 module.exports = router;
 

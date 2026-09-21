@@ -124,6 +124,11 @@ const bookingSchema = new mongoose.Schema(
         message: '{VALUE} is not a valid payment status'
       },
       default: 'status_unavailable'
+    },
+    seedBatch: {
+      type: String,
+      default: null,
+      index: true
     }
   },
   {
