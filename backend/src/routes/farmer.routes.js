@@ -34,6 +34,14 @@ router.patch('/push-token', authenticate, checkRole('farmer'), farmerController.
 router.put('/me/land', authenticate, checkRole('farmer'), farmerController.updateLandRecord);
 router.get('/me/land', authenticate, checkRole('farmer'), farmerController.getLandRecord);
 
+// Staff lookup of farmer land details
+router.get(
+  '/:idOrPhone/land',
+  authenticate,
+  checkRole('supervisor', 'resource_officer', 'district_admin', 'admin', 'security_gate', 'quality_assayer', 'weighmaster', 'procurement', 'accounts_settlement', 'operator'),
+  farmerController.getFarmerLandRecordByIdOrPhone
+);
+
 // Ephemeral 7/12 Extraction (Rate limited, strictly discarded in finally block)
 router.post(
   '/me/land/extract',

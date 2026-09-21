@@ -78,14 +78,15 @@ export default function SupervisorExceptions() {
       const normEx = exList.map((ex) => ({
         _id: ex._id,
         id: ex._id,
-        source: 'staff',
-        sourceLabel: 'Staff Exception',
+        source: ex.metadata?.isRuleBased || ex.type === 'rule_based' || ex.type === 'quantity_exceeds_land_estimate' ? 'rule_based' : 'staff',
+        sourceLabel: ex.metadata?.isRuleBased || ex.type === 'rule_based' ? 'Rule-Based System' : 'Staff Exception',
         tokenNumber: ex.bookingId?.tokenNumber || ex.tokenNumber || 'TKN-000',
         crop: ex.bookingId?.crop || ex.crop || 'Commodity',
         type: ex.type || 'Operational Exception',
         reasonCode: ex.reasonCode || 'Discrepancy logged at operational station',
-        raisedBy: ex.raisedBy?.name || ex.raisedBy || 'Station Operator',
-        raisedByRole: ex.raisedBy?.role || 'operator',
+        raisedBy: ex.raisedBy?.name || ex.raisedBy || (ex.metadata?.isRuleBased ? 'Automated Yield Rule' : 'Station Operator'),
+        raisedByRole: ex.raisedBy?.role || (ex.metadata?.isRuleBased ? 'system' : 'operator'),
+        metadata: ex.metadata || null,
         status: ex.supervisorOverride ? 'RESOLVED' : 'PENDING',
         supervisorOverride: Boolean(ex.supervisorOverride),
         overrideReason: ex.overrideReason || null,
@@ -229,10 +230,12 @@ export default function SupervisorExceptions() {
   const resolvedCount = exceptions.filter((ex) => ex.supervisorOverride).length;
   const farmerCount = exceptions.filter((ex) => ex.source === 'farmer').length;
   const staffCount = exceptions.filter((ex) => ex.source === 'staff').length;
+  const ruleCount = exceptions.filter((ex) => ex.source === 'rule_based').length;
 
   const displayedExceptions = exceptions.filter((item) => {
     if (sourceFilter === 'farmer' && item.source !== 'farmer') return false;
     if (sourceFilter === 'staff' && item.source !== 'staff') return false;
+    if (sourceFilter === 'rule_based' && item.source !== 'rule_based') return false;
     return true;
   });
 
@@ -312,11 +315,12 @@ export default function SupervisorExceptions() {
         <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* Source Filter */}
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl flex-wrap">
               {[
                 { id: 'ALL', label: `All Sources (${exceptions.length})` },
                 { id: 'farmer', label: `🌾 Farmer (${farmerCount})` },
                 { id: 'staff', label: `🏛️ Staff (${staffCount})` },
+                { id: 'rule_based', label: `⚡ Rule-Based (${ruleCount})` },
               ].map((s) => (
                 <button
                   key={s.id}
@@ -385,6 +389,7 @@ export default function SupervisorExceptions() {
                 const token = ex.tokenNumber || 'TKN-000';
                 const crop = ex.crop || 'Commodity';
                 const isFarmer = ex.source === 'farmer';
+                const isRuleBased = ex.source === 'rule_based' || ex.metadata?.isRuleBased;
 
                 return (
                   <div
@@ -392,9 +397,11 @@ export default function SupervisorExceptions() {
                     className={`bg-white rounded-2xl border transition-all p-5 shadow-xs ${
                       isOverridden
                         ? 'border-purple-200 bg-purple-50/20'
+                        : isRuleBased
+                        ? 'border-amber-400/90 bg-amber-50/20'
                         : isFarmer
                         ? 'border-emerald-300/80 bg-emerald-50/15'
-                        : 'border-amber-300/80 bg-amber-50/15'
+                        : 'border-blue-300/80 bg-blue-50/15'
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
@@ -402,13 +409,22 @@ export default function SupervisorExceptions() {
                         {/* Source Tag */}
                         <span
                           className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${
-                            isFarmer
+                            isRuleBased
+                              ? 'bg-amber-100 text-amber-950 border-amber-400'
+                              : isFarmer
                               ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                               : 'bg-blue-100 text-blue-800 border-blue-300'
                           }`}
                         >
-                          {isFarmer ? '🌾 Farmer Grievance' : '🏛️ Staff Exception'}
+                          {isRuleBased ? '⚡ Rule-Based Anomaly' : isFarmer ? '🌾 Farmer Grievance' : '🏛️ Staff Exception'}
                         </span>
+
+                        {isRuleBased && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
+                            Assumed Yield (Maharashtra MSP Matrix)
+                          </span>
+                        )}
+
                         <span className="font-mono font-bold text-base text-slate-900">{token}</span>
                         <span className="text-xs font-semibold text-slate-600">({crop})</span>
                         <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700">
@@ -423,9 +439,41 @@ export default function SupervisorExceptions() {
                       />
                     </div>
 
+                    {/* Rule-Based Numbers Breakdown Grid if available */}
+                    {isRuleBased && ex.metadata && (
+                      <div className="my-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-300/90 text-xs">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-amber-900 mb-2 flex items-center justify-between">
+                          <span>Yield Rule Estimation Parameters</span>
+                          <span className="font-mono">Tolerance: {ex.metadata.toleranceMultiplier || 1.5}x</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          <div className="bg-white p-2 rounded-lg border border-amber-200">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase">Declared Area</span>
+                            <p className="font-mono font-bold text-slate-900 mt-0.5">{ex.metadata.areaAcres} Acres</p>
+                          </div>
+                          <div className="bg-white p-2 rounded-lg border border-amber-200">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase">Assumed Yield</span>
+                            <p className="font-mono font-bold text-slate-900 mt-0.5">{ex.metadata.yieldPerAcre} Qtl/Acre</p>
+                          </div>
+                          <div className="bg-white p-2 rounded-lg border border-amber-200">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase">Expected Max</span>
+                            <p className="font-mono font-bold text-emerald-800 mt-0.5">{ex.metadata.expectedMaxQtl} Quintals</p>
+                          </div>
+                          <div className="bg-white p-2 rounded-lg border border-amber-200">
+                            <span className="text-[10px] text-rose-700 font-bold uppercase">Total Booked</span>
+                            <p className="font-mono font-bold text-rose-800 mt-0.5">{ex.metadata.bookedQtl} Quintals</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="py-3">
                       <div className="text-xs text-slate-500 font-bold uppercase mb-1">
-                        {isFarmer ? 'Grievance Description / Disputed Checkpoint:' : 'Discrepancy Detail / Reason Code:'}
+                        {isRuleBased
+                          ? 'Rule-Based Anomaly Diagnosis:'
+                          : isFarmer
+                          ? 'Grievance Description / Disputed Checkpoint:'
+                          : 'Discrepancy Detail / Reason Code:'}
                       </div>
                       <p className="text-xs sm:text-sm font-mono text-slate-800 bg-slate-50 p-3 rounded-xl border border-slate-200">
                         {ex.reasonCode}
@@ -462,7 +510,7 @@ export default function SupervisorExceptions() {
                             size="sm"
                             onClick={() => setSelectedExceptionForOverride(ex)}
                           >
-                            {isFarmer ? 'Resolve Grievance' : 'Apply Supervisor Override'}
+                            {isRuleBased ? 'Resolve & Review Anomaly' : isFarmer ? 'Resolve Grievance' : 'Apply Supervisor Override'}
                           </ActionButton>
                         ) : (
                           <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">

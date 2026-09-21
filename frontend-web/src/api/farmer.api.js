@@ -62,5 +62,14 @@ export const farmerApi = {
       params: centreId ? { centreId } : {}
     });
     return res.data;
+  },
+
+  /**
+   * Staff lookup of farmer land details
+   * GET /api/farmers/:idOrPhone/land
+   */
+  getFarmerLandRecordForStaff: async (idOrPhone) => {
+    const res = await staffClient.get(`/farmers/${idOrPhone}/land`);
+    return res.data;
   }
 };

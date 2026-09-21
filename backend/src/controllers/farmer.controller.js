@@ -115,6 +115,24 @@ const farmerController = {
   },
 
   /**
+   * Get specific farmer's Land Record by ID or Phone (Staff only)
+   * GET /api/farmers/:idOrPhone/land
+   */
+  getFarmerLandRecordByIdOrPhone: async (req, res) => {
+    try {
+      const { idOrPhone } = req.params;
+      const isPhone = /^\d{10}$/.test(idOrPhone);
+      const farmerId = isPhone ? null : idOrPhone;
+      const phone = isPhone ? idOrPhone : null;
+
+      const landRecord = await farmerService.getLandRecord({ farmerId, phone });
+      return successResponse(res, { landRecord }, 'Farmer land record retrieved successfully');
+    } catch (error) {
+      return errorResponse(res, error.message, error.statusCode || 400);
+    }
+  },
+
+  /**
    * Ephemeral 7/12 OCR extraction endpoint
    * POST /api/farmers/me/land/extract
    * Ephemeral processing: Returns suggestions only, never keeps file on disk or DB.

@@ -19,7 +19,7 @@ import {
   DeskPrerequisiteBanner,
   ExceptionReasonModal
 } from '../components/staff';
-import { pricesApi, staffFastTrackApi as fastTrackApi } from '../api';
+import { pricesApi, staffFastTrackApi as fastTrackApi, farmerApi } from '../api';
 import { staffClient } from '../api/client';
 import {
   MANDIS, STAGE_DEFINITIONS, getTokens,
@@ -255,6 +255,13 @@ export default function StaffDesk() {
   // Farmer Dues State
   const [farmerPendingDues, setFarmerPendingDues] = useState(0);
   const [farmerDuesHistory, setFarmerDuesHistory] = useState([]);
+
+  // Farmer Land Verification State
+  const [farmerLandRecord, setFarmerLandRecord] = useState(null);
+  const [isLoadingLandRecord, setIsLoadingLandRecord] = useState(false);
+  const [showRejectLandModal, setShowRejectLandModal] = useState(false);
+  const [rejectLandReason, setRejectLandReason] = useState('');
+  const [isVerifyingLand, setIsVerifyingLand] = useState(false);
 
   // ─── ROLE HUD 1: Security Gate (ANPR & Boom Barrier) ────────────────────────
   const [boomBarrierOpen, setBoomBarrierOpen] = useState(false);
@@ -572,16 +579,93 @@ export default function StaffDesk() {
     }
   }, [showFarmerModal, loadFarmers]);
 
-  // Sync dues when selected token changes
+  // Fetch farmer land record
+  const fetchFarmerLand = useCallback(async (phoneOrId) => {
+    if (!phoneOrId) {
+      setFarmerLandRecord(null);
+      return;
+    }
+    setIsLoadingLandRecord(true);
+    try {
+      const res = await farmerApi.getFarmerLandRecordForStaff(phoneOrId);
+      if (res && res.success && res.data?.landRecord) {
+        setFarmerLandRecord(res.data.landRecord);
+      } else {
+        setFarmerLandRecord(null);
+      }
+    } catch (err) {
+      console.debug('Notice fetching farmer land record:', err.message);
+      setFarmerLandRecord(null);
+    } finally {
+      setIsLoadingLandRecord(false);
+    }
+  }, []);
+
+  // Sync dues & land record when selected token changes
   useEffect(() => {
     const phone = selectedToken?.farmerPhone || selectedToken?.phone;
     if (phone) {
       fetchDues(phone);
+      fetchFarmerLand(phone);
     } else {
       setFarmerPendingDues(0);
       setFarmerDuesHistory([]);
+      setFarmerLandRecord(null);
     }
-  }, [selectedToken, fetchDues]);
+  }, [selectedToken, fetchDues, fetchFarmerLand]);
+
+  const handleVerifyFarmerLand = async () => {
+    const phoneOrId = selectedToken?.farmerPhone || selectedToken?.phone;
+    if (!phoneOrId) return;
+    setIsVerifyingLand(true);
+    try {
+      const res = await farmerApi.verifyLandRecord(phoneOrId, { status: 'verified' });
+      if (res && res.success) {
+        setFarmerLandRecord(res.data?.landRecord || { ...farmerLandRecord, verificationStatus: 'verified' });
+        setActionSuccessToast({
+          title: 'Land Record Verified',
+          message: `Land details for ${selectedToken?.farmerName || 'Farmer'} marked Verified by ${staffSession.name || 'Supervisor'}.`,
+          tokenNumber: selectedToken?.tokenNumber || 'VERIFIED',
+        });
+        setTimeout(() => setActionSuccessToast(null), 4000);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Verification failed');
+    } finally {
+      setIsVerifyingLand(false);
+    }
+  };
+
+  const handleRejectFarmerLand = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const phoneOrId = selectedToken?.farmerPhone || selectedToken?.phone;
+    if (!phoneOrId || !rejectLandReason.trim()) {
+      alert('A rejection reason is mandatory.');
+      return;
+    }
+    setIsVerifyingLand(true);
+    try {
+      const res = await farmerApi.verifyLandRecord(phoneOrId, {
+        status: 'rejected',
+        reason: rejectLandReason.trim()
+      });
+      if (res && res.success) {
+        setFarmerLandRecord(res.data?.landRecord || { ...farmerLandRecord, verificationStatus: 'rejected', rejectionReason: rejectLandReason.trim() });
+        setShowRejectLandModal(false);
+        setRejectLandReason('');
+        setActionSuccessToast({
+          title: 'Land Record Rejected',
+          message: `Land record marked Rejected with audit reason.`,
+          tokenNumber: 'REJECTED',
+        });
+        setTimeout(() => setActionSuccessToast(null), 4000);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Rejection failed');
+    } finally {
+      setIsVerifyingLand(false);
+    }
+  };
 
   // 2. Setup Socket.IO & Real-Time Listeners
   useEffect(() => {
@@ -1623,6 +1707,79 @@ export default function StaffDesk() {
                     <p className="text-[10px] uppercase font-bold text-slate-500">Declared Volume</p>
                     <p className="text-xs font-bold text-slate-900 mt-0.5">{selectedToken?.quantityBand || `${selectedToken?.quantity || 25} Quintals`}</p>
                   </div>
+                </div>
+
+                {/* Farmer Declared Land Record & Verification Panel */}
+                <div className="mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Declared Land Holding</span>
+                      </span>
+
+                      {/* Status Chip */}
+                      {farmerLandRecord?.verificationStatus === 'verified' ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified
+                        </span>
+                      ) : farmerLandRecord?.verificationStatus === 'rejected' ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                          <AlertTriangle className="w-3 h-3 text-rose-600" /> Rejected: {farmerLandRecord.rejectionReason || 'Discrepancy'}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                          <Clock className="w-3 h-3 text-amber-700" /> Self-declared, pending verification
+                        </span>
+                      )}
+                    </div>
+
+                    {farmerLandRecord && farmerLandRecord.areaAcres ? (
+                      <div className="text-xs text-slate-700 flex flex-wrap gap-x-4 gap-y-1 mt-1 font-sans">
+                        <span><strong>Area:</strong> {farmerLandRecord.areaAcres} Acres ({farmerLandRecord.ownershipType?.replace(/_/g, ' ') || 'Owner'})</span>
+                        <span><strong>Survey / Gat:</strong> {farmerLandRecord.surveyNumber || '—'}{farmerLandRecord.gatNumber ? ` / Gat ${farmerLandRecord.gatNumber}` : ''}</span>
+                        <span><strong>Location:</strong> {farmerLandRecord.village || 'Village'}, {farmerLandRecord.taluka || 'Taluka'}, {farmerLandRecord.district || 'District'}</span>
+                        {farmerLandRecord.ownerNameOn712 && (
+                          <span className="text-slate-500"><strong>7/12 Name:</strong> {farmerLandRecord.ownerNameOn712}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 italic mt-0.5">
+                        {isLoadingLandRecord ? 'Loading declared land record…' : 'No land details declared yet (Self-declared record not submitted).'}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Staff Verification Actions for Supervisor / Resource Officer */}
+                  {['supervisor', 'resource_officer', 'admin'].includes(officerRole) && farmerLandRecord && (
+                    <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                      {farmerLandRecord.verificationStatus !== 'verified' && (
+                        <ActionButton
+                          variant="primary"
+                          size="sm"
+                          isLoading={isVerifyingLand}
+                          loadingText="Verifying…"
+                          onClick={handleVerifyFarmerLand}
+                          icon={CheckCircle2}
+                          className="py-1 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700"
+                        >
+                          Verify Land
+                        </ActionButton>
+                      )}
+                      {farmerLandRecord.verificationStatus !== 'rejected' && (
+                        <ActionButton
+                          variant="secondary"
+                          size="sm"
+                          disabled={isVerifyingLand}
+                          onClick={() => setShowRejectLandModal(true)}
+                          icon={X}
+                          className="py-1 px-2.5 text-xs text-rose-700 border-rose-200 hover:bg-rose-50"
+                        >
+                          Reject
+                        </ActionButton>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 5-Stage Stepper Switcher */}
@@ -2740,9 +2897,66 @@ export default function StaffDesk() {
                 size="sm"
                 onClick={() => setShowFastTrackModal(false)}
               >
-                Close
-              </ActionButton>
+      {/* Reject Farmer Land Details Modal */}
+      {showRejectLandModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 text-left">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Reject Declared Land Record</h3>
+                  <p className="text-xs text-slate-500">Farmer: {selectedToken?.farmerName || 'Farmer'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRejectLandModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
+
+            <form onSubmit={handleRejectFarmerLand} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase">
+                  Rejection Reason <span className="text-rose-500">* (Mandatory for Supervisor Audit)</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={rejectLandReason}
+                  onChange={(e) => setRejectLandReason(e.target.value)}
+                  placeholder="Provide reason for rejecting land declaration (e.g. Survey number mismatch with village land register, area discrepancy, name on 7/12 does not match)..."
+                  className="w-full text-xs p-3 border border-slate-300 rounded-xl focus:border-rose-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+                <ActionButton
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  onClick={() => setShowRejectLandModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </ActionButton>
+                <ActionButton
+                  type="submit"
+                  variant="destructive"
+                  size="md"
+                  isLoading={isVerifyingLand}
+                  loadingText="Rejecting…"
+                  className="flex-1"
+                >
+                  Confirm Rejection
+                </ActionButton>
+              </div>
+            </form>
           </div>
         </div>
       )}

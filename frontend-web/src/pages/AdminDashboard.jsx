@@ -15,6 +15,7 @@ import {
 } from '../services/socketService';
 import { MANDIS, STAGE_DEFINITIONS } from '../services/storageService';
 import { staffClient } from '../api/client';
+import { farmerApi } from '../api';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const CROPS = ['Wheat', 'Soybean', 'Onion', 'Cotton'];
@@ -41,12 +42,21 @@ export default function AdminDashboard() {
     centresCount: 6,
     lastActivity: 'Active'
   });
+  const [landVerificationCounts, setLandVerificationCounts] = useState({
+    pending: 0,
+    verified: 0,
+    rejected: 0,
+    totalWithLand: 0,
+    totalFarmers: 0,
+    byCentre: {}
+  });
 
   const fetchLiveSignals = useCallback(async () => {
     try {
-      const [healthRes, centresRes] = await Promise.allSettled([
+      const [healthRes, centresRes, landCountsRes] = await Promise.allSettled([
         staffClient.get('/health'),
-        staffClient.get('/centres')
+        staffClient.get('/centres'),
+        farmerApi.getLandVerificationCounts()
       ]);
 
       let dbStatus = 'Disconnected';
@@ -60,6 +70,10 @@ export default function AdminDashboard() {
       if (centresRes.status === 'fulfilled' && centresRes.value?.data) {
         const cData = centresRes.value.data;
         centresCount = Array.isArray(cData) ? cData.length : (cData?.data?.length || 6);
+      }
+
+      if (landCountsRes.status === 'fulfilled' && landCountsRes.value?.data) {
+        setLandVerificationCounts(landCountsRes.value.data);
       }
 
       setDbSignals(prev => ({
@@ -525,6 +539,75 @@ export default function AdminDashboard() {
               </div>
             );
           })}
+        </div>
+
+        {/* District Land Verification Overview (Read-Only) */}
+        <div className="mb-8 p-5 bg-white border border-slate-200 rounded-2xl shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <h2 className="text-base font-bold text-slate-900">
+                  Land Verification Status (District Read-Only Overview)
+                </h2>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                  Audit Governance
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Read-only count of self-declared farmer land records and supervisor certifications across APMC centres.
+              </p>
+            </div>
+            <span className="text-[11px] font-mono text-slate-400">
+              Updated Live
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/90">
+              <div className="flex items-center justify-between text-[11px] font-bold text-amber-900">
+                <span>Pending Verification</span>
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              </div>
+              <div className="text-2xl font-black font-mono text-amber-950 mt-1">
+                {landVerificationCounts.pending || 0}
+              </div>
+              <div className="text-[10px] text-amber-800 mt-0.5">Self-declared, awaiting supervisor</div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/90">
+              <div className="flex items-center justify-between text-[11px] font-bold text-emerald-900">
+                <span>Supervisor Verified</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              </div>
+              <div className="text-2xl font-black font-mono text-emerald-950 mt-1">
+                {landVerificationCounts.verified || 0}
+              </div>
+              <div className="text-[10px] text-emerald-800 mt-0.5">Certified by mandi supervisor</div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-50/70 border border-rose-200/90">
+              <div className="flex items-center justify-between text-[11px] font-bold text-rose-900">
+                <span>Rejected Declarations</span>
+                <span className="text-rose-600 font-bold">✕</span>
+              </div>
+              <div className="text-2xl font-black font-mono text-rose-950 mt-1">
+                {landVerificationCounts.rejected || 0}
+              </div>
+              <div className="text-[10px] text-rose-800 mt-0.5">Discrepancy reason logged</div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                <span>Land Coverage</span>
+                <Building2 className="w-3.5 h-3.5 text-slate-500" />
+              </div>
+              <div className="text-2xl font-black font-mono text-slate-900 mt-1">
+                {landVerificationCounts.totalWithLand || 0} <span className="text-xs font-normal text-slate-500">/ {landVerificationCounts.totalFarmers || 0}</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Farmers with declared holding</div>
+            </div>
+          </div>
         </div>
 
         {/* Regional Congestion Matrix */}
