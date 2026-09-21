@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi } from '../api/auth.api';
+import { demoApi } from '../api/demo.api';
 import { destroySocket } from '../services/socketService';
 
 const AuthContext = createContext(null);
@@ -196,6 +197,45 @@ export const AuthProvider = ({ children }) => {
   }, [farmerOtpVerify, staffLogin]);
 
   /**
+   * Demo: one-click farmer login via showcase endpoint.
+   * Uses the same localStorage keys as normal farmer auth so all routes work.
+   */
+  const demoFarmerLogin = useCallback(async (profile = 'ramesh_kadam') => {
+    const res = await demoApi.demoFarmerLogin(profile);
+    if (res?.data?.token && res?.data?.user) {
+      const authToken = res.data.token;
+      const authUser = res.data.user;
+      setFarmerToken(authToken);
+      setFarmerUser(authUser);
+      localStorage.setItem('kisanq_farmer_token', authToken);
+      localStorage.setItem('kisanq_farmer_user', JSON.stringify(authUser));
+      localStorage.setItem('kisanq_farmer_profile', JSON.stringify(authUser));
+      localStorage.setItem('kq_token', authToken);
+      localStorage.setItem('kq_user', JSON.stringify(authUser));
+    }
+    return res;
+  }, []);
+
+  /**
+   * Demo: one-click staff login via showcase endpoint.
+   * Uses the same localStorage keys as normal staff auth so all routes work.
+   */
+  const demoStaffLogin = useCallback(async (role) => {
+    const res = await demoApi.demoStaffLogin(role);
+    if (res?.data?.token && res?.data?.user) {
+      const authToken = res.data.token;
+      const authUser = res.data.user;
+      setStaffToken(authToken);
+      setStaffUser(authUser);
+      localStorage.setItem('kisanq_staff_token', authToken);
+      localStorage.setItem('kisanq_staff_user', JSON.stringify(authUser));
+      localStorage.setItem('kisanq_staff_session', JSON.stringify(authUser));
+      localStorage.setItem('kisanq_active_mandi_id', authUser.assignedMandi || 'KPG-01');
+    }
+    return res;
+  }, []);
+
+  /**
    * Save / Update Farmer Pickup Location
    */
   const updateFarmerPickupLocation = useCallback(async ({ latitude, longitude, address, phone }) => {
@@ -297,10 +337,12 @@ export const AuthProvider = ({ children }) => {
     farmerUser,
     farmerToken,
     isAuthenticatedFarmer: Boolean(farmerToken && farmerUser),
+    isDemoFarmer: Boolean(farmerUser?.demo),
 
     staffUser,
     staffToken,
     isAuthenticatedStaff: Boolean(staffToken && staffUser),
+    isDemoStaff: Boolean(staffUser?.demo),
 
     // Auth actions
     farmerOtpRequest,
@@ -315,6 +357,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     logoutFarmer,
     logoutStaff,
+    demoFarmerLogin,
+    demoStaffLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
