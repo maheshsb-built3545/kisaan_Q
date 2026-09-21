@@ -6,8 +6,10 @@ import {
   ShieldCheck, Lock, User, ArrowRight, Sparkles,
   Building2, Scale, Leaf, Banknote, CheckCircle2,
   Activity, MapPin, KeyRound, AlertTriangle,
-  ArrowLeft, Clock, CalendarDays, ShieldAlert, Landmark
+  ArrowLeft, Clock, CalendarDays, ShieldAlert, Landmark,
+  FlaskConical, Loader2
 } from 'lucide-react';
+import { demoApi } from '../api/demo.api';
 import { ActionButton, StatusBadge } from '../components/staff';
 import { MANDIS } from '../services/storageService';
 import {
@@ -163,7 +165,17 @@ export const getEffectiveStation = (station, mandiId) => {
 
 export default function StaffLogin() {
   const navigate = useNavigate();
-  const { staffVerifyCredentials, staffVerifyOtp } = useAuth();
+  const { staffVerifyCredentials, staffVerifyOtp, demoStaffLogin } = useAuth();
+
+  // Demo mode state
+  const [demoEnabled, setDemoEnabled] = useState(false);
+  const [demoLoggingIn, setDemoLoggingIn] = useState(null);
+
+  useEffect(() => {
+    demoApi.getDemoStatus()
+      .then((res) => setDemoEnabled(res?.data?.enabled === true))
+      .catch(() => setDemoEnabled(false));
+  }, []);
 
   // Selected Center & Station
   const [selectedMandiId, setSelectedMandiId] = useState('KPG-01');
@@ -309,12 +321,12 @@ export default function StaffLogin() {
       setTelemetryData({
         isLoading: false,
         isLive: false,
-        trucksInYard: 0,
-        totalActiveQueue: 0,
-        gateVelocity: '--',
+        trucksInYard: 21,
+        totalActiveQueue: 21,
+        gateVelocity: '~3.5 min/truck',
         isPaceLive: false,
         paceSamplesCount: 0,
-        loadPercentage: 0,
+        loadPercentage: 40,
         status: 'Telemetry Offline',
         code: mandiObj.code,
         mandiName: mandiObj.name,
@@ -542,20 +554,29 @@ export default function StaffLogin() {
                 <span className="w-2 h-2 rounded-full bg-amber-400" />
                 {telemetryData.isLoading ? '--' : `${telemetryData.trucksInYard} trucks`}
               </span>
+              {!telemetryData.isLive && (
+                <span className="text-[9px] font-medium text-amber-300 block mt-0.5">demo data</span>
+              )}
             </div>
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Gate Velocity</span>
               <span className="text-sm font-black font-mono text-emerald-400 mt-0.5 block">
                 {telemetryData.isLoading ? '--' : telemetryData.gateVelocity}
               </span>
-              {telemetryData.isPaceLive ? (
-                <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  ● Live Pace ({telemetryData.paceSamplesCount})
-                </span>
+              {telemetryData.isLive ? (
+                telemetryData.isPaceLive ? (
+                  <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1 mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    ● measured ({telemetryData.paceSamplesCount} samples)
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-medium text-amber-300 block mt-0.5">
+                    demo data
+                  </span>
+                )
               ) : (
-                <span className="text-[9px] font-medium text-slate-400 block mt-0.5">
-                  ○ Calibrated Std
+                <span className="text-[9px] font-medium text-amber-300 block mt-0.5">
+                  demo data
                 </span>
               )}
             </div>
@@ -564,6 +585,11 @@ export default function StaffLogin() {
               <span className="text-sm font-black font-mono text-cyan-300 mt-0.5 block">
                 {telemetryData.isLoading ? '--%' : `${telemetryData.loadPercentage}% Cap`}
               </span>
+              {telemetryData.isLive ? (
+                <span className="text-[9px] font-medium text-cyan-300 block mt-0.5">rule-based forecast</span>
+              ) : (
+                <span className="text-[9px] font-medium text-amber-300 block mt-0.5">demo data</span>
+              )}
             </div>
           </div>
         </div>
@@ -663,6 +689,86 @@ export default function StaffLogin() {
               })}
             </div>
           </div>
+
+          {/* Demo Staff Access Section — shown only when DEMO_MODE=true */}
+          {demoEnabled && (
+            <div
+              id="demo-staff-section"
+              className="pt-4 border-t border-amber-500/30"
+              style={{
+                background: 'linear-gradient(135deg, rgba(251,191,36,0.06) 0%, transparent 100%)',
+                borderRadius: '12px',
+                padding: '14px',
+                border: '1px solid rgba(251,191,36,0.3)',
+                marginTop: '12px'
+              }}
+            >
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <FlaskConical className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                    Demo Staff Access (1-Click Instant Login)
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500">8 Showcase Desks · KPG-01 Scoped</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[...PHYSICAL_STATION_ROLES, ...MANAGEMENT_ROLES].map((roleItem) => {
+                  const IconComp = roleItem.icon;
+                  const isLogging = demoLoggingIn === roleItem.id;
+                  return (
+                    <button
+                      key={roleItem.id}
+                      id={`demo-staff-btn-${roleItem.id}`}
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setDemoLoggingIn(roleItem.id);
+                          setError('');
+                          const res = await demoStaffLogin(roleItem.id);
+                          const landing = res?.data?.landingPath || (
+                            roleItem.id === 'resource_officer' ? '/planning' :
+                            roleItem.id === 'supervisor' ? '/supervisor-exceptions' :
+                            roleItem.id === 'district_admin' ? '/admin-dashboard' :
+                            '/admin-dashboard/desk'
+                          );
+                          navigate(landing);
+                        } catch (err) {
+                          const msg = err?.response?.data?.message || err?.message || 'Demo login failed';
+                          setError(msg);
+                        } finally {
+                          setDemoLoggingIn(null);
+                        }
+                      }}
+                      disabled={demoLoggingIn !== null}
+                      className="p-2.5 rounded-xl border text-left transition-all hover:border-amber-400 hover:bg-amber-500/10 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                      style={{
+                        background: 'rgba(255,255,255,0.9)',
+                        borderColor: 'rgba(251,191,36,0.35)'
+                      }}
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-700">
+                        {isLogging ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                        ) : (
+                          <IconComp className="w-3.5 h-3.5" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-slate-900 truncate">
+                          {roleItem.roleLabel.replace('Desk ', 'D').replace('Desk', '')}
+                        </p>
+                        <p className="text-[10px] text-amber-800 font-mono truncate">
+                          {roleItem.officerName || roleItem.id}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Two-Column Grid: Station Details & Auth Form */}

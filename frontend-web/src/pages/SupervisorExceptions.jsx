@@ -4,6 +4,7 @@ import { exceptionsApi } from '../api/exceptions.api';
 import { staffComplaintsApi } from '../api/complaints.api';
 import { auditApi } from '../api/audit.api';
 import GovHeader from '../components/common/GovHeader';
+import DemoBanner from '../components/common/DemoBanner';
 import {
   AlertTriangle,
   ShieldCheck,
@@ -237,6 +238,7 @@ export default function SupervisorExceptions() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      <DemoBanner area="staff" />
       <GovHeader portalType="staff" />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:px-8">

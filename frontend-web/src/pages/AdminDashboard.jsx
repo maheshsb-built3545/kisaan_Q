@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import GovHeader from '../components/common/GovHeader';
+import DemoBanner from '../components/common/DemoBanner';
 import {
   Building2, Truck, RefreshCw, CheckCircle2,
   MapPin, Scale, Database, Radio, Check, Filter,
@@ -227,6 +228,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      <DemoBanner area="staff" />
       <GovHeader portalType="staff" />
 
       {/* Real-Time Toast Notification */}

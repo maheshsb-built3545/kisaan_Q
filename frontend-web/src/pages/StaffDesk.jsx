@@ -11,6 +11,7 @@ import {
   Camera, Zap, CheckSquare, Sliders, ShieldAlert
 } from 'lucide-react';
 import GovHeader from '../components/common/GovHeader';
+import DemoBanner from '../components/common/DemoBanner';
 import {
   DeskCard,
   StatusBadge,
@@ -1241,6 +1242,7 @@ export default function StaffDesk() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      <DemoBanner area="staff" />
       {/* ── Official Indian Government Header Bar ─────────────────────────── */}
       <GovHeader portalType="staff" />
 

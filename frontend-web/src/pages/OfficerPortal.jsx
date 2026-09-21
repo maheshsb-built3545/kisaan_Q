@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GovHeader from '../components/common/GovHeader';
+import DemoBanner from '../components/common/DemoBanner';
 import { planningApi } from '../api/planning.api';
 import RedirectComposer from '../components/staff/RedirectComposer';
 
@@ -30,9 +31,17 @@ export default function OfficerPortal() {
   const activeUser = staffUser || user;
   const navigate = useNavigate();
 
+  const userMandi = activeUser?.assignedMandi || activeUser?.mandiId || activeUser?.centreId || 'KPG-01';
+  const isDistrictAdmin = activeUser?.role === 'district_admin';
   const [activeTab, setActiveTab] = useState('forecast'); // 'forecast' | 'whatif' | 'requests' | 'resources' | 'caps' | 'redirect'
-  const [centreId, setCentreId] = useState(activeUser?.assignedMandi || activeUser?.centreId || 'KPG-01');
+  const [centreId, setCentreId] = useState(userMandi);
   const [lang, setLang] = useState(() => localStorage.getItem('kisanq_lang') || 'en');
+
+  useEffect(() => {
+    if (!isDistrictAdmin && userMandi) {
+      setCentreId(userMandi);
+    }
+  }, [isDistrictAdmin, userMandi]);
 
   // Planning Data State
   const [forecast, setForecast] = useState([]);
@@ -66,17 +75,21 @@ export default function OfficerPortal() {
         planningApi.getRequests({ centreId })
       ]);
 
-      if (fRes.status === 'fulfilled' && fRes.value?.forecast) {
-        setForecast(fRes.value.forecast);
-        if (fRes.value.forecast.length > 0) {
-          setSelectedDayForecast(fRes.value.forecast[0]);
+      if (fRes.status === 'fulfilled') {
+        const rawF = fRes.value?.data?.forecast || fRes.value?.forecast || (Array.isArray(fRes.value?.data) ? fRes.value.data : []);
+        const validForecast = Array.isArray(rawF) ? rawF : [];
+        setForecast(validForecast);
+        if (validForecast.length > 0) {
+          setSelectedDayForecast(validForecast[0]);
         }
       }
-      if (rRes.status === 'fulfilled' && rRes.value?.resources) {
-        setResources(rRes.value.resources);
+      if (rRes.status === 'fulfilled') {
+        const rawR = rRes.value?.data || rRes.value?.resources || [];
+        setResources(Array.isArray(rawR) ? rawR : []);
       }
-      if (reqRes.status === 'fulfilled' && reqRes.value?.requests) {
-        setRequests(reqRes.value.requests);
+      if (reqRes.status === 'fulfilled') {
+        const rawReq = reqRes.value?.data || reqRes.value?.requests || [];
+        setRequests(Array.isArray(rawReq) ? rawReq : []);
       }
     } catch (err) {
       console.error('Failed to load planning data:', err);
@@ -179,6 +192,7 @@ export default function OfficerPortal() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-slate-950">
+      <DemoBanner area="staff" />
       <GovHeader
         currentLang={lang}
         onLanguageChange={(l) => {
@@ -214,18 +228,25 @@ export default function OfficerPortal() {
           </div>
 
           <div className="flex items-center gap-3">
-            <select
-              value={centreId}
-              onChange={(e) => setCentreId(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
-            >
-              <option value="KPG-01">APMC Kopargaon (KPG-01)</option>
-              <option value="SRD-02">APMC Shirdi (SRD-02)</option>
-              <option value="RHT-03">APMC Rahata (RHT-03)</option>
-              <option value="VJP-04">APMC Vaijapur (VJP-04)</option>
-              <option value="SRP-05">APMC Shrirampur (SRP-05)</option>
-              <option value="LSG-06">APMC Lasalgaon (LSG-06)</option>
-            </select>
+            {isDistrictAdmin ? (
+              <select
+                value={centreId}
+                onChange={(e) => setCentreId(e.target.value)}
+                className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="KPG-01">APMC Kopargaon (KPG-01)</option>
+                <option value="SRD-02">APMC Shirdi (SRD-02)</option>
+                <option value="RHT-03">APMC Rahata (RHT-03)</option>
+                <option value="VJP-04">APMC Vaijapur (VJP-04)</option>
+                <option value="SRP-05">APMC Shrirampur (SRP-05)</option>
+                <option value="LSG-06">APMC Lasalgaon (LSG-06)</option>
+              </select>
+            ) : (
+              <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>{activeUser?.assignedMandiName || `APMC Mandi (${centreId})`}</span>
+              </div>
+            )}
 
             <button
               onClick={loadData}
