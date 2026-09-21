@@ -6,7 +6,9 @@ try {
   // Ignore if unsupported in environment
 }
 
+const path = require('path');
 const dotenv = require('dotenv');
+dotenv.config({ path: path.join(__dirname, '../.env') });
 dotenv.config();
 
 const express = require('express');
