@@ -14,7 +14,7 @@ const dns = require('dns');
 try { dns.setServers(['8.8.8.8', '1.1.1.1']); } catch (e) {}
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const { Token, Farmer } = require('../src/models');
+const { Token, Farmer, Waitlist, SlotOffer } = require('../src/models');
 
 const BASE_URL = 'http://localhost:5000/api';
 const JWT_SECRET = process.env.JWT_SECRET || 'kisanq_jwt_super_secret_key_change_in_production';
@@ -172,7 +172,12 @@ async function runIdentityTests() {
   assert(resApOwner.status === 200, `Token owner Farmer A querying agripool matches succeeded: [${resApOwner.status}]`);
 
   // Clean up
-  await Token.deleteOne({ tokenNumber: testTokenNumber });
+  try {
+    await Token.deleteOne({ tokenNumber: testTokenNumber });
+    await Waitlist.deleteMany({ farmerPhone: '9800000101' });
+    await SlotOffer.deleteMany({ farmerPhone: '9800000101' });
+  } catch (e) {}
+
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();
   }
@@ -186,8 +191,13 @@ async function runIdentityTests() {
 
 runIdentityTests().catch(async err => {
   console.error('Unhandled test failure:', err);
-  if (mongoose.connection.readyState !== 0) {
-    await mongoose.disconnect();
-  }
+  try {
+    if (mongoose.connection.readyState !== 0) {
+      await Token.deleteMany({ farmerPhone: '9800000101' });
+      await Waitlist.deleteMany({ farmerPhone: '9800000101' });
+      await SlotOffer.deleteMany({ farmerPhone: '9800000101' });
+      await mongoose.disconnect();
+    }
+  } catch (_) {}
   process.exit(1);
 });

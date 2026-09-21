@@ -37,6 +37,7 @@ const FastTrackRound = require('../src/models/FastTrackRound');
 const FastTrackBid = require('../src/models/FastTrackBid');
 const Token = require('../src/models/Token');
 const Farmer = require('../src/models/Farmer');
+const Booking = require('../src/models/Booking');
 const AuditLog = require('../src/models/AuditLog');
 const Notification = require('../src/models/Notification');
 const SlotOffer = require('../src/models/SlotOffer');
@@ -130,13 +131,35 @@ async function runTests() {
     { expiresIn: '8h' }
   );
 
+  const testFarmerPhones = Array.from({ length: 8 }, (_, i) => `989950000${i + 1}`);
+
   // Helper: Create authenticated farmer with confirmed booking
   async function setupFarmer(idx, mandiId = 'KPG-01') {
-    const phone = `9826${runId}${String(idx).padStart(2, '0')}`;
+    const phone = `989950000${idx}`;
     const name = `Farmer ${idx}`;
     const farmerId = `64b8f0a1c1d2e3f4a5b6c${String(idx).padStart(3, '0')}`;
 
     const tokenJwt = jwt.sign({ id: farmerId, phone, name, role: 'farmer' }, JWT_SECRET, { expiresIn: '8h' });
+
+    if (mongoose.connection.readyState === 1) {
+      await Token.deleteMany({ $or: [{ phone }, { farmerPhone: phone }] });
+      await Booking.deleteMany({ farmerPhone: phone });
+      await Farmer.deleteMany({ phone });
+      await Farmer.create({
+        _id: new mongoose.Types.ObjectId(farmerId),
+        phone,
+        name,
+        preferredLanguage: 'mr',
+        village: 'Kolpewadi',
+        crop: 'Soybean',
+        landArea: 10,
+        pickupLocation: {
+          type: 'Point',
+          coordinates: [74.4820, 19.8928],
+          address: `${name} Farm`
+        }
+      });
+    }
 
     // Seed Farmer & pickup location
     await makeRequest({
@@ -165,17 +188,19 @@ async function runTests() {
       vehicleNumber: `MH-17-FT-${String(idx).padStart(4, '0')}`
     });
 
-    const tokenNumber = bookRes.data?.token?.tokenNumber || bookRes.data?.data?.tokenNumber;
+    const tokenNumber = bookRes.data?.data?.tokenNumber || bookRes.data?.token?.tokenNumber || bookRes.data?.data?.token?.tokenNumber;
     return { phone, name, farmerId, jwt: tokenJwt, tokenNumber };
   }
 
-  // Clean test rounds, bids, audit and notifications (Preserve DEMO_ records)
+  // Clean test rounds, bids, audit and notifications (Never touch showcase-1 records)
   if (mongoose.connection.readyState === 1) {
-    await FastTrackRound.deleteMany({ roundId: { $not: /^DEMO_/ } });
-    await FastTrackBid.deleteMany({});
-    await AuditLog.deleteMany({ action: { $regex: /^FAST_TRACK/ } });
-    await Notification.deleteMany({ templateKey: { $regex: /^FAST_TRACK/ } });
-    await Token.deleteMany({ tokenNumber: { $regex: /^KQ-KPG-2026-PAST/ } });
+    await FastTrackRound.deleteMany({ seedBatch: { $ne: 'showcase-1' } });
+    await FastTrackBid.deleteMany({ seedBatch: { $ne: 'showcase-1' } });
+    await AuditLog.deleteMany({ seedBatch: { $ne: 'showcase-1' }, action: { $regex: /^FAST_TRACK/ } });
+    await Notification.deleteMany({ recipientId: { $in: testFarmerPhones } });
+    await Token.deleteMany({ $or: [{ phone: { $in: testFarmerPhones } }, { farmerPhone: { $in: testFarmerPhones } }] });
+    await Booking.deleteMany({ farmerPhone: { $in: testFarmerPhones } });
+    await Farmer.deleteMany({ phone: { $in: testFarmerPhones } });
   }
 
   console.log('\n[SETUP] Preparing farmers and bookings...');
@@ -580,9 +605,12 @@ async function runTests() {
     }
 
     const testPhones = farmers.map(f => f.phone);
-    await Token.deleteMany({ farmerPhone: { $in: testPhones } });
+    await Token.deleteMany({ $or: [{ phone: { $in: testPhones } }, { farmerPhone: { $in: testPhones } }] });
+    await Booking.deleteMany({ farmerPhone: { $in: testPhones } });
     await Farmer.deleteMany({ phone: { $in: testPhones } });
     await SlotOffer.deleteMany({ farmerPhone: { $in: testPhones } });
+    await Notification.deleteMany({ recipientId: { $in: testPhones } });
+    await AuditLog.deleteMany({ targetId: { $in: targetRoundIds } });
     console.log('🧹 Cleaned up all test rounds, bids, tokens, and farmers from test_fasttrack_bidding.');
   } else {
     assert(true, 'AuditLog and Token document verification passed');

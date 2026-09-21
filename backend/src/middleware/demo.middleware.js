@@ -46,7 +46,7 @@ const requireDemoToken = (req, res, next) => {
  */
 const demoResetRateLimiter = rateLimit({
   windowMs: 30 * 1000,
-  max: 1,
+  max: (req) => (['supervisor', 'district_admin', 'resource_officer'].includes(req.user?.role) ? 10 : 1),
   standardHeaders: true,
   legacyHeaders: false,
   skipFailedRequests: false,

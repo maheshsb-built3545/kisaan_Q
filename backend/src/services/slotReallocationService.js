@@ -41,12 +41,12 @@ function getTimingConfig(overrides = {}) {
  * Helper to parse slot start timestamp
  * e.g. slotDate: '2026-09-20', slotTime: '08:00 AM - 11:00 AM' -> Date object
  */
-function parseSlotStartTime(slotDateStr, slotTimeStr) {
+function parseSlotStartTime(slotDateStr, slotTimeStr, refDate = new Date()) {
   if (!slotDateStr) return new Date();
   
   let datePart = slotDateStr.trim();
   if (datePart.toLowerCase() === 'today') {
-    datePart = new Date().toISOString().split('T')[0];
+    datePart = refDate.toISOString().split('T')[0];
   }
 
   let hours = 8;
@@ -65,12 +65,16 @@ function parseSlotStartTime(slotDateStr, slotTimeStr) {
 
   const d = new Date(datePart);
   if (isNaN(d.getTime())) {
-    const today = new Date();
+    const today = new Date(refDate);
     today.setHours(hours, minutes, 0, 0);
     return today;
   }
 
   d.setHours(hours, minutes, 0, 0);
+  // If parsing 12:00 AM (0 hours) for current late-night hours (e.g. 23:00), rollover to next day
+  if (hours === 0 && refDate.getHours() >= 20) {
+    d.setDate(d.getDate() + 1);
+  }
   return d;
 }
 

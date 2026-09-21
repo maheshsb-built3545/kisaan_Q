@@ -728,7 +728,10 @@ async function cleanShowcaseData() {
 
   let hasMismatch = false;
   for (const [col, count] of Object.entries(beforeNonShowcase)) {
-    if (afterNonShowcase[col] !== count) {
+    const isAppendOnly = ['AuditLogs', 'Notifications'].includes(col);
+    const isLoss = afterNonShowcase[col] < count;
+    const isMismatch = !isAppendOnly && afterNonShowcase[col] !== count;
+    if (isLoss || isMismatch) {
       console.error(`🚨 [NON-SHOWCASE DATA LOSS GUARD] Mismatch in collection ${col}: before=${count}, after=${afterNonShowcase[col]}`);
       hasMismatch = true;
     }
@@ -1686,6 +1689,80 @@ async function seedShowcase() {
     priority: 2,
     seedBatch: SEED_BATCH
   });
+
+  // (e) Waitlist Entry for Sunil Shinde
+  await Waitlist.create({
+    farmerId: farmerSunil._id,
+    farmerName: farmerSunil.name,
+    farmerPhone: farmerSunil.phone,
+    centreId: 'KPG-01',
+    mandiId: 'KPG-01',
+    mandiName: MANDI_NAME,
+    crop: 'Soybean',
+    quantity: 20,
+    requestedSlotDate: t.dateStr,
+    requestedSlotTime: t.slotLabel,
+    status: 'WAITING',
+    priority: 3,
+    seedBatch: SEED_BATCH
+  });
+
+  // 5.5 Seed Inbound Quota & Farmer Redirect Offers (B9 Showcase Scenario)
+  console.log('5️⃣.5 Seeding Inbound Quotas & Farmer Redirect Offers...');
+  const qDoc = await InboundQuota.create({
+    centreId: 'SRD-02',
+    date: t.dateStr,
+    hour: t.nextHour,
+    count: 15,
+    used: 2,
+    seedBatch: SEED_BATCH
+  });
+
+  await RedirectOffer.create([
+    {
+      farmerId: heroFarmer._id.toString(),
+      fromCentre: 'KPG-01',
+      toCentre: 'SRD-02',
+      date: t.dateStr,
+      hour: t.nextHour,
+      quotaRef: qDoc._id,
+      originalBookingId: bHero._id,
+      status: 'pending',
+      expiresAt: new Date(Date.now() + 60 * 60000),
+      proposedBy: OFFICERS.officer.name,
+      distanceKm: 18.5,
+      toCentreHeatStatus: 'Green',
+      seedBatch: SEED_BATCH
+    },
+    {
+      farmerId: farmerSunil._id.toString(),
+      fromCentre: 'KPG-01',
+      toCentre: 'SRD-02',
+      date: t.dateStr,
+      hour: t.nextHour,
+      quotaRef: qDoc._id,
+      status: 'pending',
+      expiresAt: new Date(Date.now() + 60 * 60000),
+      proposedBy: OFFICERS.officer.name,
+      distanceKm: 18.5,
+      toCentreHeatStatus: 'Green',
+      seedBatch: SEED_BATCH
+    },
+    {
+      farmerId: nextWaitlistFarmer._id.toString(),
+      fromCentre: 'KPG-01',
+      toCentre: 'SRD-02',
+      date: t.dateStr,
+      hour: t.nextHour,
+      quotaRef: qDoc._id,
+      status: 'pending',
+      expiresAt: new Date(Date.now() + 60 * 60000),
+      proposedBy: OFFICERS.officer.name,
+      distanceKm: 18.5,
+      toCentreHeatStatus: 'Green',
+      seedBatch: SEED_BATCH
+    }
+  ]);
 
   // 6. Seed Complaints (Only on Tokens Inside Gate-to-Payout Window)
   console.log('6️⃣ Seeding Farmer Grievances on Active Tokens...');

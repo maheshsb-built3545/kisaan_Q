@@ -28,7 +28,9 @@
     "test:all": "node tests/test_all_prd.js",
     "test:demo": "node tests/test_demo.js",
     "showcase:seed": "node scripts/seedShowcase.js",
-    "showcase:live": "node scripts/seedShowcase.js --live"
+    "showcase:live": "node scripts/seedShowcase.js --live",
+    "demo:check": "node scripts/demoCheck.js",
+    "demo:prepare": "npm run showcase:seed && npm run showcase:live && npm run demo:check"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

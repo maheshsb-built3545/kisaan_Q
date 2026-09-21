@@ -259,11 +259,61 @@ const demoController = {
         { $set: { arrivalWindowStart: nextHour, arrivalWindowEnd: slotWindowEnd } }
       );
 
-      // ─── 6. Reset AWAITING_APPROVAL rounds back to AWAITING_APPROVAL ──────
-      // (They may have been decided during demo — reset them for the next demo loop)
-      await FastTrackRound.updateMany(
-        { seedBatch: SEED_BATCH, status: { $in: ['APPROVED', 'DECLINED'] } },
-        { $set: { status: 'AWAITING_APPROVAL', officerDecision: {}, officerDecisionExpiresAt: new Date(now.getTime() + 10 * 60 * 1000) } }
+      // ─── 6. Reset Fast-Track Rounds to Initial Showcase State ────────────
+      const b1 = await Booking.findOne({ seedBatch: SEED_BATCH, tokenNumber: 'KQ-KPG-2026-6281' });
+      const b2 = await Booking.findOne({ seedBatch: SEED_BATCH, tokenNumber: 'KQ-KPG-2026-6282' });
+      const b3 = await Booking.findOne({ seedBatch: SEED_BATCH, tokenNumber: 'KQ-KPG-2026-6283' });
+      const b4 = await Booking.findOne({ seedBatch: SEED_BATCH, tokenNumber: 'KQ-KPG-2026-6284' });
+
+      await FastTrackRound.updateOne(
+        { seedBatch: SEED_BATCH, roundId: 'FTR-KPG-2026-8001' },
+        {
+          $set: {
+            status: 'JOINING',
+            participants: [
+              { farmerId: '65f1a2b3c4d5e6f7a8b9e102', phone: '9800100002', name: 'Sunil Shinde', bookingId: b1?._id || new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6281', joinedAt: new Date(now.getTime() - 10 * 60000) },
+              { farmerId: '65f1a2b3c4d5e6f7a8b9e103', phone: '9800100003', name: 'Dattatray Pawar', bookingId: b2?._id || new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6282', joinedAt: new Date(now.getTime() - 8 * 60000) },
+              { farmerId: '65f1a2b3c4d5e6f7a8b9e104', phone: '9800100004', name: 'Vikas Deshmukh', bookingId: b3?._id || new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6283', joinedAt: new Date(now.getTime() - 5 * 60000) },
+              { farmerId: '65f1a2b3c4d5e6f7a8b9e105', phone: '9800100005', name: 'Suresh Patil', bookingId: b4?._id || new mongoose.Types.ObjectId(), tokenNumber: 'KQ-KPG-2026-6284', joinedAt: new Date(now.getTime() - 2 * 60000) }
+            ],
+            currentLeader: null,
+            candidateQueue: [],
+            endsAt: null
+          }
+        }
+      );
+
+      const b2005 = await Booking.findOne({ seedBatch: SEED_BATCH, tokenNumber: 'KQ-KPG-2026-2005' });
+      const b2006 = await Booking.findOne({ seedBatch: SEED_BATCH, tokenNumber: 'KQ-KPG-2026-2006' });
+      await FastTrackRound.updateOne(
+        { seedBatch: SEED_BATCH, roundId: 'FTR-KPG-2026-8002' },
+        {
+          $set: {
+            status: 'AWAITING_APPROVAL',
+            officerDecision: {},
+            officerDecisionExpiresAt: new Date(now.getTime() + 15 * 60000),
+            currentLeader: {
+              farmerId: '65f1a2b3c4d5e6f7a8b9e106',
+              phone: '9800100006',
+              name: 'Balasaheb Thorat',
+              bookingId: b2005?._id || new mongoose.Types.ObjectId(),
+              tokenNumber: 'KQ-KPG-2026-2005',
+              amount: 260,
+              bidTime: new Date(now.getTime() - 5 * 60000)
+            },
+            candidateQueue: [
+              {
+                farmerId: '65f1a2b3c4d5e6f7a8b9e107',
+                phone: '9800100007',
+                name: 'Eknath Gaikwad',
+                bookingId: b2006?._id || new mongoose.Types.ObjectId(),
+                tokenNumber: 'KQ-KPG-2026-2006',
+                amount: 240,
+                bidTime: new Date(now.getTime() - 6 * 60000)
+              }
+            ]
+          }
+        }
       );
 
       // ─── 7. Count non-showcase documents AFTER (must match before exactly) ─

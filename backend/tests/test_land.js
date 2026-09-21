@@ -34,7 +34,7 @@ const { validateMagicBytes, extract712LandDetails } = require('../src/services/l
 const { checkLandQuantityLimit } = require('../src/services/landYieldService');
 const { LAND_YIELD_CONFIG, getCropYieldConfig, calculateExpectedMaxYield } = require('../src/config/landYield');
 const farmerService = require('../src/services/farmerService');
-const { Farmer, StaffUser, AuditLog, Notification, Exception } = require('../src/models');
+const { Farmer, StaffUser, AuditLog, Notification, Exception, Booking, Token } = require('../src/models');
 
 // Dedicated Test Phone Range (9899100001 - 9899100099)
 const TEST_FARMER_A_PHONE = '9899100001';
@@ -173,9 +173,25 @@ async function cleanupTestFixtures() {
       '9899100099'
     ];
     await Farmer.deleteMany({ phone: { $in: testPhones } });
-    await AuditLog.deleteMany({ 'details.phone': { $in: testPhones } });
+    await Booking.deleteMany({ farmerPhone: { $in: testPhones } });
+    await Token.deleteMany({ $or: [{ farmerPhone: { $in: testPhones } }, { phone: { $in: testPhones } }] });
+    await AuditLog.deleteMany({ $or: [{ 'details.phone': { $in: testPhones } }, { 'actor.phone': { $in: testPhones } }] });
     await Notification.deleteMany({ recipientId: { $in: testPhones } });
-    await Exception.deleteMany({ reasonCode: { $regex: /TEST_/ } });
+    await Exception.deleteMany({
+      $or: [
+        { 'details.farmerPhone': { $in: testPhones } },
+        { 'details.phone': { $in: testPhones } },
+        { reasonCode: { $regex: /TEST_|Rule-Based Yield Warning/ } },
+        { farmerId: { $in: ['test_farmer_small', 'test_farmer_tenant', 'test_farmer_no_land', 'farmer_small', 'farmer_tenant'] } }
+      ]
+    });
+    await AuditLog.deleteMany({
+      $or: [
+        { 'details.phone': { $in: testPhones } },
+        { 'actor.phone': { $in: testPhones } },
+        { action: 'LAND_QUANTITY_FLAG_CREATED', reason: { $regex: /TEST_|Rule-Based Yield Warning/ } }
+      ]
+    });
   }
 }
 

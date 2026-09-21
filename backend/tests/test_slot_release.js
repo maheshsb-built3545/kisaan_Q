@@ -360,13 +360,20 @@ async function runSlotReleaseTests() {
   } finally {
     // Cleanup
     if (mongoose.connection.readyState === 1) {
-      await Token.deleteMany({ tokenNumber: { $regex: new RegExp(`^${TEST_PREFIX}`) } });
-      if (newTokNum) await Token.deleteOne({ tokenNumber: newTokNum });
-      await Waitlist.deleteMany({ farmerPhone: { $in: [phoneA, phoneB, phoneC, '9800000048', '9800000049'] } });
+      await Token.deleteMany({
+        $or: [
+          { tokenNumber: { $regex: new RegExp(`^${TEST_PREFIX}`) } },
+          { tokenNumber: { $regex: /^KQ-TEST-/ } },
+          { farmerPhone: { $in: [phoneA, phoneB, phoneC, '9800000041', '9800000042', '9800000043', '9800000048', '9800000049'] } },
+          { phone: { $in: [phoneA, phoneB, phoneC, '9800000041', '9800000042', '9800000043', '9800000048', '9800000049'] } }
+        ]
+      });
+      await Waitlist.deleteMany({ farmerPhone: { $in: [phoneA, phoneB, phoneC, '9800000041', '9800000042', '9800000043', '9800000048', '9800000049'] } });
       await SlotOffer.deleteMany({
         $or: [
-          { farmerPhone: { $in: [phoneA, phoneB, phoneC, '9800000048', '9800000049'] } },
-          { releasedTokenNumber: { $regex: new RegExp(`^${TEST_PREFIX}`) } }
+          { farmerPhone: { $in: [phoneA, phoneB, phoneC, '9800000041', '9800000042', '9800000043', '9800000048', '9800000049'] } },
+          { releasedTokenNumber: { $regex: new RegExp(`^${TEST_PREFIX}`) } },
+          { centreId: 'TEST-KPG' }
         ]
       });
       console.log('\n🧹 Cleaned up TEST_B4_ records from MongoDB Atlas.');
