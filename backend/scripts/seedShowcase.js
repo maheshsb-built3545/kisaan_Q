@@ -78,12 +78,26 @@ const FARMERS = [
     name: 'Ramesh Kadam',
     village: 'Kolpewadi',
     crop: 'Soybean',
-    landArea: 4.5,
+    landArea: 8.5,
     preferredLanguage: 'mr',
     vehicleNumber: 'MH-17-BY-5124',
     pickupLocation: { type: 'Point', coordinates: [74.4789, 19.8824], address: 'Kolpewadi, Kopargaon' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '142/2',
+      gatNumber: '142/2',
+      village: 'Kolpewadi',
+      taluka: 'Kopargaon',
+      district: 'Ahilyanagar',
+      areaAcres: 8.5,
+      ownershipType: 'owner',
+      ownerNameOn712: 'रमेश विठ्ठल कदम',
+      source: 'auto_filled',
+      verificationStatus: 'verified',
+      verifiedBy: 'V. Pawar (Supervisor)',
+      verifiedAt: new Date(Date.now() - 3 * 86400000)
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e102'),
@@ -91,12 +105,24 @@ const FARMERS = [
     name: 'Sunil Shinde',
     village: 'Kolpewadi',
     crop: 'Soybean',
-    landArea: 3.8,
+    landArea: 1.5,
     preferredLanguage: 'mr',
     vehicleNumber: 'MH-17-CK-8890',
     pickupLocation: { type: 'Point', coordinates: [74.4798, 19.8835], address: 'Kolpewadi, Kopargaon' }, // ~160m from Ramesh (AgriPool Match)
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '88/1A',
+      gatNumber: '88/1A',
+      village: 'Kolpewadi',
+      taluka: 'Kopargaon',
+      district: 'Ahilyanagar',
+      areaAcres: 1.5,
+      ownershipType: 'co_owner',
+      ownerNameOn712: 'सुनील मारुती शिंदे',
+      source: 'self',
+      verificationStatus: 'pending'
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e103'),
@@ -109,7 +135,19 @@ const FARMERS = [
     vehicleNumber: 'MH-17-AJ-1122',
     pickupLocation: { type: 'Point', coordinates: [74.4950, 19.8980], address: 'Pohegaon, Kopargaon' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '204/B',
+      gatNumber: '204/B',
+      village: 'Pohegaon',
+      taluka: 'Kopargaon',
+      district: 'Ahilyanagar',
+      areaAcres: 5.2,
+      ownershipType: 'family_holding',
+      ownerNameOn712: 'दत्तात्रय तुकाराम पवार',
+      source: 'self',
+      verificationStatus: 'pending'
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e104'),
@@ -122,7 +160,21 @@ const FARMERS = [
     vehicleNumber: 'MH-17-BX-3344',
     pickupLocation: { type: 'Point', coordinates: [74.4600, 19.8700], address: 'Sanvatsar, Kopargaon' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '67/3',
+      gatNumber: '67/3',
+      village: 'Sanvatsar',
+      taluka: 'Kopargaon',
+      district: 'Ahilyanagar',
+      areaAcres: 6.0,
+      ownershipType: 'tenant',
+      ownerNameOn712: 'विकास सखाराम देशमुख',
+      source: 'self',
+      verificationStatus: 'verified',
+      verifiedBy: 'P. Kulkarni (Resource Officer)',
+      verifiedAt: new Date(Date.now() - 2 * 86400000)
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e105'),
@@ -135,7 +187,22 @@ const FARMERS = [
     vehicleNumber: 'MH-17-DH-5566',
     pickupLocation: { type: 'Point', coordinates: [74.4400, 19.8500], address: 'Dodi, Kopargaon' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '312/1',
+      gatNumber: '312/1',
+      village: 'Dodi',
+      taluka: 'Kopargaon',
+      district: 'Ahilyanagar',
+      areaAcres: 3.5,
+      ownershipType: 'owner',
+      ownerNameOn712: 'सुरेश बापू पाटील',
+      source: 'auto_filled',
+      verificationStatus: 'rejected',
+      rejectionReason: 'Survey number mismatch with revenue circle records',
+      verifiedBy: 'V. Pawar (Supervisor)',
+      verifiedAt: new Date(Date.now() - 86400000)
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e106'),
@@ -148,7 +215,19 @@ const FARMERS = [
     vehicleNumber: 'MH-17-EF-7788',
     pickupLocation: { type: 'Point', coordinates: [74.5200, 19.8200], address: 'Yesgaon, Kopargaon' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '45/1',
+      gatNumber: '45/1',
+      village: 'Yesgaon',
+      taluka: 'Kopargaon',
+      district: 'Ahilyanagar',
+      areaAcres: 7.2,
+      ownershipType: 'owner',
+      ownerNameOn712: 'बाळासाहेब थोरात',
+      source: 'self',
+      verificationStatus: 'pending'
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e107'),
@@ -161,7 +240,21 @@ const FARMERS = [
     vehicleNumber: 'MH-17-GH-9900',
     pickupLocation: { type: 'Point', coordinates: [74.4754, 19.7668], address: 'Shirdi' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '92/4',
+      gatNumber: '92/4',
+      village: 'Shirdi',
+      taluka: 'Rahata',
+      district: 'Ahilyanagar',
+      areaAcres: 4.0,
+      ownershipType: 'co_owner',
+      ownerNameOn712: 'एकनाथ गायकवाड',
+      source: 'auto_filled',
+      verificationStatus: 'verified',
+      verifiedBy: 'V. Pawar (Supervisor)',
+      verifiedAt: new Date(Date.now() - 4 * 86400000)
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e108'),
@@ -174,7 +267,19 @@ const FARMERS = [
     vehicleNumber: 'MH-17-JK-1234',
     pickupLocation: { type: 'Point', coordinates: [74.4600, 19.8700], address: 'Sanvatsar' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '118/2',
+      gatNumber: '118/2',
+      village: 'Sanvatsar',
+      taluka: 'Kopargaon',
+      district: 'Ahilyanagar',
+      areaAcres: 5.5,
+      ownershipType: 'family_holding',
+      ownerNameOn712: 'हरिभाऊ काळे',
+      source: 'self',
+      verificationStatus: 'pending'
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e109'),
@@ -187,7 +292,19 @@ const FARMERS = [
     vehicleNumber: 'MH-17-LM-5678',
     pickupLocation: { type: 'Point', coordinates: [74.4789, 19.8824], address: 'Kolpewadi' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '76/1B',
+      gatNumber: '76/1B',
+      village: 'Kolpewadi',
+      taluka: 'Kopargaon',
+      district: 'Ahilyanagar',
+      areaAcres: 6.2,
+      ownershipType: 'tenant',
+      ownerNameOn712: 'काशिनाथ वाघ',
+      source: 'self',
+      verificationStatus: 'pending'
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e110'),
@@ -200,7 +317,19 @@ const FARMERS = [
     vehicleNumber: 'MH-17-NO-2468',
     pickupLocation: { type: 'Point', coordinates: [74.4950, 19.8980], address: 'Pohegaon' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '189/3',
+      gatNumber: '189/3',
+      village: 'Pohegaon',
+      taluka: 'Kopargaon',
+      district: 'Ahilyanagar',
+      areaAcres: 3.2,
+      ownershipType: 'owner',
+      ownerNameOn712: 'आनंद कोल्हे',
+      source: 'auto_filled',
+      verificationStatus: 'pending'
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e111'),
@@ -213,7 +342,21 @@ const FARMERS = [
     vehicleNumber: 'MH-17-PQ-9012',
     pickupLocation: { type: 'Point', coordinates: [74.7007, 19.6420], address: 'Shrirampur' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '54/2A',
+      gatNumber: '54/2A',
+      village: 'Shrirampur',
+      taluka: 'Shrirampur',
+      district: 'Ahilyanagar',
+      areaAcres: 4.2,
+      ownershipType: 'owner',
+      ownerNameOn712: 'सोपान जगताप',
+      source: 'self',
+      verificationStatus: 'verified',
+      verifiedBy: 'P. Kulkarni (Resource Officer)',
+      verifiedAt: new Date(Date.now() - 86400000)
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e112'),
@@ -226,7 +369,19 @@ const FARMERS = [
     vehicleNumber: 'MH-15-RS-3456',
     pickupLocation: { type: 'Point', coordinates: [74.2289, 20.1472], address: 'Lasalgaon, Nashik' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '233/1',
+      gatNumber: '233/1',
+      village: 'Lasalgaon',
+      taluka: 'Niphad',
+      district: 'Nashik',
+      areaAcres: 8.0,
+      ownershipType: 'owner',
+      ownerNameOn712: 'नारायण म्हस्के',
+      source: 'auto_filled',
+      verificationStatus: 'pending'
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e113'),
@@ -239,7 +394,19 @@ const FARMERS = [
     vehicleNumber: 'MH-15-TU-7890',
     pickupLocation: { type: 'Point', coordinates: [74.0500, 20.1700], address: 'Pimpalgaon' },
     noSmartphone: true,
-    pendingDues: 100
+    pendingDues: 100,
+    landRecord: {
+      surveyNumber: '101/5',
+      gatNumber: '101/5',
+      village: 'Pimpalgaon',
+      taluka: 'Niphad',
+      district: 'Nashik',
+      areaAcres: 3.9,
+      ownershipType: 'co_owner',
+      ownerNameOn712: 'संतोष तांबे',
+      source: 'self',
+      verificationStatus: 'pending'
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e114'),
@@ -252,20 +419,44 @@ const FARMERS = [
     vehicleNumber: 'MH-17-UV-2345',
     pickupLocation: { type: 'Point', coordinates: [74.4850, 19.7200], address: 'Rahata' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '14/2',
+      gatNumber: '14/2',
+      village: 'Rahata',
+      taluka: 'Rahata',
+      district: 'Ahilyanagar',
+      areaAcres: 4.8,
+      ownershipType: 'owner',
+      ownerNameOn712: 'भाऊसाहेब गिते',
+      source: 'self',
+      verificationStatus: 'pending'
+    }
   },
   {
     _id: new mongoose.Types.ObjectId('65f1a2b3c4d5e6f7a8b9e115'),
     phone: '9800100015',
     name: 'Pandurang Bhalerao',
-    village: 'Rahata',
+    village: 'Vaijapur',
     crop: 'Soybean',
     landArea: 5.0,
     preferredLanguage: 'mr',
     vehicleNumber: 'MH-17-WX-0123',
-    pickupLocation: { type: 'Point', coordinates: [74.4800, 19.7171], address: 'Rahata' },
+    pickupLocation: { type: 'Point', coordinates: [74.4800, 19.7171], address: 'Vaijapur' },
     noSmartphone: false,
-    pendingDues: 0
+    pendingDues: 0,
+    landRecord: {
+      surveyNumber: '82/3',
+      gatNumber: '82/3',
+      village: 'Vaijapur',
+      taluka: 'Vaijapur',
+      district: 'Chhatrapati Sambhajinagar',
+      areaAcres: 5.0,
+      ownershipType: 'family_holding',
+      ownerNameOn712: 'पांडुरंग भालेराव',
+      source: 'self',
+      verificationStatus: 'pending'
+    }
   }
 ];
 
@@ -805,6 +996,7 @@ async function seedShowcase() {
       pendingDues: f.pendingDues,
       noSmartphone: f.noSmartphone,
       pickupLocation: f.pickupLocation,
+      landRecord: f.landRecord,
       seedBatch: SEED_BATCH
     });
   }
@@ -1761,6 +1953,15 @@ async function seedShowcase() {
       outcome: 'Admitted with 1.0% standard moisture deduction',
       seedBatch: SEED_BATCH,
       rule: 'RULE_OVERRIDE_RESOLVED_MOISTURE'
+    },
+    {
+      bookingId: bSunilActive._id,
+      type: 'quality_dispute',
+      reasonCode: '[Rule-Based Yield Warning] Booked quantity (25.00 Qtl) exceeds expected max (18.00 Qtl) for declared land 1.5 Acres (Assumed Yield: 8 Qtl/Acre × 1.5 tolerance)',
+      raisedBy: supervisorUser._id,
+      supervisorOverride: false,
+      seedBatch: SEED_BATCH,
+      rule: 'RULE_LAND_QUANTITY_EXCEEDS_ESTIMATE'
     },
     {
       bookingId: bP3._id,
