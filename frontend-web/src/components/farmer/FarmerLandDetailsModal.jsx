@@ -8,8 +8,6 @@ import {
   X,
   Loader2,
   ShieldCheck,
-  Building,
-  MapPin,
   Sparkles,
   Info
 } from 'lucide-react';
@@ -34,6 +32,7 @@ export default function FarmerLandDetailsModal({
     source: 'self'
   });
 
+  const [extractedSnapshot, setExtractedSnapshot] = useState(null);
   const [isAutoFilled, setIsAutoFilled] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,10 +50,10 @@ export default function FarmerLandDetailsModal({
     uploadBtn: lang === 'mr' ? '७/१२ अपलोड करून माहिती भरा' : lang === 'hi' ? '7/12 अपलोड कर स्वतः भरें' : 'Upload 7/12 to Auto-Fill',
     uploadHint: lang === 'mr' ? 'PDF, JPG किंवा PNG (कमाल ५ MB)' : lang === 'hi' ? 'PDF, JPG या PNG (अधिकतम 5 MB)' : 'PDF, JPG or PNG (Max 5 MB)',
     ephemeralNotice: lang === 'mr'
-      ? 'आम्ही हे फॉर्म भरण्यासाठी तुमचा ७/१२ फक्त एकदा वाचतो आणि फाईल सेव्ह करत नाही.'
+      ? 'आम्ही हे फॉर्म भरण्यासाठी AI सेवेद्वारे तुमचा ७/१२ फक्त एकदा वाचतो. किसानक्यू ही फाईल सेव्ह करत नाही.'
       : lang === 'hi'
-      ? 'हम इन फ़ील्ड्स को भरने के लिए आपके 7/12 को केवल एक बार पढ़ते हैं और फ़ाइल को संग्रहीत नहीं करते हैं।'
-      : 'We read your 7/12 once to fill these fields and do not keep the file.',
+      ? 'हम इन फ़ील्ड्स को भरने के लिए AI सेवा द्वारा आपके 7/12 को केवल एक बार पढ़ते हैं। किसानक्यू इस फ़ाइल को सहेजता नहीं है।'
+      : 'We read your 7/12 once with an AI service to fill these fields. KisanQ does not keep the file.',
     autoFilledBadge: lang === 'mr' ? '✨ ७/१२ वरून आपोआप भरले — कृपया तपासा' : lang === 'hi' ? '✨ 7/12 से स्वतः भरा गया — कृपया जाँचें' : '✨ Auto-filled from 7/12 — Please review',
     surveyNo: lang === 'mr' ? 'सर्व्हे / गट क्रमांक' : lang === 'hi' ? 'सर्वे / गट संख्या' : 'Survey / Gat Number',
     village: lang === 'mr' ? 'गाव / मौजे' : lang === 'hi' ? 'गांव' : 'Village',
@@ -83,7 +82,7 @@ export default function FarmerLandDetailsModal({
         gatNumber: initialData.gatNumber || initialData.surveyNumber || '',
         village: initialData.village || '',
         taluka: initialData.taluka || '',
-        district: initialData.district || '',
+        district: initialData.district || 'Ahilyanagar',
         rawArea: initialData.areaAcres ? String(initialData.areaAcres) : '',
         areaUnit: 'acres',
         ownershipType: initialData.ownershipType || 'owner',
@@ -134,17 +133,30 @@ export default function FarmerLandDetailsModal({
       const response = await farmerApi.extractLandRecord(uploadData);
       const suggestions = response.data?.suggestions || response.suggestions || {};
 
+      const snapshot = {
+        surveyNumber: suggestions.surveyNumber || suggestions.gatNumber || '',
+        gatNumber: suggestions.gatNumber || suggestions.surveyNumber || '',
+        village: suggestions.village || '',
+        taluka: suggestions.taluka || '',
+        district: (suggestions.district || 'Ahilyanagar').replace(/Ahmednagar/i, 'Ahilyanagar'),
+        rawArea: suggestions.areaAcres ? String(suggestions.areaAcres) : '',
+        ownershipType: suggestions.ownershipType || 'owner',
+        ownerNameOn712: suggestions.ownerNameOn712 || ''
+      };
+
+      setExtractedSnapshot(snapshot);
+
       setFormData((prev) => ({
         ...prev,
-        surveyNumber: suggestions.surveyNumber || suggestions.gatNumber || prev.surveyNumber,
-        gatNumber: suggestions.gatNumber || suggestions.surveyNumber || prev.gatNumber,
-        village: suggestions.village || prev.village,
-        taluka: suggestions.taluka || prev.taluka,
-        district: suggestions.district || prev.district,
-        rawArea: suggestions.areaAcres ? String(suggestions.areaAcres) : prev.rawArea,
+        surveyNumber: snapshot.surveyNumber || prev.surveyNumber,
+        gatNumber: snapshot.gatNumber || prev.gatNumber,
+        village: snapshot.village || prev.village,
+        taluka: snapshot.taluka || prev.taluka,
+        district: snapshot.district || prev.district,
+        rawArea: snapshot.rawArea || prev.rawArea,
         areaUnit: 'acres',
-        ownershipType: suggestions.ownershipType || prev.ownershipType,
-        ownerNameOn712: suggestions.ownerNameOn712 || prev.ownerNameOn712,
+        ownershipType: snapshot.ownershipType || prev.ownershipType,
+        ownerNameOn712: snapshot.ownerNameOn712 || prev.ownerNameOn712,
         source: 'auto_filled'
       }));
 
@@ -156,7 +168,6 @@ export default function FarmerLandDetailsModal({
       setErrorMsg(err.response?.data?.message || err.message || 'Could not auto-extract fields. Please fill manually.');
     } finally {
       setIsExtracting(false);
-      // Reset input value
       e.target.value = '';
     }
   };
@@ -176,6 +187,22 @@ export default function FarmerLandDetailsModal({
       return;
     }
 
+    // Source is auto_filled ONLY if farmer confirms extracted values without editing them
+    let finalSource = 'self';
+    if (isAutoFilled && extractedSnapshot) {
+      const isUnchanged = (
+        formData.surveyNumber.trim() === extractedSnapshot.surveyNumber.trim() &&
+        formData.village.trim() === extractedSnapshot.village.trim() &&
+        formData.taluka.trim() === extractedSnapshot.taluka.trim() &&
+        formData.rawArea.trim() === extractedSnapshot.rawArea.trim() &&
+        formData.ownershipType === extractedSnapshot.ownershipType &&
+        formData.ownerNameOn712.trim() === extractedSnapshot.ownerNameOn712.trim()
+      );
+      if (isUnchanged) {
+        finalSource = 'auto_filled';
+      }
+    }
+
     try {
       setIsSubmitting(true);
       const payload = {
@@ -183,11 +210,11 @@ export default function FarmerLandDetailsModal({
         gatNumber: formData.gatNumber.trim() || formData.surveyNumber.trim(),
         village: formData.village.trim(),
         taluka: formData.taluka.trim(),
-        district: formData.district.trim(),
+        district: (formData.district.trim() || 'Ahilyanagar').replace(/Ahmednagar/i, 'Ahilyanagar'),
         areaAcres,
         ownershipType: formData.ownershipType,
         ownerNameOn712: formData.ownerNameOn712.trim(),
-        source: isAutoFilled ? 'auto_filled' : 'self'
+        source: finalSource
       };
 
       const res = await farmerApi.updateLandRecord(payload);
