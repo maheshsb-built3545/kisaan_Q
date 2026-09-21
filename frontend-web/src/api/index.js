@@ -16,5 +16,6 @@ export { fastTrackApi, staffFastTrackApi } from './fastTrack.api';
 export { voiceBookingApi } from './voiceBooking.api';
 export { waitlistApi, staffWaitlistApi } from './waitlist.api';
 export { complaintsApi, staffComplaintsApi } from './complaints.api';
+export { farmerApi } from './farmer.api';
 
 export default apiClient;

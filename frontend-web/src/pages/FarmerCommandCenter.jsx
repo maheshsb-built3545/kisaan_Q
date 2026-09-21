@@ -8,7 +8,8 @@ import VoiceBookingModal from '../components/farmer/VoiceBookingModal';
 import FarmerWaitlistOffersCard from '../components/farmer/FarmerWaitlistOffersCard';
 import FarmerFastTrackAuctionCard from '../components/farmer/FarmerFastTrackAuctionCard';
 import FarmerGrievanceModal from '../components/farmer/FarmerGrievanceModal';
-import { pricesApi, fastTrackApi, farmerClient, BASE_URL } from '../api';
+import FarmerLandDetailsCard from '../components/farmer/FarmerLandDetailsCard';
+import { pricesApi, fastTrackApi, farmerApi, farmerClient, BASE_URL } from '../api';
 import {
   MapPin, Clock, Zap, TrendingUp, TrendingDown, Minus,
   Ticket, CheckCircle2, Circle, Loader2, Printer,
@@ -296,6 +297,7 @@ function BookingPanel({
   const [slot, setSlot] = useState(SLOTS[0]);
   const [isBooking, setIsBooking] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [landWarningNotice, setLandWarningNotice] = useState(null);
   const [bookingError, setBookingError] = useState('');
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -390,9 +392,12 @@ function BookingPanel({
 
     try {
       const saved = await saveTokenAsync(token);
+      if (saved?.warning?.farmerNotice || saved?.warning?.code === 'LAND_QUANTITY_EXCEEDS_ESTIMATE') {
+        setLandWarningNotice(saved?.warning?.farmerNotice || 'This is more than we estimate your declared land can produce. A supervisor may check this. You can still continue.');
+      }
       setIsBooking(false);
       setBooked(true);
-      setTimeout(() => onBooked(saved || token), 900);
+      setTimeout(() => onBooked(saved || token), saved?.warning ? 2400 : 900);
     } catch (err) {
       setIsBooking(false);
       if (err?.code === 'PICKUP_LOCATION_REQUIRED' || err?.message?.includes('pickup location')) {
@@ -738,9 +743,17 @@ function BookingPanel({
           )}
 
           {booked ? (
-            <div className="w-full py-3.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-700 font-bold text-sm flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 animate-bounce" />
-              Token Generated! Redirecting…
+            <div className="space-y-2">
+              <div className="w-full py-3.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-sm flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 animate-bounce" />
+                Token Generated! Redirecting…
+              </div>
+              {landWarningNotice && (
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-start gap-2 shadow-xs">
+                  <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <span className="leading-snug">{landWarningNotice}</span>
+                </div>
+              )}
             </div>
           ) : (
             <button
@@ -1041,7 +1054,7 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
   const slotDate = token?.slotDate || 'Today';
   const queuePos = token?.queuePosition || 1;
 
-  // Load Fast-Track status & floor checks
+  // Load FastTrack status & floor checks
   const loadFastTrackStatus = useCallback(async () => {
     if (!tokenNumber) return;
     try {
@@ -1766,6 +1779,7 @@ export default function FarmerCommandCenter() {
     return DEFAULT_FARMER_COORDINATES;
   });
   const [mandiMatrix, setMandiMatrix] = useState({});
+  const [farmerLandRecord, setFarmerLandRecord] = useState(user?.landRecord || null);
   const [agriPoolAlert, setAgriPoolAlert] = useState(null);
   const [showPoolDrawer, setShowPoolDrawer] = useState(false);
   const [showPickupPicker, setShowPickupPicker] = useState(false);
@@ -1842,6 +1856,16 @@ export default function FarmerCommandCenter() {
       return false;
     }
   }, []);
+
+  // Fetch farmer land record on mount
+  useEffect(() => {
+    farmerApi.getLandRecord()
+      .then((res) => {
+        const rec = res.data?.landRecord || res.landRecord;
+        if (rec) setFarmerLandRecord(rec);
+      })
+      .catch((e) => console.debug('[Land Record] Initial fetch notice:', e.message));
+  }, [user?.id, user?.phone]);
 
   // 1. Acquire farmer coordinates (prioritizing saved pickupLocation pin) & calculate multi-mandi OSRM road matrix
   useEffect(() => {
@@ -2805,6 +2829,14 @@ export default function FarmerCommandCenter() {
 
             {/* ── B4: Waitlist & Reallocated Slot Offers ── */}
             <FarmerWaitlistOffersCard phone={farmerPhone} onOfferAccepted={() => { refreshTokens(); }} />
+
+            {/* ── Farmer Land Record Card / Reminder ── */}
+            <FarmerLandDetailsCard
+              landRecord={farmerLandRecord}
+              lang={user?.preferredLanguage || 'mr'}
+              onLandUpdated={(newRec) => setFarmerLandRecord(newRec)}
+              className="mb-4"
+            />
 
             {/* Skeleton Loader during fetch */}
             {isLoadingTokens ? (

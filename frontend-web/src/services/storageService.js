@@ -440,6 +440,9 @@ async function saveTokenToApi(token) {
     }
 
     if (res.ok && data?.token) {
+      if (data.warning) data.token.warning = data.warning;
+      if (data.reminder) data.token.reminder = data.reminder;
+      if (data.landYieldCheck) data.token.landYieldCheck = data.landYieldCheck;
       return data.token;
     }
 
