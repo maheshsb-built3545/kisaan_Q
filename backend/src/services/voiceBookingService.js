@@ -1358,17 +1358,41 @@ const voiceBookingService = {
       updatedAt: new Date().toISOString()
     };
 
+    // Rule-Based Land Quantity Check (Non-blocking)
+    let landCheck = { warning: null, reminder: null };
+    try {
+      const landYieldService = require('./landYieldService');
+      landCheck = await landYieldService.checkLandQuantityLimit({
+        farmerId,
+        phone,
+        crop: tokenPayload.crop,
+        requestedQuantity: Number(tokenPayload.quantity) || 10,
+        bookingId: tokenPayload._id || tokenPayload.id,
+        tokenNumber: tokenPayload.tokenNumber,
+        centreId: assignedMandiId
+      });
+      tokenPayload.warning = landCheck.warning;
+      tokenPayload.reminder = landCheck.reminder;
+      tokenPayload.landYieldCheck = landCheck;
+    } catch (yieldErr) {
+      logger.warn(`[VoiceBooking] Land quantity check notice: ${yieldErr.message}`);
+    }
+
     if (mongoose.connection.readyState === 1) {
       try {
         const createdDoc = await Token.create(tokenPayload);
         logger.info(`[VoiceBooking] Saved token ${tokenNumber} to MongoDB Atlas`);
-        return { token: createdDoc.toObject() };
+        const docObj = createdDoc.toObject();
+        docObj.warning = landCheck.warning;
+        docObj.reminder = landCheck.reminder;
+        docObj.landYieldCheck = landCheck;
+        return { token: docObj, warning: landCheck.warning, reminder: landCheck.reminder, landYieldCheck: landCheck };
       } catch (err) {
         logger.warn(`[VoiceBooking] MongoDB save error, fallback to memory: ${err.message}`);
       }
     }
 
-    return { token: tokenPayload };
+    return { token: tokenPayload, warning: landCheck.warning, reminder: landCheck.reminder, landYieldCheck: landCheck };
   },
 
   /**

@@ -988,7 +988,36 @@ async function createTokenReservation(params) {
     logger.warn(`[Tokens] Notification notice: ${notifErr.message}`);
   }
 
-  return { savedToken, agriPoolMatch };
+  // 9. Rule-Based Land Quantity Check (Non-blocking: Farmer gets warning/notice, staff gets flag)
+  let landCheck = { warning: null, reminder: null };
+  try {
+    const landYieldService = require('../services/landYieldService');
+    landCheck = await landYieldService.checkLandQuantityLimit({
+      farmerId: savedToken.farmerId,
+      phone: assignedPhone,
+      crop: savedToken.crop,
+      requestedQuantity: parsedQuantity,
+      bookingId: savedToken._id || savedToken.id,
+      tokenNumber: savedToken.tokenNumber,
+      centreId: assignedMandiId
+    });
+
+    if (savedToken && typeof savedToken === 'object') {
+      savedToken.warning = landCheck.warning;
+      savedToken.reminder = landCheck.reminder;
+      savedToken.landYieldCheck = landCheck;
+    }
+  } catch (yieldErr) {
+    logger.warn(`[Tokens] Land quantity check notice: ${yieldErr.message}`);
+  }
+
+  return {
+    savedToken,
+    agriPoolMatch,
+    warning: landCheck?.warning || null,
+    reminder: landCheck?.reminder || null,
+    landYieldCheck: landCheck
+  };
 }
 
 /**
@@ -1008,7 +1037,7 @@ router.post('/book', async (req, res) => {
       } catch (e) {}
     }
 
-    const { savedToken, agriPoolMatch } = await createTokenReservation({
+    const { savedToken, agriPoolMatch, warning, reminder, landYieldCheck } = await createTokenReservation({
       ...req.body,
       io: req.io,
       authUser,
@@ -1020,6 +1049,9 @@ router.post('/book', async (req, res) => {
       success: true,
       message: isAtlasMode ? 'Token booked successfully and saved to MongoDB Atlas' : 'Token booked successfully (in-memory fallback — Atlas IP whitelist may be required)',
       token: savedToken,
+      warning: warning || savedToken?.warning || null,
+      reminder: reminder || savedToken?.reminder || null,
+      landYieldCheck,
       agriPoolMatch
     });
   } catch (error) {

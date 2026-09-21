@@ -110,6 +110,74 @@ const farmerSchema = new mongoose.Schema(
     smsSentCount: {
       type: Number,
       default: 0
+    },
+    landRecord: {
+      surveyNumber: {
+        type: String,
+        trim: true
+      },
+      gatNumber: {
+        type: String,
+        trim: true
+      },
+      village: {
+        type: String,
+        trim: true
+      },
+      taluka: {
+        type: String,
+        trim: true
+      },
+      district: {
+        type: String,
+        trim: true
+      },
+      areaAcres: {
+        type: Number,
+        min: [0.001, 'Area must be greater than 0']
+      },
+      ownershipType: {
+        type: String,
+        enum: {
+          values: ['owner', 'co_owner', 'tenant', 'family_holding'],
+          message: '{VALUE} is not a valid ownership type'
+        },
+        default: 'owner'
+      },
+      ownerNameOn712: {
+        type: String,
+        trim: true
+      },
+      source: {
+        type: String,
+        enum: {
+          values: ['self', 'auto_filled'],
+          message: '{VALUE} is not a valid land record source'
+        },
+        default: 'self'
+      },
+      verificationStatus: {
+        type: String,
+        enum: {
+          values: ['pending', 'verified', 'rejected'],
+          message: '{VALUE} is not a valid verification status'
+        },
+        default: 'pending'
+      },
+      verifiedBy: {
+        type: String,
+        default: null,
+        trim: true
+      },
+      verifiedAt: {
+        type: Date,
+        default: null
+      },
+      rejectionReason: {
+        type: String,
+        default: null,
+        trim: true
+      }
     }
   },
   {

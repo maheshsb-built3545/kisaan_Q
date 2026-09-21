@@ -190,6 +190,34 @@ const bookingService = {
       logger.warn(`AuditLog creation notice: ${err.message}`);
     }
 
+    // 5. Rule-Based Land Quantity Check (Non-blocking: Farmer gets warning/notice, staff gets flag)
+    try {
+      const landYieldService = require('./landYieldService');
+      const qtyEstimate = quantityBand === '0-5q' ? 5 : quantityBand === '5-15q' ? 15 : 25;
+      const landCheck = await landYieldService.checkLandQuantityLimit({
+        farmerId,
+        crop,
+        requestedQuantity: qtyEstimate,
+        bookingId: booking._id,
+        tokenNumber: booking.tokenNumber,
+        centreId
+      });
+
+      if (booking.toObject) {
+        const bObj = booking.toObject();
+        bObj.warning = landCheck.warning;
+        bObj.reminder = landCheck.reminder;
+        bObj.landYieldCheck = landCheck;
+        return bObj;
+      }
+
+      booking.warning = landCheck.warning;
+      booking.reminder = landCheck.reminder;
+      booking.landYieldCheck = landCheck;
+    } catch (yieldErr) {
+      logger.warn(`[Booking] Land quantity check notice: ${yieldErr.message}`);
+    }
+
     return booking;
   },
 
