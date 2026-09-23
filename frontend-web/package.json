@@ -2,6 +2,8 @@
   "name": "kisanq-frontend-web",
   "private": true,
   "version": "1.0.0",
+  "description": "Frontend web client for KisanQ Agricultural Queue and Slot Management Network",
+  "author": "Team KisanQ",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -30,7 +30,8 @@
     "showcase:seed": "node scripts/seedShowcase.js",
     "showcase:live": "node scripts/seedShowcase.js --live",
     "demo:check": "node scripts/demoCheck.js",
-    "demo:prepare": "npm run showcase:seed && npm run showcase:live && npm run demo:check"
+    "demo:prepare": "npm run showcase:seed && npm run demo:check && npm run showcase:live",
+    "test:replay": "node tests/test_replay.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -41,6 +42,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.5.1",
     "multer": "^2.4.0",
+    "puppeteer-core": "^25.11.0",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
@@ -53,6 +55,6 @@
     "queue-management",
     "slot-booking"
   ],
-  "author": "Team Aveniq",
+  "author": "Team KisanQ",
   "license": "ISC"
 }
