@@ -21,6 +21,7 @@ import {
 } from '../components/staff';
 import { pricesApi, staffFastTrackApi as fastTrackApi, farmerApi } from '../api';
 import { staffClient } from '../api/client';
+import { getCentreDisplayName } from '../config/centreDisplayNames';
 import {
   MANDIS, STAGE_DEFINITIONS, getTokens,
   updateTokenStageAsync, checkBackendHealth,
@@ -185,7 +186,7 @@ export default function StaffDesk() {
         terminalLane: 'Gate 01 - North Boom Barrier',
         dutyToken: 'DUTY-KPG-SEC-0812',
         mandiId: 'KPG-01',
-        mandiName: 'APMC Kopargaon',
+        mandiName: getCentreDisplayName('KPG-01'),
       };
     }
   });
@@ -242,7 +243,7 @@ export default function StaffDesk() {
   // Manual Farmer Form State
   const [newFarmerName, setNewFarmerName] = useState('');
   const [newFarmerPhone, setNewFarmerPhone] = useState('');
-  const [newFarmerVillage, setNewFarmerVillage] = useState('Kopargaon');
+  const [newFarmerVillage, setNewFarmerVillage] = useState('Zone 1 Rural');
   const [newFarmerCrop, setNewFarmerCrop] = useState('Soybean');
   const [newFarmerLandArea, setNewFarmerLandArea] = useState('3.5');
   const [isCreatingFarmer, setIsCreatingFarmer] = useState(false);
@@ -276,6 +277,13 @@ export default function StaffDesk() {
 
   // Live Unified Crop Prices & MSP Standards
   const [commodityStandards, setCommodityStandards] = useState(FAQ_COMMODITY_STANDARDS);
+
+  // Enforce English in demo mode
+  useEffect(() => {
+    if (user?.demo || user?.isDemo) {
+      localStorage.setItem('kisanq_lang', 'en');
+    }
+  }, [user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -487,7 +495,7 @@ export default function StaffDesk() {
 
     setActionSuccessToast({
       title: 'Duty Station Center Switched',
-      message: `Shift duty transferred to ${targetMandi.name}. Socket.IO room re-scoped & token ${newDutyToken} bound.`,
+      message: `Shift duty transferred to ${getCentreDisplayName(targetMandi.id || targetMandi.name)}. Socket.IO room re-scoped & token ${newDutyToken} bound.`,
       tokenNumber: newDutyToken,
     });
     setTimeout(() => setActionSuccessToast(null), 5000);
@@ -1184,7 +1192,7 @@ export default function StaffDesk() {
 
         setActionSuccessToast({
           title: 'Token Generated',
-          message: `Slot reserved for ${farmer.name} at ${activeMandi.name}`,
+          message: `Slot reserved for ${farmer.name} at ${getCentreDisplayName(activeMandi.id || activeMandi.name)}`,
           tokenNumber: res.token.tokenNumber || res.token.id,
         });
         setTimeout(() => setActionSuccessToast(null), 4000);
@@ -1405,7 +1413,7 @@ export default function StaffDesk() {
               <div className="text-left">
                 <div className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1.5">
                   <span>Mandi:</span>
-                  <strong className="text-slate-900">{activeMandi.name.replace('APMC ', '')}</strong>
+                  <strong className="text-slate-900">{getCentreDisplayName(activeMandi.id)}</strong>
                   <span className="font-mono text-emerald-800 bg-emerald-100/80 px-1 py-0.2 rounded text-[9px] font-bold">
                     {staffSession.dutyToken || 'DUTY-ACTIVE'}
                   </span>
@@ -1501,7 +1509,7 @@ export default function StaffDesk() {
             <div className="flex items-center justify-between gap-2 mb-3">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                 <Truck className="w-4 h-4 text-emerald-600" />
-                <span>{activeMandi.name.replace('APMC ', '')} Queue</span>
+                <span>{getCentreDisplayName(activeMandi.id)} Queue</span>
               </h2>
               <div className="flex items-center gap-2">
                 <span
@@ -1575,7 +1583,7 @@ export default function StaffDesk() {
             {filteredTokens.length === 0 ? (
               <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-500 text-xs shadow-sm">
                 <Truck className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                <p className="font-bold text-slate-700">No trucks queued for {activeMandi.name}</p>
+                <p className="font-bold text-slate-700">No trucks queued for {getCentreDisplayName(activeMandi.id)}</p>
                 <p className="text-slate-500 mt-1">
                   Use the Registry button to generate a token or switch mandis.
                 </p>
@@ -1684,7 +1692,7 @@ export default function StaffDesk() {
                     </div>
                     <div>
                       <p className="text-[10px] uppercase font-bold text-slate-500">APMC Center</p>
-                      <p className="text-xs font-bold text-slate-900">{selectedToken.mandiName || activeMandi.name}</p>
+                      <p className="text-xs font-bold text-slate-900">{getCentreDisplayName(selectedToken.mandiId || activeMandi.id || selectedToken.mandiName || activeMandi.name)}</p>
                     </div>
                   </div>
                 </div>
@@ -2255,7 +2263,7 @@ export default function StaffDesk() {
                   <div className="space-y-4">
                     <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-4">
                       <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide mb-3">
-                        Procurement Bill & Official MSP Price Calculation ({activeMandi.name})
+                        Procurement Bill & Official MSP Price Calculation ({getCentreDisplayName(activeMandi.id)})
                       </h4>
 
                       <div className="space-y-2.5 text-xs">
@@ -2401,7 +2409,7 @@ export default function StaffDesk() {
               <Truck className="w-12 h-12 mx-auto mb-3 text-slate-400" />
               <h3 className="text-base font-bold text-slate-800">No Truck Manifest Selected</h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-                Select a token from the incoming queue on the left or use the Registry to generate tokens for {activeMandi.name}.
+                Select a token from the incoming queue on the left or use the Registry to generate tokens for {getCentreDisplayName(activeMandi.id)}.
               </p>
             </div>
           )}
@@ -2440,9 +2448,9 @@ export default function StaffDesk() {
 
             <div className="p-6 space-y-4">
               <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950">
-                <p className="font-bold">Active Duty Session: {activeMandi.name} ({staffSession.dutyToken})</p>
+                <p className="font-bold">Active Duty Session: {getCentreDisplayName(activeMandi.id)} ({staffSession.dutyToken})</p>
                 <p className="text-[11px] mt-0.5">
-                  Transferring will disconnect from {activeMandi.name}'s Socket.IO channel, subscribe to the new center's queue, and issue an updated shift duty pass.
+                  Transferring will disconnect from {getCentreDisplayName(activeMandi.id)}'s Socket.IO channel, subscribe to the new center's queue, and issue an updated shift duty pass.
                 </p>
               </div>
 
@@ -2464,7 +2472,7 @@ export default function StaffDesk() {
                       >
                         <div>
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-slate-900">{m.name}</span>
+                            <span className="font-bold text-xs text-slate-900">{getCentreDisplayName(m.id)}</span>
                             <span className="text-[9px] font-mono font-bold bg-slate-200 px-1.5 py-0.2 rounded text-slate-700">
                               {m.id}
                             </span>
@@ -2595,7 +2603,7 @@ export default function StaffDesk() {
                                 )}
                               </div>
                               <p className="text-xs text-slate-500 mt-0.5">
-                                📍 {f.village || 'Kopargaon'} · Crop: <strong>{f.crop || 'Soybean'}</strong> · Land: <strong>{f.landArea || 2.5} Acres</strong> · Kisan ID: <span className="font-mono">{f.kisanId || 'MH-AGRI-001'}</span>
+                                📍 {f.village ? getCentreDisplayName(f.village, f.village) : 'Zone 1 Rural'} · Crop: <strong>{f.crop || 'Soybean'}</strong> · Land: <strong>{f.landArea || 2.5} Acres</strong> · Kisan ID: <span className="font-mono">{f.kisanId || 'MH-AGRI-001'}</span>
                               </p>
                             </div>
 
@@ -2606,11 +2614,16 @@ export default function StaffDesk() {
                                 </span>
                               ) : (
                                 <ActionButton
-                                  variant="primary"
+                                  type="button"
+                                  variant="outline"
                                   size="sm"
-                                  onClick={() => handleBookTestSlot(f)}
+                                  onClick={() => {
+                                    setSelectedFarmerForBooking(f);
+                                    setShowBookSlotModal(true);
+                                  }}
+                                  icon={Clock}
                                 >
-                                  Book Slot ({activeMandi.code || 'KPG'})
+                                  Book Slot ({getCentreDisplayName(activeMandi.id)})
                                 </ActionButton>
                               )}
                             </div>
@@ -2661,7 +2674,7 @@ export default function StaffDesk() {
                       <label className="block text-xs font-bold text-slate-900 mb-1">Village / Location</label>
                       <input
                         type="text"
-                        placeholder="e.g. Loni / Rahata"
+                        placeholder="e.g. Zone 1 / Kolpewadi"
                         value={newFarmerVillage}
                         onChange={(e) => setNewFarmerVillage(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-emerald-600 focus:outline-none"
@@ -2780,7 +2793,7 @@ export default function StaffDesk() {
             <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-amber-900 font-semibold">
                 <Building2 className="w-4 h-4 text-amber-700" />
-                <span>Active Mandi: <strong>{activeMandi.name}</strong></span>
+                <span>Active Mandi: <strong>{getCentreDisplayName(activeMandi.id)}</strong></span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-mono text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded border border-amber-300">
@@ -2806,7 +2819,7 @@ export default function StaffDesk() {
                   </div>
                   <h4 className="text-sm font-bold text-slate-800">No Pending Fast-Track Requests</h4>
                   <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                    When farmers request fast-track priority for {activeMandi.name}, requests will appear here ranked by discount tier and submission time.
+                    When farmers request fast-track priority for {getCentreDisplayName(activeMandi.id)}, requests will appear here ranked by discount tier and submission time.
                   </p>
                 </div>
               ) : (
@@ -2897,6 +2910,13 @@ export default function StaffDesk() {
                 size="sm"
                 onClick={() => setShowFastTrackModal(false)}
               >
+                Close
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reject Farmer Land Details Modal */}
       {showRejectLandModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
