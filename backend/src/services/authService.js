@@ -43,6 +43,16 @@ const isDevAuthAllowed = () => {
   return process.env.NODE_ENV !== 'production';
 };
 
+const getStaffDefaultPassword = () => {
+  if (process.env.STAFF_DEMO_PASSWORD && process.env.STAFF_DEMO_PASSWORD.trim()) {
+    return process.env.STAFF_DEMO_PASSWORD.trim();
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    return 'Staff@KisanQ2026';
+  }
+  return null;
+};
+
 // Official 5-Desk Seeded Staff Registry Specification
 const SEEDED_STAFF_REGISTRY = [
   {
@@ -55,7 +65,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'GATE-01-NBR',
     assignedMandi: 'KPG-01',
     assignedMandiName: 'APMC Kopargaon',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   {
@@ -68,7 +77,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'LAB-02-NIR',
     assignedMandi: 'KPG-01',
     assignedMandiName: 'APMC Kopargaon',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   {
@@ -81,7 +89,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'WB-01-60MT',
     assignedMandi: 'KPG-01',
     assignedMandiName: 'APMC Kopargaon',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   {
@@ -94,7 +101,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'SEC-PROC-01',
     assignedMandi: 'KPG-01',
     assignedMandiName: 'APMC Kopargaon',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   {
@@ -107,7 +113,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'TRY-DBT-DESK',
     assignedMandi: 'KPG-01',
     assignedMandiName: 'APMC Kopargaon',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   // Resource Planning Officers across 6 official APMC centres
@@ -121,7 +126,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'PLAN-KPG-01',
     assignedMandi: 'KPG-01',
     assignedMandiName: 'APMC Kopargaon',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   {
@@ -134,7 +138,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'PLAN-SRD-02',
     assignedMandi: 'SRD-02',
     assignedMandiName: 'APMC Shirdi',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   {
@@ -147,7 +150,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'PLAN-RHT-03',
     assignedMandi: 'RHT-03',
     assignedMandiName: 'APMC Rahata',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   {
@@ -160,7 +162,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'PLAN-VJP-04',
     assignedMandi: 'VJP-04',
     assignedMandiName: 'APMC Vaijapur',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   {
@@ -173,7 +174,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'PLAN-SRP-05',
     assignedMandi: 'SRP-05',
     assignedMandiName: 'APMC Shrirampur',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   {
@@ -186,7 +186,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'PLAN-LSG-06',
     assignedMandi: 'LSG-06',
     assignedMandiName: 'APMC Lasalgaon',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   // Mandi Supervisor — oversees day operations at Kopargaon
@@ -200,7 +199,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'SUP-KPG-DESK',
     assignedMandi: 'KPG-01',
     assignedMandiName: 'APMC Kopargaon',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   },
   // District Admin — read-only district-level oversight
@@ -214,7 +212,6 @@ const SEEDED_STAFF_REGISTRY = [
     terminalCode: 'DA-AHD-DESK',
     assignedMandi: 'KPG-01',
     assignedMandiName: 'APMC Kopargaon',
-    defaultPassword: 'Staff@KisanQ2026',
     isActive: true
   }
 ];
@@ -234,8 +231,10 @@ const authService = {
   seedStaffRegistry: async () => {
     logger.info('[Staff Registry] Seeding official APMC Desk Staff records...');
     try {
+      const activeStaffPassword = getStaffDefaultPassword();
+      const passwordHash = activeStaffPassword ? await bcrypt.hash(activeStaffPassword, 10) : null;
+
       for (const record of SEEDED_STAFF_REGISTRY) {
-        const passwordHash = await bcrypt.hash(record.defaultPassword, 10);
         const docData = {
           name: record.name,
           phone: record.phone,
@@ -287,6 +286,13 @@ const authService = {
       throw err;
     }
 
+    // Fail closed in production if STAFF_DEMO_PASSWORD is not configured
+    if (process.env.NODE_ENV === 'production' && !process.env.STAFF_DEMO_PASSWORD) {
+      const err = new Error('Staff authentication disabled: STAFF_DEMO_PASSWORD is not configured in production environment.');
+      err.statusCode = 500;
+      throw err;
+    }
+
     let staff = null;
     if (mongoose.connection.readyState === 1) {
       staff = await StaffUser.findOne({ phone: rawPhone });
@@ -329,7 +335,8 @@ const authService = {
       isMatch = await bcrypt.compare(password.toString().trim(), staff.passwordHash);
     }
     // Allow default password or dev master password in offline mode only when dev auth is enabled
-    if (isDevAuthAllowed() && !isMatch && (password === 'Staff@KisanQ2026' || password === '123456')) {
+    const devStaffPassword = getStaffDefaultPassword();
+    if (isDevAuthAllowed() && !isMatch && devStaffPassword && (password === devStaffPassword || password === '123456')) {
       isMatch = true;
     }
 
@@ -728,6 +735,13 @@ const authService = {
    * Legacy / Direct Staff Login Support
    */
   staffLogin: async ({ name, phone, password }) => {
+    // Fail closed in production if STAFF_DEMO_PASSWORD is not configured
+    if (process.env.NODE_ENV === 'production' && !process.env.STAFF_DEMO_PASSWORD) {
+      const err = new Error('Staff authentication disabled: STAFF_DEMO_PASSWORD is not configured in production environment.');
+      err.statusCode = 500;
+      throw err;
+    }
+
     const rawPhone = (phone || '').toString().trim().replace(/\D/g, '');
     let staff = null;
 
@@ -768,7 +782,8 @@ const authService = {
     if (staff.passwordHash) {
       isMatch = await bcrypt.compare(password.toString().trim(), staff.passwordHash);
     }
-    if (isDevAuthAllowed() && !isMatch && (password === 'Staff@KisanQ2026' || password === '123456')) {
+    const devStaffPassword = getStaffDefaultPassword();
+    if (isDevAuthAllowed() && !isMatch && devStaffPassword && (password === devStaffPassword || password === '123456')) {
       isMatch = true;
     }
 
@@ -877,7 +892,8 @@ const authService = {
   },
 
   inMemoryFarmers,
-  isDevAuthAllowed
+  isDevAuthAllowed,
+  getStaffDefaultPassword
 };
 
 module.exports = authService;

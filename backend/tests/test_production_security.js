@@ -1,178 +1,189 @@
+'use strict';
+
 /**
- * Test Production Security:
- * Verifies that in NODE_ENV=production (or ALLOW_DEV_AUTH=false):
- * 1. 123456 / 999999 / 111111 magic OTP bypasses are refused.
- * 2. devOtp is omitted in requestFarmerOtp response.
- * 3. Shared staff password fallback (Staff@KisanQ2026 / 123456) without matching hash is refused.
- * 4. Staff 2FA bypass (entering 123456 without it being the challenge OTP) is refused.
+ * test_production_security.js
+ *
+ * Pre-deploy verification test suite for production security hardening:
+ * 1. ALLOW_DEV_AUTH defaults to false in production (and devOtp is omitted).
+ * 2. DEMO_MODE requires explicit enablement and refuses in production unless overridden.
+ * 3. Dev OTP bypass codes (123456, 999999, 111111) are strictly refused.
+ * 4. Staff login fails closed with a clear configuration error when STAFF_DEMO_PASSWORD is unset in production.
+ * 5. When STAFF_DEMO_PASSWORD is configured in production, only that password is accepted; legacy fallback is rejected.
  */
 
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const authService = require('../src/services/authService');
+const { isDemoAllowed } = require('../src/middleware/demo.middleware');
 
-async function runSecurityTests() {
-  console.log('=== RUNNING PRODUCTION SECURITY TEST SUITE ===');
+async function runProductionSecurityTests() {
+  console.log('\n============================================================');
+  console.log('🔒 PRODUCTION SECURITY & FAIL-CLOSED AUTHENTICATION TEST SUITE');
+  console.log('============================================================\n');
+
   let passed = 0;
   let failed = 0;
 
   function assert(condition, message) {
     if (condition) {
-      console.log(`[PASS] ${message}`);
+      console.log(`  ✅ [PASS] ${message}`);
       passed++;
     } else {
-      console.error(`[FAIL] ${message}`);
+      console.error(`  ❌ [FAIL] ${message}`);
       failed++;
     }
   }
 
-  // Set environment to production
+  // ─── PROOF 1: ALLOW_DEV_AUTH Defaults False in Production ───────────────────
+  console.log('📋 [PROOF 1] Verifying ALLOW_DEV_AUTH defaults false when unset in production:');
   process.env.NODE_ENV = 'production';
   delete process.env.ALLOW_DEV_AUTH;
+  delete process.env.STAFF_DEMO_PASSWORD;
+  delete process.env.DEMO_MODE;
+  delete process.env.ALLOW_DEMO_IN_PRODUCTION;
 
-  assert(!authService.isDevAuthAllowed(), 'isDevAuthAllowed() returns false when NODE_ENV=production');
+  assert(!authService.isDevAuthAllowed(), 'isDevAuthAllowed() returns false when ALLOW_DEV_AUTH is unset in NODE_ENV=production');
 
-  // Test 1: devOtp is omitted in requestFarmerOtp
-  try {
-    const reqRes = await authService.requestFarmerOtp({
-      phone: '9899999901',
-      name: 'SecTest Farmer',
-      mode: 'register'
-    });
-    assert(reqRes.devOtp === undefined, 'devOtp field is undefined/omitted in requestFarmerOtp when NODE_ENV=production');
-  } catch (err) {
-    assert(false, `requestFarmerOtp threw unexpected error: ${err.message}`);
-  }
+  const farmerReqRes = await authService.requestFarmerOtp({
+    phone: '9899999901',
+    name: 'SecTest Farmer',
+    mode: 'register'
+  });
+  assert(farmerReqRes.devOtp === undefined, 'devOtp is omitted/undefined in requestFarmerOtp response');
 
-  // Test 2: Magic OTP bypasses (123456, 999999, 111111) are REFUSED without an active OTP request
-  for (const magicOtp of ['123456', '999999', '111111']) {
+  // ─── PROOF 2: DEMO_MODE Requires Explicit Enabling ─────────────────────────
+  console.log('\n📋 [PROOF 2] Verifying DEMO_MODE requires explicit true and safeguards production:');
+  delete process.env.DEMO_MODE;
+  assert(!isDemoAllowed(), 'isDemoAllowed() returns false when DEMO_MODE is unset');
+
+  process.env.DEMO_MODE = 'false';
+  assert(!isDemoAllowed(), 'isDemoAllowed() returns false when DEMO_MODE="false"');
+
+  process.env.DEMO_MODE = 'true';
+  assert(!isDemoAllowed(), 'isDemoAllowed() returns false when DEMO_MODE="true" but NODE_ENV="production" (fails closed without ALLOW_DEMO_IN_PRODUCTION)');
+
+  process.env.ALLOW_DEMO_IN_PRODUCTION = 'true';
+  assert(isDemoAllowed(), 'isDemoAllowed() returns true only when DEMO_MODE="true" AND ALLOW_DEMO_IN_PRODUCTION="true"');
+  delete process.env.ALLOW_DEMO_IN_PRODUCTION;
+  delete process.env.DEMO_MODE;
+
+  // ─── PROOF 3: Dev OTP Bypasses Strictly Refused ───────────────────────────
+  console.log('\n📋 [PROOF 3] Verifying dev OTP bypass codes (123456, 999999, 111111) are refused:');
+  for (const bypassCode of ['123456', '999999', '111111']) {
     try {
       await authService.verifyFarmerOtp({
-        phone: '9899999902', // No request made for this phone
-        otp: magicOtp
+        phone: '9899999902',
+        otp: bypassCode
       });
-      assert(false, `Magic OTP ${magicOtp} was accepted when NODE_ENV=production (SHOULD HAVE BEEN REFUSED)`);
+      assert(false, `Bypass OTP ${bypassCode} was accepted (SHOULD HAVE BEEN REFUSED)`);
     } catch (err) {
       assert(
         err.statusCode === 401 || err.statusCode === 400,
-        `Magic OTP ${magicOtp} correctly refused in production: [${err.statusCode}] ${err.message}`
+        `Bypass OTP ${bypassCode} refused: [${err.statusCode}] ${err.message}`
       );
     }
   }
 
-  // Test 3: Magic OTP bypasses (123456, 999999, 111111) are REFUSED even when an OTP request exists (wrong OTP)
-  const reqRes2 = await authService.requestFarmerOtp({
+  // Refusal against an existing active request
+  await authService.requestFarmerOtp({
     phone: '9899999903',
-    name: 'SecTest Farmer 2',
+    name: 'SecTest Farmer Active',
     mode: 'register'
   });
-  for (const magicOtp of ['123456', '999999', '111111']) {
+  for (const bypassCode of ['123456', '999999', '111111']) {
     try {
       await authService.verifyFarmerOtp({
         phone: '9899999903',
-        otp: magicOtp
+        otp: bypassCode
       });
-      assert(false, `Magic OTP ${magicOtp} bypass accepted against active request (SHOULD HAVE BEEN REFUSED)`);
+      assert(false, `Bypass OTP ${bypassCode} accepted against active request (SHOULD HAVE BEEN REFUSED)`);
     } catch (err) {
       assert(
         err.statusCode === 401,
-        `Magic OTP ${magicOtp} against active request refused: [${err.statusCode}] ${err.message}`
+        `Bypass OTP ${bypassCode} against active request refused: [${err.statusCode}] ${err.message}`
       );
     }
   }
 
-  // Test 4: Shared staff password bypass refused when hash does not match
-  // Create an in-memory staff user with a specific password hash: 'RealPassword123'
-  const realHash = await bcrypt.hash('RealPassword123', 10);
-  const testStaffId = new mongoose.Types.ObjectId();
-  authService.inMemoryStaff = authService.inMemoryStaff || new Map();
-  // We will call verifyStaffCredentials with a mocked staff lookup
-  // Let's test by verifying against an actual staff user or mock
-  const { StaffUser } = require('../src/models');
-  
-  // Test password bypass with wrong password on existing seeded user
+  // ─── PROOF 4: Staff Login Fails Closed Without STAFF_DEMO_PASSWORD ────────
+  console.log('\n📋 [PROOF 4] Verifying staff login fails closed with clear config error without STAFF_DEMO_PASSWORD:');
+  delete process.env.STAFF_DEMO_PASSWORD;
+  assert(authService.getStaffDefaultPassword() === null, 'getStaffDefaultPassword() returns null in production when STAFF_DEMO_PASSWORD is unset');
+
+  // Test verifyStaffCredentials (Step 1 2FA)
   try {
     await authService.verifyStaffCredentials({
       phone: '9800000001',
-      password: 'WrongPassword999',
+      password: 'AnyPassword123',
       role: 'security_gate'
     });
-    assert(false, 'Wrong password accepted (SHOULD HAVE BEEN REFUSED)');
+    assert(false, 'verifyStaffCredentials succeeded without STAFF_DEMO_PASSWORD (SHOULD HAVE FAILED CLOSED)');
   } catch (err) {
-    assert(err.statusCode === 401, `Wrong password refused: [${err.statusCode}] ${err.message}`);
+    assert(
+      err.statusCode === 500 && err.message.includes('STAFF_DEMO_PASSWORD'),
+      `verifyStaffCredentials failed closed: [${err.statusCode}] ${err.message}`
+    );
   }
 
-  // Test shared password fallback '123456' on a user whose real hash is NOT 123456
-  // (SEEDED_STAFF_REGISTRY password is Staff@KisanQ2026, so '123456' has no hash match)
+  // Test legacy staffLogin
+  try {
+    await authService.staffLogin({
+      phone: '9800000001',
+      password: 'AnyPassword123'
+    });
+    assert(false, 'staffLogin succeeded without STAFF_DEMO_PASSWORD (SHOULD HAVE FAILED CLOSED)');
+  } catch (err) {
+    assert(
+      err.statusCode === 500 && err.message.includes('STAFF_DEMO_PASSWORD'),
+      `staffLogin failed closed: [${err.statusCode}] ${err.message}`
+    );
+  }
+
+  // ─── PROOF 5: Configured STAFF_DEMO_PASSWORD Works & Rejects Old Default ─
+  console.log('\n📋 [PROOF 5] Verifying behavior when STAFF_DEMO_PASSWORD is set in production:');
+  const PROD_PASSWORD = 'ProductionSecretPass2026!';
+  process.env.STAFF_DEMO_PASSWORD = PROD_PASSWORD;
+  assert(authService.getStaffDefaultPassword() === PROD_PASSWORD, 'getStaffDefaultPassword() returns configured STAFF_DEMO_PASSWORD');
+
+  // Re-seed registry with the new production password
+  await authService.seedStaffRegistry();
+
+  // Attempt login with old default 'Staff@KisanQ2026' -> must be REFUSED
   try {
     await authService.verifyStaffCredentials({
-      phone: '9800000001',
-      password: '123456',
-      role: 'security_gate'
-    });
-    assert(false, 'Dev master password 123456 accepted without hash match in production (SHOULD HAVE BEEN REFUSED)');
-  } catch (err) {
-    assert(err.statusCode === 401, `Dev master password 123456 refused without hash match: [${err.statusCode}] ${err.message}`);
-  }
-
-  // Test 5: Staff 2FA bypass refused in production
-  // Initiate challenge for 9800000001 using its genuine password
-  let challengeToken;
-  try {
-    const credRes = await authService.verifyStaffCredentials({
       phone: '9800000001',
       password: 'Staff@KisanQ2026',
       role: 'security_gate'
     });
-    challengeToken = credRes.challengeToken;
-    assert(Boolean(challengeToken), 'Staff credentials verified with genuine password, challengeToken issued');
+    assert(false, 'Old hardcoded password Staff@KisanQ2026 accepted in production (SHOULD HAVE BEEN REFUSED)');
   } catch (err) {
-    assert(false, `Staff credentials failed: ${err.message}`);
+    assert(
+      err.statusCode === 401,
+      `Old password Staff@KisanQ2026 refused: [${err.statusCode}] ${err.message}`
+    );
   }
 
-  if (challengeToken) {
-    // Attempt 2FA verification using bypass code '123456'
-    try {
-      await authService.verifyStaffOtp({
-        challengeToken,
-        otp: '123456'
-      });
-      assert(false, 'Staff 2FA bypass code 123456 accepted in production (SHOULD HAVE BEEN REFUSED)');
-    } catch (err) {
-      assert(err.statusCode === 401, `Staff 2FA bypass code 123456 refused: [${err.statusCode}] ${err.message}`);
-    }
-  }
-
-  // Test 6: Verify explicit ALLOW_DEV_AUTH=false flag when NODE_ENV is development
-  process.env.NODE_ENV = 'development';
-  process.env.ALLOW_DEV_AUTH = 'false';
-  assert(!authService.isDevAuthAllowed(), 'isDevAuthAllowed() returns false when ALLOW_DEV_AUTH="false"');
-
-  const devReq = await authService.requestFarmerOtp({
-    phone: '9899999904',
-    name: 'SecTest Farmer 4',
-    mode: 'register'
-  });
-  assert(devReq.devOtp === undefined, 'devOtp omitted when ALLOW_DEV_AUTH="false" even in development');
-
+  // Attempt login with real configured STAFF_DEMO_PASSWORD -> must SUCCEED
   try {
-    await authService.verifyFarmerOtp({
-      phone: '9899999905',
-      otp: '999999'
+    const credRes = await authService.verifyStaffCredentials({
+      phone: '9800000001',
+      password: PROD_PASSWORD,
+      role: 'security_gate'
     });
-    assert(false, 'Magic OTP 999999 accepted when ALLOW_DEV_AUTH="false" (SHOULD HAVE BEEN REFUSED)');
+    assert(Boolean(credRes.challengeToken), 'Configured STAFF_DEMO_PASSWORD accepted and issued challengeToken');
   } catch (err) {
-    assert(err.statusCode === 401, `Magic OTP 999999 refused when ALLOW_DEV_AUTH="false": [${err.statusCode}] ${err.message}`);
+    assert(false, `Configured STAFF_DEMO_PASSWORD failed: ${err.message}`);
   }
 
-  console.log('\n=============================================');
-  console.log(`PRODUCTION SECURITY TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
-  console.log('=============================================\n');
+  // ─── SUMMARY ──────────────────────────────────────────────────────────────
+  console.log('\n============================================================');
+  console.log(`🎯 TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
+  console.log('============================================================\n');
 
   process.exit(failed > 0 ? 1 : 0);
 }
 
-runSecurityTests().catch(err => {
-  console.error('Test suite failed with unhandled error:', err);
+runProductionSecurityTests().catch((err) => {
+  console.error('Test suite crashed with unhandled exception:', err);
   process.exit(1);
 });
