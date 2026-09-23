@@ -125,11 +125,12 @@ export default function FarmerLogin() {
     try {
       setDemoLoggingIn(profileKey);
       setError('');
+      localStorage.setItem('kisanq_lang', 'en');
       const res = await demoFarmerLogin(profileKey);
       if (res?.data?.landingPath) {
         navigate(res.data.landingPath);
       } else {
-        navigate('/farmer-dashboard');
+        navigate('/farmer/command-center');
       }
     } catch (err) {
       const msg = err?.response?.data?.message || err?.message || 'Demo login failed';
@@ -138,6 +139,15 @@ export default function FarmerLogin() {
       setDemoLoggingIn(null);
     }
   };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('autoDemo') === 'true' || params.get('autoDemo') === 'ramesh') {
+        handleDemoLogin('ramesh_kadam');
+      }
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-900/60 flex items-center justify-center p-0 sm:p-4">
@@ -272,7 +282,7 @@ export default function FarmerLogin() {
                   className="text-left p-2 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 text-xs transition-colors"
                 >
                   <div className="font-semibold text-slate-200">Ramesh Kadam</div>
-                  <div className="text-[10px] text-slate-500">9800100001 (Kopargaon)</div>
+                  <div className="text-[10px] text-slate-500">9800100001 (Centre A)</div>
                 </button>
                 <button
                   type="button"

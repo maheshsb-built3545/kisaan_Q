@@ -20,7 +20,7 @@ export const APMC_COORDINATES = {
 export const DEFAULT_FARMER_COORDINATES = {
   lat: 19.8370,
   lng: 74.4829,
-  address: 'कोपरगाव, Ahilyanagar District, Maharashtra, India',
+  address: 'Kopargaon, Ahilyanagar District, Maharashtra, India',
   isLive: false,
 };
 

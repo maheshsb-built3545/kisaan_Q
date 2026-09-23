@@ -16,7 +16,7 @@ export default function FarmerLandDetailsModal({
   isOpen,
   onClose,
   initialData = null,
-  lang = 'mr',
+  lang = 'en',
   onSaved = () => {}
 }) {
   const [formData, setFormData] = useState({
@@ -59,6 +59,9 @@ export default function FarmerLandDetailsModal({
     village: lang === 'mr' ? 'गाव / मौजे' : lang === 'hi' ? 'गांव' : 'Village',
     taluka: lang === 'mr' ? 'तालुका' : lang === 'hi' ? 'तालुका / तहसील' : 'Taluka',
     district: lang === 'mr' ? 'जिल्हा' : lang === 'hi' ? 'ज़िला' : 'District',
+    villagePlaceholder: lang === 'mr' ? 'उदा. रामगाव' : lang === 'hi' ? 'उदा. रामगांव' : 'e.g. Ramgaon',
+    talukaPlaceholder: lang === 'mr' ? 'उदा. सुंदरपूर' : lang === 'hi' ? 'उदा. सुंदरपुर' : 'e.g. Sundarpur',
+    districtPlaceholder: lang === 'mr' ? 'उदा. देवनगर' : lang === 'hi' ? 'उदा. देवनगर' : 'e.g. Devnagar',
     area: lang === 'mr' ? 'जमिनीचे क्षेत्र' : lang === 'hi' ? 'भूमि का क्षेत्रफल' : 'Land Area',
     unitAcres: lang === 'mr' ? 'एकर (Acres)' : lang === 'hi' ? 'एकड़' : 'Acres',
     unitHectares: lang === 'mr' ? 'हेक्टर (Hectares)' : lang === 'hi' ? 'हेक्टेयर' : 'Hectares',
@@ -408,7 +411,7 @@ export default function FarmerLandDetailsModal({
                 type="text"
                 value={formData.village}
                 onChange={(e) => setFormData({ ...formData, village: e.target.value })}
-                placeholder="उदा. कोळपेवाडी"
+                placeholder={t.villagePlaceholder || 'e.g. Ramgaon'}
                 className="w-full p-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs"
               />
             </div>
@@ -421,7 +424,7 @@ export default function FarmerLandDetailsModal({
                 type="text"
                 value={formData.taluka}
                 onChange={(e) => setFormData({ ...formData, taluka: e.target.value })}
-                placeholder="उदा. कोपरगाव"
+                placeholder={t.talukaPlaceholder || 'e.g. Sundarpur'}
                 className="w-full p-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs"
               />
             </div>
@@ -434,7 +437,7 @@ export default function FarmerLandDetailsModal({
                 type="text"
                 value={formData.district}
                 onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                placeholder="उदा. अहिल्यानगर"
+                placeholder={t.districtPlaceholder || 'e.g. Devnagar'}
                 className="w-full p-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 text-xs"
               />
             </div>

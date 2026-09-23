@@ -18,6 +18,7 @@ import {
 } from '../services/socketService';
 import { TOKEN_STATUS, normalizeStatus, isTokenActive } from '../utils/statusEnums';
 import { staffClient } from '../api/client';
+import { getCentreDisplayName } from '../config/centreDisplayNames';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -212,7 +213,7 @@ export default function StaffLogin() {
     loadPercentage: 0,
     status: 'Connecting…',
     code: 'MH-KPG-01',
-    mandiName: 'APMC Kopargaon',
+    mandiName: getCentreDisplayName('KPG-01'),
     scaleStatus: 'Weighbridge Calibrated',
   });
 
@@ -521,7 +522,7 @@ export default function StaffLogin() {
             >
               {ACTIVE_MANDIS.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.name} ({m.code})
+                  {getCentreDisplayName(m.id)} ({m.code})
                 </option>
               ))}
             </select>
@@ -542,7 +543,7 @@ export default function StaffLogin() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                {telemetryData.mandiName} · {telemetryData.scaleStatus}
+                {getCentreDisplayName(telemetryData.mandiName || selectedMandiId)} · {telemetryData.scaleStatus}
               </p>
             </div>
           </div>
@@ -726,6 +727,7 @@ export default function StaffLogin() {
                         try {
                           setDemoLoggingIn(roleItem.id);
                           setError('');
+                          localStorage.setItem('kisanq_lang', 'en');
                           const res = await demoStaffLogin(roleItem.id);
                           const landing = res?.data?.landingPath || (
                             roleItem.id === 'resource_officer' ? '/planning' :
@@ -822,7 +824,7 @@ export default function StaffLogin() {
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-emerald-600" />
                   <h3 className="text-sm font-bold text-slate-800">
-                    Live Yard Telemetry: {selectedMandi.name}
+                    Live Yard Telemetry: {getCentreDisplayName(selectedMandi.id)}
                   </h3>
                 </div>
                 <StatusBadge status={telemetryData.isLive ? 'ONLINE' : 'OFFLINE'} size="xs">

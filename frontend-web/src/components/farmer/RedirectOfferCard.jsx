@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, MapPin, CheckCircle, XCircle, Clock, Zap, AlertCircle } from 'lucide-react';
 import { redirectApi } from '../../api/redirect.api';
+import { getCentreDisplayName } from '../../config/centreDisplayNames';
 
 export default function RedirectOfferCard({ offer, onActionComplete }) {
   const [isAccepting, setIsAccepting] = useState(false);
@@ -69,7 +70,7 @@ export default function RedirectOfferCard({ offer, onActionComplete }) {
       <div className="mt-4 flex items-center justify-between gap-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
         <div className="flex flex-col">
           <span className="text-[10px] uppercase font-bold text-slate-500">Current Mandi</span>
-          <span className="text-sm font-bold text-slate-200">{fromCentre || 'Kopargaon'}</span>
+          <span className="text-sm font-bold text-slate-200">{getCentreDisplayName(fromCentre, 'Centre A')}</span>
         </div>
         <div className="flex flex-col items-center">
           <ArrowRight className="w-5 h-5 text-amber-400" />
@@ -77,7 +78,7 @@ export default function RedirectOfferCard({ offer, onActionComplete }) {
         </div>
         <div className="flex flex-col text-right">
           <span className="text-[10px] uppercase font-bold text-emerald-400">Fast-Track Destination</span>
-          <span className="text-sm font-bold text-white">{toCentre || 'Rahata'}</span>
+          <span className="text-sm font-bold text-white">{getCentreDisplayName(toCentre, 'Centre C')}</span>
         </div>
       </div>
 
@@ -130,14 +131,14 @@ export default function RedirectOfferCard({ offer, onActionComplete }) {
       {isAccepted && (
         <div className="mt-3 text-xs text-emerald-400 font-bold flex items-center gap-1.5">
           <CheckCircle className="w-4 h-4" />
-          <span>Redirect accepted! Your booking is transferred to {toCentre}.</span>
+          <span>Redirect accepted! Your booking is transferred to {getCentreDisplayName(toCentre, 'Centre C')}.</span>
         </div>
       )}
 
       {isDeclined && (
         <div className="mt-3 text-xs text-slate-500 flex items-center gap-1.5">
           <XCircle className="w-4 h-4" />
-          <span>You opted to remain at {fromCentre}.</span>
+          <span>You opted to remain at {getCentreDisplayName(fromCentre, 'Centre A')}.</span>
         </div>
       )}
     </div>

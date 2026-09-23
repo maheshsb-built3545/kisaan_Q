@@ -204,9 +204,14 @@ export const AuthProvider = ({ children }) => {
     const res = await demoApi.demoFarmerLogin(profile);
     if (res?.data?.token && res?.data?.user) {
       const authToken = res.data.token;
-      const authUser = res.data.user;
+      const authUser = {
+        ...res.data.user,
+        preferredLanguage: 'en',
+        demo: true
+      };
       setFarmerToken(authToken);
       setFarmerUser(authUser);
+      localStorage.setItem('kisanq_lang', 'en');
       localStorage.setItem('kisanq_farmer_token', authToken);
       localStorage.setItem('kisanq_farmer_user', JSON.stringify(authUser));
       localStorage.setItem('kisanq_farmer_profile', JSON.stringify(authUser));
@@ -224,9 +229,14 @@ export const AuthProvider = ({ children }) => {
     const res = await demoApi.demoStaffLogin(role);
     if (res?.data?.token && res?.data?.user) {
       const authToken = res.data.token;
-      const authUser = res.data.user;
+      const authUser = {
+        ...res.data.user,
+        preferredLanguage: 'en',
+        demo: true
+      };
       setStaffToken(authToken);
       setStaffUser(authUser);
+      localStorage.setItem('kisanq_lang', 'en');
       localStorage.setItem('kisanq_staff_token', authToken);
       localStorage.setItem('kisanq_staff_user', JSON.stringify(authUser));
       localStorage.setItem('kisanq_staff_session', JSON.stringify(authUser));

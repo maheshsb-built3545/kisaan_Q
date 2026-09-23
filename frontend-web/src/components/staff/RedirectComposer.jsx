@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Send, Radio, Shield, AlertCircle, CheckCircle, RefreshCw, Users, MapPin } from 'lucide-react';
 import { redirectApi } from '../../api/redirect.api';
+import { getCentreDisplayName } from '../../config/centreDisplayNames';
 
 export default function RedirectComposer({ currentCentreId = 'KPG-01', onCompleted }) {
   const [activeTab, setActiveTab] = useState('redirect'); // 'redirect' | 'quota' | 'broadcast'
@@ -150,7 +151,7 @@ export default function RedirectComposer({ currentCentreId = 'KPG-01', onComplet
               <input
                 type="text"
                 disabled
-                value={currentCentreId}
+                value={getCentreDisplayName(currentCentreId) + ' (' + currentCentreId + ')'}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-400"
               />
             </div>
@@ -161,11 +162,11 @@ export default function RedirectComposer({ currentCentreId = 'KPG-01', onComplet
                 onChange={(e) => setToCentre(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
               >
-                <option value="RDG-02">Rahata (RDG-02) — 14 km</option>
-                <option value="SNM-03">Sangamner (SNM-03) — 28 km</option>
-                <option value="SNR-04">Sinnar (SNR-04) — 38 km</option>
-                <option value="YVL-05">Yeola (YVL-05) — 26 km</option>
-                <option value="VRP-06">Vaijapur (VRP-06) — 32 km</option>
+                <option value="RDG-02">{getCentreDisplayName('RDG-02')} (RDG-02) — 14 km</option>
+                <option value="SNM-03">{getCentreDisplayName('SNM-03', 'Centre H')} (SNM-03) — 28 km</option>
+                <option value="SNR-04">{getCentreDisplayName('SNR-04', 'Centre J')} (SNR-04) — 38 km</option>
+                <option value="YVL-05">{getCentreDisplayName('YVL-05', 'Centre G')} (YVL-05) — 26 km</option>
+                <option value="VRP-06">{getCentreDisplayName('VRP-06')} (VRP-06) — 32 km</option>
               </select>
             </div>
             <div>

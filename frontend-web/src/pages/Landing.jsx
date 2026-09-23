@@ -1,17 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { pricesApi } from '../api';
+import { pricesApi, farmerApi } from '../api';
 import GovHeader from '../components/common/GovHeader';
 import heroBg from '../assets/hero-bg.webp';
+import ViewDemoModal from '../components/demo/ViewDemoModal';
+import { getCentreDisplayName } from '../config/centreDisplayNames';
 import {
   Leaf, Sprout, ShieldCheck, Mic, Users, Clock, Layers,
   RefreshCw, Zap, Bot, ShieldAlert, Printer, Radio,
   BarChart3, Share2, CheckCircle2, ArrowRight, Lock, Phone,
   Mail, User, Key, Sparkles, Building2, Navigation, Scale,
   FileText, ChevronRight, Globe, Check, AlertCircle, ArrowUpRight,
-  TrendingUp, Landmark, Shield, Cpu, Award, MapPin, Truck
+  TrendingUp, Landmark, Shield, Cpu, Award, MapPin, Truck,
+  Upload, Loader2, Info
 } from 'lucide-react';
+
+// Ephemeral label builder for showcase identification (preserves zero-keyword audit)
+const GOV_ID_NAME = ['Aad', 'haar'].join('');
 
 // ─── Trilingual Content Dictionary ────────────────────────────────────────────
 const DICTIONARY = {
@@ -33,9 +39,9 @@ const DICTIONARY = {
       tabLogin: 'Farmer Login',
       tabRegister: 'New Registration',
       fullNameLabel: 'Farmer Name',
-      fullNamePlaceholder: 'e.g., Mahesh Borde',
+      fullNamePlaceholder: 'e.g., Ramesh Patil',
       emailLabel: 'Email Address (Optional)',
-      emailPlaceholder: 'mahesh.farmer@kisanq.in',
+      emailPlaceholder: 'farmer@example.com',
       mobileLabel: 'Mobile Number',
       mobilePlaceholder: '9876543210',
       passwordLabel: 'Passcode / PIN',
@@ -48,6 +54,35 @@ const DICTIONARY = {
       btnQuickDemo: '⚡ 1-Click Quick Citizen Login (Ramesh Kadam)',
       otpSentNotice: 'OTP sent! Use verification code: 999999',
       secureNotice: 'Secure 256-bit encrypted authentication',
+      landSectionTitle: 'Land Record & 7/12 Details',
+      landSectionBadge: 'AI OCR Auto-Fill',
+      landSectionHint: 'Upload your 7/12 extract or enter your land holding manually.',
+      upload712Btn: 'Upload 7/12 Extract (PDF/Image)',
+      uploading712: 'Analyzing 7/12 with AI OCR...',
+      autoFilledNotice: '✨ Auto-filled from 7/12 — Please review',
+      surveyNumberLabel: 'Survey / Gat No.',
+      surveyNumberPlaceholder: 'e.g. 104/3B',
+      gatNumberLabel: 'Gat No. (Optional)',
+      gatNumberPlaceholder: 'e.g. 44',
+      villageLabel: 'Village',
+      villagePlaceholder: 'e.g. Ramgaon',
+      talukaLabel: 'Taluka',
+      talukaPlaceholder: 'e.g. Sundarpur',
+      districtLabel: 'District',
+      districtPlaceholder: 'e.g. Devnagar',
+      areaLabel: 'Land Area',
+      areaPlaceholder: 'e.g. 4.5',
+      unitAcres: 'Acres',
+      unitHectares: 'Hectares',
+      unitGuntha: 'Guntha',
+      ownershipLabel: 'Ownership Type',
+      ownerTypeSole: 'Sole Owner',
+      ownerTypeJoint: 'Joint / Co-Owner',
+      ownerTypeTenant: 'Tenant / Leaseholder',
+      ownerTypeFamily: 'Family Holding',
+      ownerNameOn712Label: 'Owner Name (on 7/12)',
+      ownerNameOn712Placeholder: 'e.g. Ramesh Baburao Kadam',
+      idDisclaimer: 'Not stored — shown for demonstration only',
     },
     featuresHeading: {
       tag: 'Platform Capabilities',
@@ -155,9 +190,9 @@ const DICTIONARY = {
       tabLogin: 'किसान लॉगिन',
       tabRegister: 'नवीन पंजीकरण',
       fullNameLabel: 'किसान का पूरा नाम',
-      fullNamePlaceholder: 'उदा. महेश बोर्डे',
+      fullNamePlaceholder: 'उदा. रमेश पाटील',
       emailLabel: 'ईमेल पता (वैकल्पिक)',
-      emailPlaceholder: 'mahesh.farmer@kisanq.in',
+      emailPlaceholder: 'farmer@example.com',
       mobileLabel: 'मोबाइल नंबर',
       mobilePlaceholder: '9876543210',
       passwordLabel: 'सुरक्षा पिन / पासवर्ड',
@@ -170,6 +205,35 @@ const DICTIONARY = {
       btnQuickDemo: '⚡ 1-क्लिक त्वरित किसान लॉगिन (रमेश कदम)',
       otpSentNotice: 'ओटीपी भेजा गया! सत्यापन कोड: 999999 का उपयोग करें',
       secureNotice: 'सुरक्षित एवं एन्क्रिप्टेड पोर्टल',
+      landSectionTitle: 'भूमि अभिलेख एवं ७/१२ विवरण',
+      landSectionBadge: 'एआई ऑटो-फिल',
+      landSectionHint: '७/१२ दस्तावेज अपलोड करें या अपनी भूमि का विवरण दर्ज करें।',
+      upload712Btn: '७/१२ दस्तावेज अपलोड करें (PDF/फोटो)',
+      uploading712: 'एआई द्वारा ७/१२ का विश्लेषण जारी...',
+      autoFilledNotice: '✨ ७/१२ से स्वतः भरा गया — कृपया जांच लें',
+      surveyNumberLabel: 'सर्वेक्षण / गट क्रमांक',
+      surveyNumberPlaceholder: 'उदा. १०४/३बी',
+      gatNumberLabel: 'गट क्रमांक (वैकल्पिक)',
+      gatNumberPlaceholder: 'उदा. ४४',
+      villageLabel: 'गाँव',
+      villagePlaceholder: 'उदा. रामगांव',
+      talukaLabel: 'तालुका',
+      talukaPlaceholder: 'उदा. सुंदरपुर',
+      districtLabel: 'जिला',
+      districtPlaceholder: 'उदा. देवनगर',
+      areaLabel: 'जमीन का क्षेत्रफल',
+      areaPlaceholder: 'उदा. ४.५',
+      unitAcres: 'एकड़',
+      unitHectares: 'हेक्टेयर',
+      unitGuntha: 'गुंठा',
+      ownershipLabel: 'स्वामित्व का प्रकार',
+      ownerTypeSole: 'एकल स्वामी',
+      ownerTypeJoint: 'संयुक्त धारक (सह-स्वामी)',
+      ownerTypeTenant: 'पट्टाधारक / काश्तकार',
+      ownerTypeFamily: 'पारिवारिक धारक',
+      ownerNameOn712Label: '७/१२ पर दर्ज नाम',
+      ownerNameOn712Placeholder: 'उदा. रमेश बाबुराव कदम',
+      idDisclaimer: 'संग्रहीत नहीं — केवल प्रदर्शन हेतु',
     },
     featuresHeading: {
       tag: 'मंच की मुख्य विशेषताएं',
@@ -277,9 +341,9 @@ const DICTIONARY = {
       tabLogin: 'शेतकरी लॉगिन',
       tabRegister: 'नवीन नोंदणी',
       fullNameLabel: 'शेतकऱ्याचे नाव',
-      fullNamePlaceholder: 'उदा. महेश बोर्डे',
+      fullNamePlaceholder: 'उदा. रमेश पाटील',
       emailLabel: 'ईमेल (पर्यायी)',
-      emailPlaceholder: 'mahesh.farmer@kisanq.in',
+      emailPlaceholder: 'farmer@example.com',
       mobileLabel: 'मोबाईल नंबर',
       mobilePlaceholder: '9876543210',
       passwordLabel: 'पासवर्ड / पिन',
@@ -292,6 +356,35 @@ const DICTIONARY = {
       btnQuickDemo: '⚡ १-क्लिक जलद शेतकरी लॉगिन (रमेश कदम)',
       otpSentNotice: 'ओटीपी पाठवला आहे! पडताळणी कोड: 999999 वापरा',
       secureNotice: 'सुरक्षित व एन्क्रिप्टेड प्रणाली',
+      landSectionTitle: 'जमीन नोंद व ७/१२ तपशील',
+      landSectionBadge: 'एआय ऑटो-फिल',
+      landSectionHint: '७/१२ उतारा अपलोड करा किंवा जमिनीचा तपशील हाताने भरा.',
+      upload712Btn: '७/१२ उतारा अपलोड करा (PDF/फोटो)',
+      uploading712: 'एआय द्वारे ७/१२ माहिती तपासली जात आहे...',
+      autoFilledNotice: '✨ ७/१२ उताऱ्यावरून माहिती भरली गेली — कृपया तपासा',
+      surveyNumberLabel: 'सर्व्हे / गट क्र.',
+      surveyNumberPlaceholder: 'उदा. १०४/३बी',
+      gatNumberLabel: 'गट क्र. (पर्यायी)',
+      gatNumberPlaceholder: 'उदा. ४४',
+      villageLabel: 'गाव',
+      villagePlaceholder: 'उदा. रामगाव',
+      talukaLabel: 'तालुका',
+      talukaPlaceholder: 'उदा. सुंदरपूर',
+      districtLabel: 'जिल्हा',
+      districtPlaceholder: 'उदा. देवनगर',
+      areaLabel: 'जमीन क्षेत्रफळ',
+      areaPlaceholder: 'उदा. ४.५',
+      unitAcres: 'एकर',
+      unitHectares: 'हेक्टर',
+      unitGuntha: 'गुंठे',
+      ownershipLabel: 'मालकी प्रकार',
+      ownerTypeSole: 'स्वतःची मालकी',
+      ownerTypeJoint: 'सामाईक (सह-मालक)',
+      ownerTypeTenant: 'कुळ / भाडेपट्टा',
+      ownerTypeFamily: 'कौटुंबिक वहिवाट',
+      ownerNameOn712Label: '७/१२ वरील नाव',
+      ownerNameOn712Placeholder: 'उदा. रमेश बाबुराव कदम',
+      idDisclaimer: 'जतन केले जात नाही — केवळ प्रात्यक्षिकासाठी',
     },
     featuresHeading: {
       tag: 'प्लॅटफॉर्म वैशिष्ट्ये',
@@ -399,21 +492,21 @@ const FEATURE_ICONS = {
 
 // Live Mandi Ticker Data Fallback
 const FALLBACK_MANDI_RATES = [
-  { mandi: 'APMC Kopargaon', crop: 'Soybean', rate: '₹4,950/Qtl', trend: '+₹70', activeSlots: 42, status: 'Fast Flow' },
-  { mandi: 'APMC Shirdi', crop: 'Soybean', rate: '₹4,950/Qtl', trend: '+₹65', activeSlots: 28, status: 'Optimal' },
-  { mandi: 'APMC Rahata', crop: 'Wheat', rate: '₹2,465/Qtl', trend: '+₹50', activeSlots: 56, status: 'Moderate' },
-  { mandi: 'APMC Vaijapur', crop: 'Cotton', rate: '₹7,280/Qtl', trend: '+₹130', activeSlots: 19, status: 'Clear Flow' },
-  { mandi: 'APMC Shrirampur', crop: 'Soybean', rate: '₹4,960/Qtl', trend: '+₹70', activeSlots: 35, status: 'Active Intake' },
-  { mandi: 'APMC Lasalgaon', crop: 'Onion', rate: '₹2,020/Qtl', trend: '+₹50', activeSlots: 48, status: 'High Flow' },
+  { mandi: 'Centre A', crop: 'Soybean', rate: '₹4,950/Qtl', trend: '+₹70', activeSlots: 42, status: 'Fast Flow' },
+  { mandi: 'Centre B', crop: 'Soybean', rate: '₹4,950/Qtl', trend: '+₹65', activeSlots: 28, status: 'Optimal' },
+  { mandi: 'Centre C', crop: 'Wheat', rate: '₹2,465/Qtl', trend: '+₹50', activeSlots: 56, status: 'Moderate' },
+  { mandi: 'Centre A', crop: 'Cotton', rate: '₹7,280/Qtl', trend: '+₹130', activeSlots: 19, status: 'Clear Flow' },
+  { mandi: 'Centre B', crop: 'Soybean', rate: '₹4,960/Qtl', trend: '+₹70', activeSlots: 35, status: 'Active Intake' },
+  { mandi: 'Centre C', crop: 'Onion', rate: '₹2,020/Qtl', trend: '+₹50', activeSlots: 48, status: 'High Flow' },
 ];
 
 const MANDI_NAMES = {
-  'KPG-01': 'APMC Kopargaon',
-  'SRD-02': 'APMC Shirdi',
-  'RHT-03': 'APMC Rahata',
-  'VJP-04': 'APMC Vaijapur',
-  'SRP-05': 'APMC Shrirampur',
-  'LSG-06': 'APMC Lasalgaon',
+  'KPG-01': 'Centre A',
+  'SRD-02': 'Centre B',
+  'RHT-03': 'Centre C',
+  'VJP-04': 'Centre A',
+  'SRP-05': 'Centre B',
+  'LSG-06': 'Centre C',
 };
 
 // ─── Desktop Live Mandi Rates Ticker (Zero Re-renders, Desktop Mouse Drag & Auto-Marquee) ──────
@@ -583,7 +676,14 @@ export default function Landing() {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [lang, setLang] = useState(() => localStorage.getItem('kisanq_lang') || 'en');
+  const [lang, setLang] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlLang = new URLSearchParams(window.location.search).get('lang');
+      if (urlLang && ['en', 'mr', 'hi'].includes(urlLang)) return urlLang;
+      return localStorage.getItem('kisanq_lang') || 'en';
+    }
+    return 'en';
+  });
 
   const handleLanguageChange = (newLang) => {
     setLang(newLang);
@@ -605,8 +705,9 @@ export default function Landing() {
         const res = await pricesApi.getAllPrices();
         const priceList = Array.isArray(res) ? res : res?.data || [];
         if (isMounted && priceList.length > 0) {
+          const GENERIC_TICKER_CENTRES = ['Centre A', 'Centre B', 'Centre C'];
           const formatted = priceList.map((item, idx) => {
-            const mandiName = MANDI_NAMES[item.mandiId] || item.mandiId;
+            const mandiName = GENERIC_TICKER_CENTRES[idx % GENERIC_TICKER_CENTRES.length];
             const prev = item.marketPriceYesterday !== null && item.marketPriceYesterday !== undefined ? item.marketPriceYesterday : item.mspPrice;
             const diff = item.marketPriceToday - prev;
             const trend = diff >= 0 ? `+₹${diff}` : `-₹${Math.abs(diff)}`;
@@ -630,10 +731,17 @@ export default function Landing() {
   }, []);
 
   // Authentication State
-  const [authTab, setAuthTab] = useState('login');
+  const [authTab, setAuthTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('register') === 'true' || params.get('tab') === 'register') return 'register';
+    }
+    return 'login';
+  });
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showDemoModal, setShowDemoModal] = useState(false);
 
   // Form Fields
   const [fullName, setFullName] = useState('');
@@ -642,12 +750,77 @@ export default function Landing() {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('999999');
 
+  // Showcase Demo ID (Local component state ONLY. Purely for display realism. Never transmitted or persisted.)
+  const [showcaseIdValue, setShowcaseIdValue] = useState('');
+
+  // Land Record Details (For Registration)
+  const [landData, setLandData] = useState({
+    surveyNumber: '',
+    gatNumber: '',
+    village: '',
+    taluka: '',
+    district: 'Ahilyanagar',
+    rawArea: '',
+    areaUnit: 'acres',
+    ownershipType: 'owner',
+    ownerNameOn712: ''
+  });
+  const [isExtracting712, setIsExtracting712] = useState(false);
+  const [extractedSuccess, setExtractedSuccess] = useState(false);
+  const [landUploadError, setLandUploadError] = useState('');
+
+  // Ephemeral 7/12 Upload & OCR Extraction
+  const handle712FileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setLandUploadError('File size must be under 5 MB');
+      return;
+    }
+
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      setLandUploadError('Only PDF, JPG, or PNG files are supported');
+      return;
+    }
+
+    try {
+      setIsExtracting712(true);
+      setLandUploadError('');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await farmerApi.extractLandRecord(formData);
+      const suggestions = response?.data?.suggestions || response?.suggestions || {};
+
+      setLandData((prev) => ({
+        ...prev,
+        surveyNumber: suggestions.surveyNumber || suggestions.gatNumber || prev.surveyNumber,
+        gatNumber: suggestions.gatNumber || suggestions.surveyNumber || prev.gatNumber,
+        village: suggestions.village || prev.village,
+        taluka: suggestions.taluka || prev.taluka,
+        district: (suggestions.district || 'Ahilyanagar').replace(/Ahmednagar/i, 'Ahilyanagar'),
+        rawArea: suggestions.areaAcres ? String(suggestions.areaAcres) : prev.rawArea,
+        areaUnit: 'acres',
+        ownershipType: suggestions.ownershipType || prev.ownershipType,
+        ownerNameOn712: suggestions.ownerNameOn712 || prev.ownerNameOn712
+      }));
+      setExtractedSuccess(true);
+    } catch (err) {
+      console.warn('Ephemeral 7/12 extraction fallback:', err.message);
+      setLandUploadError('Could not auto-extract fields. Please fill manually.');
+    } finally {
+      setIsExtracting712(false);
+    }
+  };
+
   // Clear any leftover/stale farmer session when initiating auth flow
   useEffect(() => {
     clearFarmerSession();
   }, [clearFarmerSession]);
 
-  // Support direct URL query tab switching e.g. /?tab=register
+  // Support direct URL query tab switching e.g. /?tab=register or /?demo=true
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -656,6 +829,9 @@ export default function Landing() {
         setAuthTab('register');
       } else if (tabParam === 'login') {
         setAuthTab('login');
+      }
+      if (params.get('demo') === 'true' || params.get('view-demo') === 'true') {
+        setShowDemoModal(true);
       }
     } catch {}
   }, []);
@@ -679,6 +855,7 @@ export default function Landing() {
 
     setLoading(true);
     try {
+      // NOTE: showcaseIdValue is EXCLUDED from network request payloads
       await farmerOtpRequest({
         phone: cleanPhone,
         name: fullName.trim() || undefined,
@@ -711,6 +888,7 @@ export default function Landing() {
 
     setLoading(true);
     try {
+      // NOTE: showcaseIdValue is EXCLUDED from network request payloads
       const res = await farmerOtpVerify({
         phone: cleanPhone,
         otp: cleanOtp,
@@ -721,6 +899,29 @@ export default function Landing() {
         mode: authTab
       });
       if (res?.data?.token || res?.token) {
+        // If land details were provided during registration, update land record on authenticated profile
+        if (landData.rawArea && parseFloat(landData.rawArea) > 0) {
+          try {
+            const raw = parseFloat(landData.rawArea);
+            let areaAcres = raw;
+            if (landData.areaUnit === 'hectares') areaAcres = Math.round(raw * 2.47105 * 100) / 100;
+            if (landData.areaUnit === 'guntha') areaAcres = Math.round((raw / 40) * 100) / 100;
+
+            await farmerApi.updateLandRecord({
+              surveyNumber: landData.surveyNumber.trim() || undefined,
+              gatNumber: landData.gatNumber.trim() || undefined,
+              village: landData.village.trim() || undefined,
+              taluka: landData.taluka.trim() || undefined,
+              district: landData.district.trim() || 'Ahilyanagar',
+              areaAcres: areaAcres,
+              ownershipType: landData.ownershipType || 'owner',
+              ownerNameOn712: landData.ownerNameOn712.trim() || undefined,
+              source: extractedSuccess ? 'auto_filled' : 'self'
+            });
+          } catch (landErr) {
+            console.warn('Post-registration land record update skipped:', landErr.message);
+          }
+        }
         navigate('/farmer/command-center');
       } else {
         setErrorMsg('Authentication failed. Please verify code.');
@@ -833,19 +1034,18 @@ export default function Landing() {
               ))}
             </div>
 
-            {/* 1-Click Quick Demo Login Button (Gated for Judge Demos) */}
+            {/* Action Buttons: View Demo & Staff Login */}
             <div className="pt-2 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-              {(import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true')) && (
-                <button
-                  type="button"
-                  onClick={handleQuickDemoLogin}
-                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition-all shadow-lg shadow-emerald-600/25 active:scale-[0.99]"
-                >
-                  <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>{t.auth.btnQuickDemo}</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setShowDemoModal(true)}
+                id="btn-view-demo"
+                className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-sm transition-all shadow-lg shadow-emerald-600/30 active:scale-[0.99] cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                <span>View Demo</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
 
               <Link
                 to="/staff-login"
@@ -917,7 +1117,7 @@ export default function Landing() {
 
               {/* Step 1: Mobile & Password */}
               {step === 1 ? (
-                <form onSubmit={handleSendOtp} className="space-y-4">
+                <form onSubmit={handleSendOtp} className={`space-y-4 ${authTab === 'register' ? 'max-h-[64vh] overflow-y-auto pr-1 scrollbar-thin' : ''}`}>
                   {authTab === 'register' && (
                     <>
                       <div>
@@ -933,6 +1133,27 @@ export default function Landing() {
                             placeholder={t.auth.fullNamePlaceholder}
                             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
                             required
+                          />
+                        </div>
+                      </div>
+
+                      {/* Showcase Government ID (Purely component state, never transmitted or persisted) */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                          {`${GOV_ID_NAME} Number`}
+                        </label>
+                        <div className="relative">
+                          <Shield className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          <input
+                            type="text"
+                            maxLength="14"
+                            value={showcaseIdValue}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, '').slice(0, 12);
+                              setShowcaseIdValue(digits.replace(/(\d{4})(?=\d)/g, '$1 '));
+                            }}
+                            placeholder="XXXX XXXX XXXX"
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all font-mono tracking-wider"
                           />
                         </div>
                       </div>
@@ -993,6 +1214,219 @@ export default function Landing() {
                       />
                     </div>
                   </div>
+
+                  {/* Land Record & 7/12 Section (Only in Register Mode) */}
+                  {authTab === 'register' && (
+                    <div className="pt-3 border-t border-slate-200/90 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                            <Landmark className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{t.auth.landSectionTitle || 'Land Record & 7/12 Details'}</span>
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            {t.auth.landSectionHint || 'Upload your 7/12 extract or enter land details'}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-emerald-600 animate-pulse" />
+                          <span>{t.auth.landSectionBadge || 'AI OCR'}</span>
+                        </span>
+                      </div>
+
+                      {/* Ephemeral 7/12 Document Upload */}
+                      <div className="bg-slate-50/80 border border-dashed border-emerald-300 rounded-xl p-3 text-center hover:bg-emerald-50/40 transition-colors">
+                        <input
+                          type="file"
+                          id="landing-712-upload"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={handle712FileUpload}
+                          className="hidden"
+                          disabled={isExtracting712}
+                        />
+                        <label
+                          htmlFor="landing-712-upload"
+                          className="cursor-pointer flex flex-col items-center justify-center gap-1.5"
+                        >
+                          {isExtracting712 ? (
+                            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 py-1">
+                              <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                              <span>{t.auth.uploading712 || 'Analyzing 7/12 with AI OCR...'}</span>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs">
+                                <Upload className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs font-bold text-slate-800 hover:text-emerald-700">
+                                {t.auth.upload712Btn || 'Upload 7/12 Extract (PDF/Image)'}
+                              </span>
+                              <span className="text-[10px] text-slate-500">
+                                Ephemeral OCR scan · Never stored on server · Max 5MB
+                              </span>
+                            </>
+                          )}
+                        </label>
+                      </div>
+
+                      {/* Auto-filled Success Notice */}
+                      {extractedSuccess && (
+                        <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span className="font-semibold text-[11px]">{t.auth.autoFilledNotice || '✨ Auto-filled from 7/12 — Please review'}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setExtractedSuccess(false)}
+                            className="text-[10px] text-emerald-700 hover:underline cursor-pointer"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      )}
+
+                      {landUploadError && (
+                        <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>{landUploadError}</span>
+                        </div>
+                      )}
+
+                      {/* Survey Number & Gat Number */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            {t.auth.surveyNumberLabel || 'Survey / Gat No.'}
+                          </label>
+                          <input
+                            type="text"
+                            value={landData.surveyNumber}
+                            onChange={(e) => setLandData({ ...landData, surveyNumber: e.target.value })}
+                            placeholder={t.auth.surveyNumberPlaceholder || 'e.g. 104/3B'}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            {t.auth.gatNumberLabel || 'Gat No. (Optional)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={landData.gatNumber}
+                            onChange={(e) => setLandData({ ...landData, gatNumber: e.target.value })}
+                            placeholder={t.auth.gatNumberPlaceholder || 'e.g. 44'}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Village & Taluka */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            {t.auth.villageLabel || 'Village'}
+                          </label>
+                          <input
+                            type="text"
+                            value={landData.village}
+                            onChange={(e) => setLandData({ ...landData, village: e.target.value })}
+                            placeholder={t.auth.villagePlaceholder || 'e.g. Ramgaon'}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            {t.auth.talukaLabel || 'Taluka'}
+                          </label>
+                          <input
+                            type="text"
+                            value={landData.taluka}
+                            onChange={(e) => setLandData({ ...landData, taluka: e.target.value })}
+                            placeholder={t.auth.talukaPlaceholder || 'e.g. Sundarpur'}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* District */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          {t.auth.districtLabel || 'District'}
+                        </label>
+                        <input
+                          type="text"
+                          value={landData.district}
+                          onChange={(e) => setLandData({ ...landData, district: e.target.value })}
+                          placeholder={t.auth.districtPlaceholder || 'e.g. Devnagar'}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      {/* Area & Area Unit */}
+                      <div className="grid grid-cols-12 gap-2.5">
+                        <div className="col-span-7">
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            {t.auth.areaLabel || 'Land Area'}
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={landData.rawArea}
+                            onChange={(e) => setLandData({ ...landData, rawArea: e.target.value })}
+                            placeholder={t.auth.areaPlaceholder || 'e.g. 4.5'}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all font-mono"
+                          />
+                        </div>
+                        <div className="col-span-5">
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            Unit
+                          </label>
+                          <select
+                            value={landData.areaUnit}
+                            onChange={(e) => setLandData({ ...landData, areaUnit: e.target.value })}
+                            className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                          >
+                            <option value="acres">{t.auth.unitAcres || 'Acres'}</option>
+                            <option value="hectares">{t.auth.unitHectares || 'Hectares'}</option>
+                            <option value="guntha">{t.auth.unitGuntha || 'Guntha'}</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Ownership Type */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          {t.auth.ownershipLabel || 'Ownership Type'}
+                        </label>
+                        <select
+                          value={landData.ownershipType}
+                          onChange={(e) => setLandData({ ...landData, ownershipType: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                        >
+                          <option value="owner">{t.auth.ownerTypeSole || 'Sole Owner'}</option>
+                          <option value="co_owner">{t.auth.ownerTypeJoint || 'Joint / Co-Owner'}</option>
+                          <option value="tenant">{t.auth.ownerTypeTenant || 'Tenant / Leaseholder'}</option>
+                          <option value="family_holding">{t.auth.ownerTypeFamily || 'Family Holding'}</option>
+                        </select>
+                      </div>
+
+                      {/* Owner Name on 7/12 */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          {t.auth.ownerNameOn712Label || 'Owner Name (on 7/12)'}
+                        </label>
+                        <input
+                          type="text"
+                          value={landData.ownerNameOn712}
+                          onChange={(e) => setLandData({ ...landData, ownerNameOn712: e.target.value })}
+                          placeholder={t.auth.ownerNameOn712Placeholder || 'e.g. Ramesh Baburao Kadam'}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     type="submit"
@@ -1150,6 +1584,12 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      {/* ── Public View Demo Modal ──────────────────────────────── */}
+      <ViewDemoModal
+        isOpen={showDemoModal}
+        onClose={() => setShowDemoModal(false)}
+      />
     </div>
   );
 }

@@ -17,18 +17,19 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { centresApi } from '../../api/centres.api';
 import { haversineDistanceKm } from '../../services/routingService';
+import { getCentreDisplayName } from '../../config/centreDisplayNames';
 
-// Default Maharashtra / Kopargaon region coordinates
-const DEFAULT_CENTER = { lat: 19.8370, lng: 74.4829, address: 'कोपरगाव, Ahilyanagar District, Maharashtra, India' };
+// Default Maharashtra / Centre A region coordinates
+const DEFAULT_CENTER = { lat: 19.8370, lng: 74.4829, address: 'Farm Pickup Location, Maharashtra, India' };
 
 // Reference 6 Official APMC Centres fallback with verified coordinates
 const DEFAULT_APMC_CENTRES = [
-  { code: 'KPG-01', name: 'APMC Kopargaon', nameMarathi: 'कोपरगाव कृषी उत्पन्न बाजार समिती', district: 'Ahilyanagar', lat: 19.8370, lng: 74.4829 },
-  { code: 'SRD-02', name: 'APMC Shirdi', nameMarathi: 'शिर्डी कृषी उत्पन्न बाजार समिती', district: 'Ahilyanagar', lat: 19.7668, lng: 74.4754 },
-  { code: 'RHT-03', name: 'APMC Rahata', nameMarathi: 'राहाता कृषी उत्पन्न बाजार समिती', district: 'Ahilyanagar', lat: 19.7171, lng: 74.4800 },
-  { code: 'VJP-04', name: 'APMC Vaijapur', nameMarathi: 'वैजापूर कृषी उत्पन्न बाजार समिती', district: 'Chhatrapati Sambhajinagar', lat: 19.9489, lng: 74.8332 },
-  { code: 'SRP-05', name: 'APMC Shrirampur', nameMarathi: 'श्रीरामपूर कृषी उत्पन्न बाजार समिती', district: 'Ahilyanagar', lat: 19.6420, lng: 74.7007 },
-  { code: 'LSG-06', name: 'APMC Lasalgaon', nameMarathi: 'लासलगाव कांदा बाजार समिती', district: 'Nashik', lat: 20.1427, lng: 74.2378 }
+  { code: 'KPG-01', name: 'Centre A', district: 'Region 1', lat: 19.8370, lng: 74.4829 },
+  { code: 'SRD-02', name: 'Centre B', district: 'Region 1', lat: 19.7668, lng: 74.4754 },
+  { code: 'RHT-03', name: 'Centre C', district: 'Region 1', lat: 19.7171, lng: 74.4800 },
+  { code: 'VJP-04', name: 'Centre D', district: 'Region 2', lat: 19.9489, lng: 74.8332 },
+  { code: 'SRP-05', name: 'Centre E', district: 'Region 1', lat: 19.6420, lng: 74.7007 },
+  { code: 'LSG-06', name: 'Centre F', district: 'Region 3', lat: 20.1427, lng: 74.2378 }
 ];
 
 // Custom HTML pin icon for crystal-clear SVG rendering in Vite without asset path issues
@@ -86,9 +87,9 @@ const formatCentrePopup = (centre, farmerCoords) => {
     distText = `${dKm.toFixed(1)} km`;
   }
 
-  const enName = centre.name || `APMC ${centre.code || 'Mandi'}`;
+  const enName = getCentreDisplayName(centre.code || centre.name, centre.name || `Centre ${centre.code || 'Mandi'}`);
   const mrName = centre.nameMarathi || centre.mrName || '';
-  const distName = centre.district || centre.locationName || 'Ahilyanagar';
+  const distName = centre.district || centre.locationName || 'Region';
   const code = centre.code || 'APMC';
 
   return `
@@ -104,7 +105,7 @@ const formatCentrePopup = (centre, farmerCoords) => {
       <div style="font-weight: 800; font-size: 13px; color: #0f172a; line-height: 1.25;">
         ${enName}
       </div>
-      ${mrName ? `<div style="font-size: 11px; font-weight: 600; color: #475569; margin-top: 2px;">${mrName}</div>` : ''}
+      ${mrName && localStorage.getItem('kisanq_lang') !== 'en' ? `<div style="font-size: 11px; font-weight: 600; color: #475569; margin-top: 2px;">${mrName}</div>` : ''}
       <div style="font-size: 11px; color: #64748b; margin-top: 5px; display: flex; align-items: center; gap: 4px;">
         📍 <span>${distName.includes('District') ? distName : `${distName} District`}</span>
       </div>
@@ -153,7 +154,7 @@ export default function PickupLocationPicker({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [locationAddress, setLocationAddress] = useState(selectedCoords.address || 'Kopargaon Farm Location');
+  const [locationAddress, setLocationAddress] = useState(selectedCoords.address || 'Farm Pickup Location');
 
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -519,15 +520,15 @@ export default function PickupLocationPicker({
   if (!isOpen) return null;
 
   const PRESETS = [
-    { name: 'Kopargaon', mrName: 'कोपरगाव', lat: 19.8370, lng: 74.4829, fullAddress: 'कोपरगाव, Ahilyanagar District, Maharashtra, India' },
-    { name: 'Shirdi', mrName: 'शिर्डी', lat: 19.7668, lng: 74.4754, fullAddress: 'Shirdi, Rahta, Ahilyanagar District, Maharashtra, India' },
-    { name: 'Rahata', mrName: 'राहाता', lat: 19.7171, lng: 74.4800, fullAddress: 'राहाता, Rahta, Ahilyanagar District, Maharashtra, India' },
-    { name: 'Vaijapur', mrName: 'वैजापूर', lat: 19.9489, lng: 74.8332, fullAddress: 'Vaijapur, Chhatrapati Sambhajinagar, Maharashtra, India' },
-    { name: 'Shrirampur', mrName: 'श्रीरामपूर', lat: 19.6420, lng: 74.7007, fullAddress: 'श्रीरामपूर, Ahilyanagar District, Maharashtra, India' },
-    { name: 'Lasalgaon', mrName: 'लासलगाव', lat: 20.1427, lng: 74.2378, fullAddress: 'Lasalgaon, Niphad Taluka, Nashik, Maharashtra, India' },
-    { name: 'Yeola', mrName: 'येवला', lat: 20.0429, lng: 74.4880, fullAddress: 'Yeola, Yeola Taluka, Nashik, Maharashtra, India' },
-    { name: 'Sangamner', mrName: 'संगमनेर', lat: 19.4906, lng: 74.2467, fullAddress: 'संगमनेर, Ahilyanagar District, Maharashtra, India' },
-    { name: 'Niphad', mrName: 'निफाड', lat: 20.0797, lng: 74.1071, fullAddress: 'निफाड, Niphad Taluka, Nashik, Maharashtra, India' },
+    { code: 'KPG-01', name: 'Centre A', lat: 19.8370, lng: 74.4829, fullAddress: 'Centre A Region, Maharashtra, India' },
+    { code: 'SRD-02', name: 'Centre B', lat: 19.7668, lng: 74.4754, fullAddress: 'Centre B Region, Maharashtra, India' },
+    { code: 'RHT-03', name: 'Centre C', lat: 19.7171, lng: 74.4800, fullAddress: 'Centre C Region, Maharashtra, India' },
+    { code: 'VJP-04', name: 'Centre D', lat: 19.9489, lng: 74.8332, fullAddress: 'Centre D Region, Maharashtra, India' },
+    { code: 'SRP-05', name: 'Centre E', lat: 19.6420, lng: 74.7007, fullAddress: 'Centre E Region, Maharashtra, India' },
+    { code: 'LSG-06', name: 'Centre F', lat: 20.1427, lng: 74.2378, fullAddress: 'Centre F Region, Maharashtra, India' },
+    { code: 'YLA-07', name: 'Centre G', lat: 20.0429, lng: 74.4880, fullAddress: 'Centre G Region, Maharashtra, India' },
+    { code: 'SGM-08', name: 'Centre H', lat: 19.4906, lng: 74.2467, fullAddress: 'Centre H Region, Maharashtra, India' },
+    { code: 'NPD-09', name: 'Centre I', lat: 20.0797, lng: 74.1071, fullAddress: 'Centre I Region, Maharashtra, India' },
   ];
 
 
@@ -572,7 +573,7 @@ export default function PickupLocationPicker({
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchChange}
-                placeholder="Search village, taluka, or town (e.g. Kopargaon, Lasalgaon, Rahata)..."
+                placeholder="Search village, taluka, or hub (e.g. Centre A, Centre F, Centre C)..."
                 className="w-full pl-9 pr-24 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm"
               />
               {isSearching && (
@@ -623,17 +624,19 @@ export default function PickupLocationPicker({
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mr-1">
               Quick Hubs:
             </span>
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.name}
-                onClick={() => handleSelectPreset(preset)}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 text-xs font-medium transition-all shadow-2xs flex items-center gap-1"
-                title={preset.fullAddress}
-              >
-                <span>{preset.mrName || preset.name}</span>
-                {preset.mrName && <span className="text-[10px] text-slate-400">({preset.name})</span>}
-              </button>
-            ))}
+            {PRESETS.map((preset) => {
+              const displayName = getCentreDisplayName(preset.name);
+              return (
+                <button
+                  key={preset.name}
+                  onClick={() => handleSelectPreset(preset)}
+                  className="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 text-xs font-medium transition-all shadow-2xs flex items-center gap-1"
+                  title={`${displayName} Region`}
+                >
+                  <span>{displayName}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

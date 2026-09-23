@@ -15,7 +15,7 @@ import FarmerLandDetailsModal from './FarmerLandDetailsModal';
 
 export default function FarmerLandDetailsCard({
   landRecord = null,
-  lang = 'mr',
+  lang = 'en',
   onLandUpdated = () => {},
   className = ''
 }) {

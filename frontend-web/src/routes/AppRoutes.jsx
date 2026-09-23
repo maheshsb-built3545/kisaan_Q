@@ -155,6 +155,26 @@ export const AppRoutes = () => {
           </RequireAuth>
         }
       />
+      <Route
+        path="/farmer-dashboard"
+        element={
+          <RequireAuth>
+            <PageErrorBoundary title="Farmer Command Center" resetKey={location.pathname}>
+              <FarmerCommandCenter />
+            </PageErrorBoundary>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/farmer/dashboard"
+        element={
+          <RequireAuth>
+            <PageErrorBoundary title="Farmer Command Center" resetKey={location.pathname}>
+              <FarmerCommandCenter />
+            </PageErrorBoundary>
+          </RequireAuth>
+        }
+      />
 
       {/* Unified Notification Centre */}
       <Route

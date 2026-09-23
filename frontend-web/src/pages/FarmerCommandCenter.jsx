@@ -10,6 +10,7 @@ import FarmerFastTrackAuctionCard from '../components/farmer/FarmerFastTrackAuct
 import FarmerGrievanceModal from '../components/farmer/FarmerGrievanceModal';
 import FarmerLandDetailsCard from '../components/farmer/FarmerLandDetailsCard';
 import { pricesApi, fastTrackApi, farmerApi, farmerClient, BASE_URL } from '../api';
+import { getCentreDisplayName } from '../config/centreDisplayNames';
 import {
   MapPin, Clock, Zap, TrendingUp, TrendingDown, Minus,
   Ticket, CheckCircle2, Circle, Loader2, Printer,
@@ -99,6 +100,7 @@ function statusLabel(status) {
 function printStageReceipt({ token, stage }) {
   const win = window.open('', '_blank', 'width=650,height=800');
   const today = new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
+  const displayMandi = getCentreDisplayName(token.mandiId || token.centreId || token.mandiName, 'Centre A');
   win.document.write(`
 <!DOCTYPE html>
 <html>
@@ -133,7 +135,7 @@ function printStageReceipt({ token, stage }) {
   <div class="header">
     <div>
       <div class="gov-title">Government of Maharashtra · Department of Agricultural Marketing</div>
-      <div class="mandi-title">${token.mandiName || 'APMC Mandi'}</div>
+      <div class="mandi-title">${displayMandi}</div>
       <div class="sub-title">National Agriculture Market (e-NAM) Electronic Physical Slip</div>
     </div>
     <div class="badge">✓ APMC Official Verified</div>
@@ -160,7 +162,7 @@ function printStageReceipt({ token, stage }) {
       <div class="check">✓</div>
       <div>
         <div style="font-size:13px;font-weight:800;color:#065f46;">${stage.label || stage.name} Completed</div>
-        <div style="font-size:11px;color:#475569;">Recorded at: ${today} &nbsp;·&nbsp; Mandi Centre: ${token.mandiName || 'APMC'}</div>
+        <div style="font-size:11px;color:#475569;">Recorded at: ${today} &nbsp;·&nbsp; Mandi Centre: ${displayMandi}</div>
       </div>
     </div>
     <div class="sig-box">
@@ -210,9 +212,9 @@ function MandiCard({ mandi, onSelect, isSelected, routeInfo, queueCount, liveRat
             <Building2 className={`w-5 h-5 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 text-sm leading-tight">{mandi.name}</h3>
+            <h3 className="font-bold text-slate-900 text-sm leading-tight">{getCentreDisplayName(mandi.id)}</h3>
             <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-              <MapPin className="w-3 h-3 text-emerald-500" /> {mandi.location}
+              <MapPin className="w-3 h-3 text-emerald-500" /> {mandi.code}
             </p>
           </div>
         </div>
@@ -461,9 +463,9 @@ function BookingPanel({
       <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-4">
         <div className="flex items-center gap-2 mb-1">
           <Building2 className="w-4 h-4 text-white/80" />
-          <span className="text-xs text-white/80 font-medium">{mandi.location}</span>
+          <span className="text-xs text-white/80 font-medium">{getCentreDisplayName(mandi.id)} Region</span>
         </div>
-        <h3 className="text-white font-black text-lg">{mandi.name}</h3>
+        <h3 className="text-white font-black text-lg">{getCentreDisplayName(mandi.id)}</h3>
         <div className="flex items-center gap-2 mt-1">
           <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
             isLiveTelemetry
@@ -707,7 +709,7 @@ function BookingPanel({
                     </span>
                   </div>
                   <p className="text-amber-800 mt-1 leading-relaxed font-medium">
-                    Active booking in progress. Please complete your current slot at APMC {activeToken?.mandiName?.replace('APMC ', '') || 'Kopargaon'} before scheduling a new one.
+                    Active booking in progress. Please complete your current slot at {getCentreDisplayName(activeToken?.mandiId || activeToken?.mandiName)} before scheduling a new one.
                   </p>
                   <button
                     type="button"
@@ -1048,7 +1050,7 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
   const [showGrievanceModal, setShowGrievanceModal] = useState(false);
 
   const tokenNumber = token?.tokenNumber || token?.id || 'KQ-TOKEN';
-  const mandiName = token?.mandiName || 'APMC Kopargaon';
+  const mandiName = getCentreDisplayName(token?.mandiId || token?.centreId || token?.mandiName);
   const crop = token?.crop || 'Wheat';
   const quantityBand = token?.quantityBand || `${token?.quantity || 10} Quintals`;
   const slotDate = token?.slotDate || 'Today';
@@ -1211,7 +1213,7 @@ function TokenCard({ token, onOpenTerminal, onOpenCancelModal, onRequestGateExit
               <Navigation className="w-4 h-4 shrink-0" />
               <span>Dynamic "Leave-By" Recommendation</span>
               <span className="text-[10px] opacity-75 font-mono">
-                {farmerCoords?.isLive ? '· Live GPS' : '· Kopargaon Base'}
+                {farmerCoords?.isLive ? '· Live GPS' : `· ${getCentreDisplayName('KPG-01')} Base`}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -1756,7 +1758,7 @@ export default function FarmerCommandCenter() {
     navigate('/', { replace: true });
   };
 
-  const farmerName = user?.name || 'Mahesh Borde';
+  const farmerName = user?.name || 'Ramesh Patil';
   const farmerPhone = user?.phone || '9876543210';
 
   const [activeTab, setActiveTab] = useState('DISCOVERY');
@@ -1856,6 +1858,13 @@ export default function FarmerCommandCenter() {
       return false;
     }
   }, []);
+
+  // Enforce English in demo mode
+  useEffect(() => {
+    if (user?.demo || user?.isDemo) {
+      localStorage.setItem('kisanq_lang', 'en');
+    }
+  }, [user]);
 
   // Fetch farmer land record on mount
   useEffect(() => {
@@ -2285,7 +2294,7 @@ export default function FarmerCommandCenter() {
     const token = buildNewToken({
       id,
       mandiId: mandi?.id || 'KPG-01',
-      mandiName: mandi?.name || 'APMC Kopargaon',
+      mandiName: getCentreDisplayName(mandi?.id || mandi?.name, 'Centre A'),
       mandiCode: mandi?.code?.split('-')?.[1] || 'KPG',
       farmerName,
       phone: farmerPhone,
@@ -2472,29 +2481,20 @@ export default function FarmerCommandCenter() {
                 ))}
               </div>
 
-              {/* Simulated Voice Booking Quick Trigger */}
+              {/* Voice Assistant Quick Trigger — Always Accessible */}
               <button
+                id="voice-assistant-header-btn"
                 type="button"
-                onClick={() => {
-                  if (hasActiveBooking) {
-                    handleViewActiveToken(activeToken);
-                  } else {
-                    setShowVoiceModal(true);
-                  }
-                }}
-                className={`hidden md:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs border ${
-                  hasActiveBooking
-                    ? 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200/80 cursor-pointer'
-                    : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white border-emerald-500 shadow-emerald-200/50 hover:shadow-md'
-                }`}
-                title={hasActiveBooking ? `Active booking in progress (${activeToken?.tokenNumber || activeToken?.id})` : 'Smart Voice Booking (AI Assistant)'}
+                onClick={() => setShowVoiceModal(true)}
+                className="hidden md:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs border bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white border-emerald-500 shadow-emerald-200/50 hover:shadow-md cursor-pointer"
+                title={hasActiveBooking ? `AI Voice Assistant · Active Slot ${activeToken?.tokenNumber || ''} (Ask queue wait time, 5-stage progress, prices, or cancellation)` : 'Smart Voice Assistant (AI Booking & Rates)'}
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-100"></span>
                 </span>
                 <Mic className="w-3.5 h-3.5" />
-                <span>Voice Booking</span>
+                <span>Voice Assistant</span>
                 <span className="text-[9px] font-black uppercase bg-white/20 text-white px-1.5 py-0.5 rounded tracking-wider">
                   AI VOICE
                 </span>
@@ -2540,31 +2540,6 @@ export default function FarmerCommandCenter() {
                 )}
               </button>
 
-              {/* Real-time Socket / MongoDB Connection Pill */}
-              <div
-                className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all ${
-                  socketConnected && dbStatus.database === 'connected'
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                    : socketConnected
-                    ? 'bg-slate-50 text-slate-700 border-slate-200'
-                    : 'bg-amber-50 text-amber-800 border-amber-200'
-                }`}
-                title={
-                  socketConnected
-                    ? 'Connected to Live Cluster via Socket.IO'
-                    : 'WebSocket Reconnecting... Using 4s HTTP Polling'
-                }
-              >
-                <Database className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                <span>
-                  {dbStatus.database === 'connected' ? 'Atlas Live' : 'Standby'}
-                </span>
-                <span className="text-[10px] text-emerald-600 font-bold">
-                  {socketConnected ? '⚡ Real-Time' : '🟠 Polling'}
-                </span>
-                <span className={`w-1.5 h-1.5 rounded-full ${socketConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
-              </div>
-
               {/* Farmer Badge */}
               <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
                 <div className="w-6 h-6 rounded-lg bg-emerald-600 flex items-center justify-center shadow-xs">
@@ -2574,7 +2549,7 @@ export default function FarmerCommandCenter() {
                   <p className="text-xs font-bold text-slate-900 leading-none">{farmerName}</p>
                   <p className="text-[10px] text-slate-500 leading-none mt-0.5 flex items-center gap-1">
                     <MapPin className="w-2.5 h-2.5 text-emerald-600" />
-                    {farmerCoords?.isLive ? 'Live GPS' : 'Kopargaon (MH)'}
+                    {farmerCoords?.isLive ? 'Live GPS' : `${getCentreDisplayName('KPG-01')} Region`}
                   </p>
                 </div>
               </div>
@@ -2612,10 +2587,10 @@ export default function FarmerCommandCenter() {
                   </span>
                 </div>
                 <h4 className="text-sm font-bold text-white mt-1">
-                  Freight Pool Match: Farmer heading to APMC {agriPoolAlert.mandiName?.replace('APMC ', '') || 'Kopargaon'} today!
+                  Freight Pool Match: Farmer heading to {getCentreDisplayName(agriPoolAlert.mandiId || agriPoolAlert.mandiName)} today!
                 </h4>
                 <p className="text-xs text-slate-300 mt-0.5 max-w-2xl leading-relaxed">
-                  {agriPoolAlert.message || `A farmer within 500m of your location is heading to APMC ${agriPoolAlert.mandiName} today. Merge your load to save transport costs!`}
+                  {agriPoolAlert.message || `A farmer within 500m of your location is heading to ${getCentreDisplayName(agriPoolAlert.mandiId || agriPoolAlert.mandiName)} today. Merge your load to save transport costs!`}
                 </p>
                 <div className="flex items-center gap-3 mt-1.5 text-[11px] text-emerald-300">
                   <span>Peer: <strong>{agriPoolAlert.farmer2?.name || 'Local Farmer'}</strong> ({agriPoolAlert.farmer2?.crop || 'Crop'})</span>
@@ -2677,28 +2652,19 @@ export default function FarmerCommandCenter() {
                 </div>
                 <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-emerald-500" />
-                  Showing mandis near <strong className="text-slate-700">Kopargaon, Ahmednagar (MH)</strong> — sorted by distance
+                  Showing mandis near <strong className="text-slate-700">{getCentreDisplayName('KPG-01')} Cluster</strong> — sorted by distance
                 </p>
               </div>
 
-              {/* Voice Booking CTA Button in Discovery Header */}
+              {/* Voice Assistant CTA Button in Discovery Header */}
               <button
                 type="button"
-                onClick={() => {
-                  if (hasActiveBooking) {
-                    handleViewActiveToken(activeToken);
-                  } else {
-                    setShowVoiceModal(true);
-                  }
-                }}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs border ${
-                  hasActiveBooking
-                    ? 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200/80 cursor-pointer'
-                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 ring-2 ring-emerald-400/20 shadow-emerald-100'
-                }`}
+                onClick={() => setShowVoiceModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs border bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 ring-2 ring-emerald-400/20 shadow-emerald-100 cursor-pointer"
+                title={hasActiveBooking ? `AI Voice Assistant · Active Slot ${activeToken?.tokenNumber || ''} (Ask queue wait time, prices, or cancellation)` : 'Smart Voice Assistant (AI Booking & Rates)'}
               >
                 <Mic className="w-4 h-4 text-emerald-600 animate-pulse" />
-                <span>Smart Voice Booking (AI)</span>
+                <span>Smart Voice Assistant (AI)</span>
               </button>
             </div>
 
@@ -2707,7 +2673,18 @@ export default function FarmerCommandCenter() {
               <div className="xl:col-span-1 space-y-4">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-sm font-bold text-slate-700">5 Procurement Centres Found</h2>
-                  <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Origin: Kopargaon</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Origin: {getCentreDisplayName('KPG-01')}</span>
+                    <button
+                      id="pickup-pin-selector-btn"
+                      type="button"
+                      onClick={() => setShowPickupPicker(true)}
+                      className="text-[10px] text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <MapPin className="w-2.5 h-2.5" />
+                      <span>Farm Pin</span>
+                    </button>
+                  </div>
                 </div>
                 {MANDIS.map((mandi) => (
                   <MandiCard
@@ -2765,7 +2742,7 @@ export default function FarmerCommandCenter() {
                           onClick={() => setSelectedMandi(m)}
                           className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-all"
                         >
-                          {m.name.replace('APMC ', '')}
+                          {getCentreDisplayName(m.id)}
                         </button>
                       ))}
                     </div>
@@ -2791,22 +2768,12 @@ export default function FarmerCommandCenter() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (hasActiveBooking) {
-                      handleViewActiveToken(activeToken);
-                    } else {
-                      setShowVoiceModal(true);
-                    }
-                  }}
-                  className={`hidden sm:flex items-center gap-2 px-3.5 py-2 border rounded-xl text-xs font-bold transition-all ${
-                    hasActiveBooking
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                      : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-800'
-                  }`}
-                  title={hasActiveBooking ? 'Active booking already in progress' : 'Smart Voice Booking'}
+                  onClick={() => setShowVoiceModal(true)}
+                  className="hidden sm:flex items-center gap-2 px-3.5 py-2 border rounded-xl text-xs font-bold transition-all bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-800 cursor-pointer"
+                  title={hasActiveBooking ? `Smart Voice Assistant (Check queue wait time, 5-stage progress, or cancel slot)` : 'Smart Voice Assistant'}
                 >
                   <Mic className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Voice Booking</span>
+                  <span>Voice Assistant</span>
                 </button>
                 <button
                   type="button"
@@ -2833,7 +2800,7 @@ export default function FarmerCommandCenter() {
             {/* ── Farmer Land Record Card / Reminder ── */}
             <FarmerLandDetailsCard
               landRecord={farmerLandRecord}
-              lang={user?.preferredLanguage || 'mr'}
+              lang={user?.demo ? 'en' : (user?.preferredLanguage || 'en')}
               onLandUpdated={(newRec) => setFarmerLandRecord(newRec)}
               className="mb-4"
             />

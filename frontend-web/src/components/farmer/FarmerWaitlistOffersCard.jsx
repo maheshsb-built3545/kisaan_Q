@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, CheckCircle2, XCircle, AlertCircle, ArrowRight, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { waitlistApi } from '../../api';
+import { getCentreDisplayName } from '../../config/centreDisplayNames';
 
 export default function FarmerWaitlistOffersCard({ phone, onOfferAccepted }) {
   const [data, setData] = useState({ waitlist: [], offers: [] });
@@ -99,7 +100,7 @@ export default function FarmerWaitlistOffersCard({ phone, onOfferAccepted }) {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-base">{offer.mandiName || offer.centreId}</span>
+                      <span className="font-bold text-white text-base">{getCentreDisplayName(offer.centreId || offer.mandiId || offer.mandiName)}</span>
                       <span className="bg-amber-500/20 text-amber-300 text-xs px-2 py-0.5 rounded font-mono font-medium">
                         {offer.slotTime} ({offer.slotDate})
                       </span>
@@ -146,7 +147,7 @@ export default function FarmerWaitlistOffersCard({ phone, onOfferAccepted }) {
             {data.waitlist.map((w) => (
               <div key={w._id} className="bg-slate-800/60 border border-slate-700/60 rounded-lg p-3 flex items-center justify-between text-xs">
                 <div>
-                  <span className="font-semibold text-white text-sm">{w.mandiName || w.centreId}</span>
+                  <span className="font-semibold text-white text-sm">{getCentreDisplayName(w.centreId || w.mandiId || w.mandiName)}</span>
                   <span className="text-slate-400 ml-2">{w.crop} ({w.quantity} Qtl) • {w.requestedSlotTime || '08:00 AM - 11:00 AM'}</span>
                 </div>
                 <div>

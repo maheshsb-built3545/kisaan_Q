@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Mic, MicOff, Volume2, VolumeX, X, CheckCircle2, AlertCircle,
   Loader2, Building2, Leaf, Clock, Banknote, Sparkles,
@@ -7,6 +7,7 @@ import {
   TrendingUp, TrendingDown, Scale, UserCheck, XCircle, ArrowUpRight
 } from 'lucide-react';
 import { voiceBookingApi } from '../../api/voiceBooking.api';
+import { getCentreDisplayName } from '../../config/centreDisplayNames';
 
 /**
  * ─── Free-Form Conversational Voice Assistant Modal (Groq Tool-Calling) ─────
@@ -24,7 +25,7 @@ export default function VoiceBookingModal({
   onClose,
   onConfirmBooking,
   defaultMandi,
-  farmerName = 'Mahesh Borde',
+  farmerName = 'Ramesh Patil',
   farmerPhone = '9876543210',
   farmerCoords,
   pickupLocation,
@@ -33,7 +34,7 @@ export default function VoiceBookingModal({
   activeToken
 }) {
   // Conversational State
-  const [language, setLanguage] = useState('mr'); // 'mr' | 'hi' | 'en'
+  const [language, setLanguage] = useState(() => localStorage.getItem('kisanq_lang') || 'en'); // 'mr' | 'hi' | 'en'
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [transcript, setTranscript] = useState('');
@@ -69,58 +70,106 @@ export default function VoiceBookingModal({
     { code: 'en', name: 'English', label: 'English', voiceCode: 'en-IN' }
   ];
 
-  // Quick Action Prompt Suggestions
-  const ACTION_PROMPTS = [
-    {
-      id: 'book',
-      mr: '🎙️ कोपरगावला २५ क्विंटल सोयाबीन स्लॉट बुक करा',
-      hi: '🎙️ कोपरगांव में २५ क्विंटल सोयाबीन स्लॉट बुक करें',
-      en: '🎙️ Book 25 Qtl Soybean slot at Kopargaon',
-      action: 'book_slot'
-    },
-    {
-      id: 'price',
-      mr: '📊 आजचा सोयाबीन आणि कापूस हमीभाव किती आहे?',
-      hi: '📊 आज का सोयाबीन और कपास का भाव क्या है?',
-      en: '📊 Check today\'s Soybean & Cotton MSP',
-      action: 'check_crop_price'
-    },
-    {
-      id: 'queue',
-      mr: '⏳ माझी रांगेतील जागा आणि वेळ तपासा',
-      hi: '⏳ मेरी कतार की स्थिति और समय जांचें',
-      en: '⏳ Check my live queue wait time',
-      action: 'check_queue_position'
-    },
-    {
-      id: 'status',
-      mr: '🔍 माझे टोकन कोणत्या टप्प्यावर आहे?',
-      hi: '🔍 मेरा टोकन किस चरण पर है?',
-      en: '🔍 Check my token 5-stage progress',
-      action: 'check_token_status'
-    },
-    {
-      id: 'payout',
-      mr: '💰 माझे डीबीटी पेमेंट जमा झाले आहे का?',
-      hi: '💰 मेरा भुगतान / डीबीटी चेक करें',
-      en: '💰 Check payout & DBT payment status',
-      action: 'check_payout_status'
-    },
-    {
-      id: 'cancel',
-      mr: '❌ माझे बुकिंग रद्द करा',
-      hi: '❌ मेरी बुकिंग रद्द करें',
-      en: '❌ Cancel my booking slot',
-      action: 'cancel_booking'
-    },
-    {
-      id: 'help',
-      mr: '📞 किसान हेल्पलाईन आणि व्हॉट्सअॅप नंबर',
-      hi: '📞 हेल्पलाइन और व्हाट्सएप सहायता',
-      en: '📞 Help, Helpline & WhatsApp Support',
-      action: 'get_support_info'
+  // Quick Action Prompt Suggestions (Contextually prioritized for active booking vs new booking)
+  const ACTION_PROMPTS = useMemo(() => {
+    if (hasActiveBooking) {
+      return [
+        {
+          id: 'queue',
+          mr: '⏳ माझी रांगेतील जागा आणि वेळ तपासा',
+          hi: '⏳ मेरी कतार की स्थिति और समय जांचें',
+          en: '⏳ Check my live queue wait time',
+          action: 'check_queue_position'
+        },
+        {
+          id: 'status',
+          mr: '🔍 माझे टोकन कोणत्या टप्प्यावर आहे?',
+          hi: '🔍 मेरा टोकन किस चरण पर है?',
+          en: '🔍 Check my token 5-stage progress',
+          action: 'check_token_status'
+        },
+        {
+          id: 'price',
+          mr: '📊 आजचा सोयाबीन आणि कापूस हमीभाव किती आहे?',
+          hi: '📊 आज का सोयाबीन और कपास का भाव क्या है?',
+          en: '📊 Check today\'s Soybean & Cotton MSP',
+          action: 'check_crop_price'
+        },
+        {
+          id: 'payout',
+          mr: '💰 माझे डीबीटी पेमेंट जमा झाले आहे का?',
+          hi: '💰 मेरा भुगतान / डीबीटी चेक करें',
+          en: '💰 Check payout & DBT payment status',
+          action: 'check_payout_status'
+        },
+        {
+          id: 'cancel',
+          mr: '❌ माझे बुकिंग रद्द करा',
+          hi: '❌ मेरी बुकिंग रद्द करें',
+          en: '❌ Cancel my booking slot',
+          action: 'cancel_booking'
+        },
+        {
+          id: 'help',
+          mr: '📞 किसान हेल्पलाईन आणि व्हॉट्सअॅप नंबर',
+          hi: '📞 हेल्पलाइन और व्हाट्सएप सहायता',
+          en: '📞 Help, Helpline & WhatsApp Support',
+          action: 'get_support_info'
+        },
+        {
+          id: 'book',
+          mr: '🎙️ कोपरगावला २५ क्विंटल सोयाबीन स्लॉट बुक करा',
+          hi: '🎙️ कोपरगांव में २५ क्विंटल सोयाबीन स्लॉट बुक करें',
+          en: '🎙️ Book a slot',
+          action: 'book_slot'
+        }
+      ];
     }
-  ];
+    return [
+      {
+        id: 'book',
+        mr: '🎙️ कोपरगावला २५ क्विंटल सोयाबीन स्लॉट बुक करा',
+        hi: '🎙️ कोपरगांव में २५ क्विंटल सोयाबीन स्लॉट बुक करें',
+        en: '🎙️ Book 25 Qtl Soybean slot at Centre A',
+        action: 'book_slot'
+      },
+      {
+        id: 'price',
+        mr: '📊 आजचा सोयाबीन आणि कापूस हमीभाव किती आहे?',
+        hi: '📊 आज का सोयाबीन और कपास का भाव क्या है?',
+        en: '📊 Check today\'s Soybean & Cotton MSP',
+        action: 'check_crop_price'
+      },
+      {
+        id: 'queue',
+        mr: '⏳ माझी रांगेतील जागा आणि वेळ तपासा',
+        hi: '⏳ मेरी कतार की स्थिति और समय जांचें',
+        en: '⏳ Check my live queue wait time',
+        action: 'check_queue_position'
+      },
+      {
+        id: 'help',
+        mr: '📞 किसान हेल्पलाईन आणि व्हॉट्सअॅप नंबर',
+        hi: '📞 हेल्पलाइन और व्हाट्सएप सहायता',
+        en: '📞 Help, Helpline & WhatsApp Support',
+        action: 'get_support_info'
+      },
+      {
+        id: 'status',
+        mr: '🔍 माझे टोकन कोणत्या टप्प्यावर आहे?',
+        hi: '🔍 मेरा टोकन किस चरण पर है?',
+        en: '🔍 Check my token 5-stage progress',
+        action: 'check_token_status'
+      },
+      {
+        id: 'payout',
+        mr: '💰 माझे डीबीटी पेमेंट जमा झाले आहे का?',
+        hi: '💰 मेरा भुगतान / डीबीटी चेक करें',
+        en: '💰 Check payout & DBT payment status',
+        action: 'check_payout_status'
+      }
+    ];
+  }, [hasActiveBooking]);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -532,6 +581,21 @@ export default function VoiceBookingModal({
           </div>
         </div>
 
+        {/* Active Slot Context Strip (When farmer already holds a slot) */}
+        {hasActiveBooking && activeToken && (
+          <div className="bg-emerald-950/50 border-b border-emerald-500/20 px-6 py-2.5 flex items-center justify-between text-xs shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-slate-300 font-medium">Active Slot:</span>
+              <span className="font-mono font-bold text-emerald-300">{activeToken.tokenNumber || activeToken.id}</span>
+              <span className="text-slate-400">· {getCentreDisplayName(activeToken.mandiName || activeToken.mandiId, 'Centre A')}</span>
+            </div>
+            <span className="text-[10px] text-emerald-400/90 font-medium hidden sm:inline bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+              Single Active Slot Policy · Voice Ready for Queue & Status Inquiries
+            </span>
+          </div>
+        )}
+
         {/* Modal Scrollable Conversational Thread */}
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
           {convState === 'INITIALIZING' ? (
@@ -582,6 +646,35 @@ export default function VoiceBookingModal({
                               <div><span className="text-slate-400">Crop & Qty:</span> <strong className="text-white">{msg.actionResult.crop} · {msg.actionResult.quantity} Qtl</strong></div>
                               <div><span className="text-slate-400">Slot Date:</span> <strong className="text-white">{msg.actionResult.slotDate}</strong></div>
                               <div><span className="text-slate-400">Slot Time:</span> <strong className="text-white">{msg.actionResult.slotTime}</strong></div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 1.1 SINGLE ACTIVE SLOT NOTICE CARD */}
+                        {msg.actionTaken === 'book_slot' && msg.actionResult?.error === 'active_booking_exists' && (
+                          <div className="bg-amber-950/60 border border-amber-500/40 rounded-2xl p-4 text-xs space-y-2.5 shadow-lg">
+                            <div className="flex items-center justify-between pb-2 border-b border-amber-500/20">
+                              <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1.5">
+                                <AlertCircle className="w-3.5 h-3.5" /> Single Active Slot Policy
+                              </span>
+                              <span className="font-mono text-xs text-amber-300 font-bold">{msg.actionResult.activeTokenNumber}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-300 leading-relaxed">{msg.actionResult.message}</p>
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => submitConversationalUtterance({ textAnswer: 'Check my live queue wait time' })}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 text-[11px] font-semibold transition-colors cursor-pointer"
+                              >
+                                ⏳ Check Queue Status
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => submitConversationalUtterance({ textAnswer: 'Cancel my booking slot' })}
+                                className="px-2.5 py-1 rounded-lg bg-rose-600/30 hover:bg-rose-600/50 border border-rose-500/40 text-rose-300 text-[11px] font-semibold transition-colors cursor-pointer"
+                              >
+                                ❌ Cancel Slot
+                              </button>
                             </div>
                           </div>
                         )}

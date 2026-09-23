@@ -18,11 +18,13 @@ import {
   Layers,
   Cpu,
   BarChart3,
-  Plus
+  Plus,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GovHeader from '../components/common/GovHeader';
 import DemoBanner from '../components/common/DemoBanner';
+import { getCentreDisplayName } from '../config/centreDisplayNames';
 import { planningApi } from '../api/planning.api';
 import RedirectComposer from '../components/staff/RedirectComposer';
 
@@ -234,17 +236,17 @@ export default function OfficerPortal() {
                 onChange={(e) => setCentreId(e.target.value)}
                 className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
               >
-                <option value="KPG-01">APMC Kopargaon (KPG-01)</option>
-                <option value="SRD-02">APMC Shirdi (SRD-02)</option>
-                <option value="RHT-03">APMC Rahata (RHT-03)</option>
-                <option value="VJP-04">APMC Vaijapur (VJP-04)</option>
-                <option value="SRP-05">APMC Shrirampur (SRP-05)</option>
-                <option value="LSG-06">APMC Lasalgaon (LSG-06)</option>
+                <option value="KPG-01">{getCentreDisplayName('KPG-01')} (KPG-01)</option>
+                <option value="SRD-02">{getCentreDisplayName('SRD-02')} (SRD-02)</option>
+                <option value="RHT-03">{getCentreDisplayName('RHT-03')} (RHT-03)</option>
+                <option value="VJP-04">{getCentreDisplayName('VJP-04')} (VJP-04)</option>
+                <option value="SRP-05">{getCentreDisplayName('SRP-05')} (SRP-05)</option>
+                <option value="LSG-06">{getCentreDisplayName('LSG-06')} (LSG-06)</option>
               </select>
             ) : (
               <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-emerald-400 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span>{activeUser?.assignedMandiName || `APMC Mandi (${centreId})`}</span>
+                <span>{getCentreDisplayName(activeUser?.assignedMandi || centreId)} ({centreId})</span>
               </div>
             )}
 
