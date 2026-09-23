@@ -7,10 +7,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Node modules
+# Node modules & builds
 node_modules
 dist
 dist-ssr
+build
+coverage
 *.local
 
 # Environment & Secret variables
@@ -23,13 +25,20 @@ dist-ssr
 fcm-service-account.json
 google-services.json
 SHOWCASE_LOGINS.md
-build
 
-# Editor directories and files
+# Uploads & temporary demo assets
+backend/uploads
+uploads/
+/demo-assets
+demo-assets/
+scratch/
+backend/scratch/
+
+# OS and Editor directories
+.DS_Store
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
@@ -38,3 +47,4 @@ build
 *.zip
 .expo/
 .expo-shared/
+
